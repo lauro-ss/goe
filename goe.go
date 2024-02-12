@@ -1,5 +1,5 @@
 package goe
 
 func Connect() Database {
-	return &database{}
+	return &database{tables: make(map[string]*table)}
 }

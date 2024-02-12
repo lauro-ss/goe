@@ -1,7 +1,7 @@
 package goe
 
 type Database interface {
-	Select(...string) From
+	Select(any, ...string) From
 	// Update() int
 	// Delete() int
 	// Create() int
