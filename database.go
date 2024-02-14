@@ -58,8 +58,23 @@ func setFk(t *table, e reflect.Type) {
 
 // foreign key
 func manyToMany(t *table, t1 reflect.Type, t2 reflect.Type, db *database) {
-	db.tables[t1.Name()+t2.Name()] = &table{}
-	t.attributes[t2.Name()] = nil
+	if checkManyToMany(t1, t2) {
+		db.tables[t1.Name()+t2.Name()] = &table{}
+		t.attributes[t2.Name()] = nil
+	}
+	//set fk
+}
+
+func checkManyToMany(t1 reflect.Type, t2 reflect.Type) bool {
+	for i := 0; i < t2.NumField(); i++ {
+		if t2.Field(i).Type.Kind() == reflect.Slice {
+			//fmt.Println(t2.Field(i).Type.Elem().Name(), t1.Name())
+			if t2.Field(i).Type.Elem().Name() == t1.Name() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // func setAttribute(a reflect.StructField, db *database, fn string) *attribute {

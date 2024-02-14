@@ -11,9 +11,16 @@ type Produto struct {
 }
 
 type Categoria struct {
-	Id       string `goe:"pk;t:uuid"`
-	Name     string `goe:"t:varchar(20)"`
-	Produtos []Produto
+	Id            string `goe:"pk;t:uuid"`
+	Name          string `goe:"t:varchar(20)"`
+	Produtos      []Produto
+	Subcategorias []Subcategoria
+}
+
+type Subcategoria struct {
+	Id         string `goe:"pk;t:uuid"`
+	Name       string `goe:"t:varchar(20)"`
+	Categorias []Categoria
 }
 
 func main() {
@@ -21,6 +28,7 @@ func main() {
 	db := goe.Connect("database_conection", goe.Config{MigrationsPath: "./Migrations"})
 	db.Migrate(&Produto{})
 	db.Migrate(&Categoria{})
+	db.Migrate(&Subcategoria{})
 	// db.SetTable(&Produto{})
 	// db.SetTable(&Categoria{})
 	// "db.Get(&users).Join('Categoria')"
