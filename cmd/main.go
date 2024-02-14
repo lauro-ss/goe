@@ -4,25 +4,26 @@ import (
 	"github.com/lauro-ss/goe"
 )
 
-type Product struct {
-	Id   int
-	Name string
+type Produto struct {
+	Id         string `goe:"pk;t:uuid"`
+	Name       string `goe:"t:varchar(20)"`
+	Categorias []Categoria
 }
 
 type Categoria struct {
-	Id   int
-	Name string
-}
-
-type ProdCat struct {
-	Id int `goe:"map=produto.id"`
+	Id       string `goe:"pk;t:uuid"`
+	Name     string `goe:"t:varchar(20)"`
+	Produtos []Produto
 }
 
 func main() {
-	db := goe.Connect()
+
+	db := goe.Connect("database_conection", goe.Config{MigrationsPath: "./Migrations"})
+	db.Migrate(&Produto{})
+	db.Migrate(&Categoria{})
+	// db.SetTable(&Produto{})
+	// db.SetTable(&Categoria{})
 	// "db.Get(&users).Join('Categoria')"
 	// "db.Select(&user)"
 	// "db.Select('Id','Name', '')"
-	db.Select("Produto.Id", "Produto.Name", "Categoria.Name", "Subcategoria.Name").
-		From("Produto").Join("Categoria").Join("Subcategoria")
 }

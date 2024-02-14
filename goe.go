@@ -1,5 +1,5 @@
 package goe
 
-func Connect() Database {
+func Connect(u string, c Config) *database {
 	return &database{tables: make(map[string]*table)}
 }
