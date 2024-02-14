@@ -116,3 +116,15 @@ func checkManyToMany(t1 reflect.Type, t2 reflect.Type) bool {
 // 	}
 // 	return db.tables[table]
 // }
+
+func (db *database) Select(args ...Attribute) Where {
+	for _, v := range args {
+		fmt.Println(v.Name)
+	}
+
+	return db
+}
+
+func (db *database) Where(s where) {
+
+}

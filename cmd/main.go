@@ -23,12 +23,33 @@ type Subcategoria struct {
 	Categorias []Categoria
 }
 
+type Animal struct {
+	Id goe.Attribute
+}
+
+type Database struct {
+	Animal Animal
+	goe.Database
+}
+
 func main() {
 
-	db := goe.Connect("database_conection", goe.Config{MigrationsPath: "./Migrations"})
-	db.Migrate(&Produto{})
-	db.Migrate(&Categoria{})
-	db.Migrate(&Subcategoria{})
+	// db := goe.Connect("database_conection", goe.Config{MigrationsPath: "./Migrations"})
+	// db.Migrate(&Produto{})
+	// db.Migrate(&Categoria{})
+	// db.Migrate(&Subcategoria{})
+	db := &Database{
+		Animal: Animal{
+			Id: goe.Attribute{
+				Table: "Animal",
+				Name:  "Id",
+				Type:  "UUID",
+			}},
+	}
+	goe.Connect(db)
+
+	db.Select(db.Animal.Id).Where(db.Animal.Id.Equals("1"))
+
 	// db.SetTable(&Produto{})
 	// db.SetTable(&Categoria{})
 	// "db.Get(&users).Join('Categoria')"
