@@ -1,48 +1,37 @@
 package goe
 
-import (
-	"fmt"
-	"reflect"
-)
-
-type Database interface {
-	Select(...Attribute) Where
-	// Update() int
-	// Delete() int
-	// Create() int
-}
-
-type Attribute struct {
-	Table string
-	Name  string
-	Type  string
-}
-
-func (a *Attribute) Equals(v any) where {
-	fmt.Println(a.Table + "." + a.Name + " = " + reflect.ValueOf(v).String())
-	return where{}
-}
-
-type where struct{}
-
-type Where interface {
-	Where(where)
-}
-
-type From interface {
-	From(string) Table
-}
+// type Database interface {
+// 	Select(...Attribute) Rows
+// }
 
 type Table interface {
-	Join(string) Join
+	Select(...Att) Rows
+	//Join(string) Join
 	// Update() int
 	// Delete() int
 	// Create() int
 }
+
+type Att interface {
+	Equals(v any) boolean
+}
+
+type Where interface {
+	Where(boolean) Rows
+}
+
+type boolean struct{}
 
 type Join interface {
 	Join(string) Join
-	// Update() int
-	// Delete() int
-	// Create() int
+}
+
+type Rows interface {
+	//Where
+	//Join
+	Result
+}
+
+type Result interface {
+	Result(target any)
 }

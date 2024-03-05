@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
 )
 
@@ -24,12 +27,21 @@ type Subcategoria struct {
 }
 
 type Animal struct {
-	Id goe.Attribute
+	Id int
+}
+
+type Food struct {
+	Id int
+}
+
+type AnimalDb struct {
+	Id goe.Att
 }
 
 type Database struct {
-	Animal Animal
-	goe.Database
+	Animal *AnimalDb
+	//Food   *Food
+	*goe.DB
 }
 
 func main() {
@@ -38,17 +50,24 @@ func main() {
 	// db.Migrate(&Produto{})
 	// db.Migrate(&Categoria{})
 	// db.Migrate(&Subcategoria{})
-	db := &Database{
-		Animal: Animal{
-			Id: goe.Attribute{
-				Table: "Animal",
-				Name:  "Id",
-				Type:  "UUID",
-			}},
-	}
-	goe.Connect(db)
+	// db := &Database{
+	// 	Animal: AnimalDb{
+	// 		Id: goe.MapAttribute(&Animal{}, "Id"),
+	// 	},
+	// }
 
-	db.Select(db.Animal.Id).Where(db.Animal.Id.Equals("1"))
+	db := &Database{Animal: &AnimalDb{}}
+	//goe.Map(db.Animal, &Animal{})
+	goe.Connect(db)
+	goe.Map(db.Animal, Animal{})
+	//"db.Select(&users).Where(user.Id.Equals(1).Or())"
+	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
+
+	// ids := make([]string, 10)
+	ids := make([]string, 10)
+	db.Select(db.Animal.Id).Result(&ids)
+	fmt.Println(ids)
+	//db.Select(db.Animal.Id).Where(db.Animal.Id.Equals("1"))
 
 	// db.SetTable(&Produto{})
 	// db.SetTable(&Categoria{})
