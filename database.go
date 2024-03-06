@@ -17,7 +17,8 @@ type conn struct {
 }
 
 type DB struct {
-	conn conn
+	conn  conn
+	Erros []error
 	//Config
 	//tables map[string]*table
 }
@@ -148,15 +149,13 @@ func (db *DB) Open(name string, uri string) error {
 }
 
 func (db *DB) Select(args ...Att) Rows {
+	//TODO Better Query
 	for _, v := range args {
 		switch v := v.(type) {
 		case *att:
 			q := fmt.Sprintf("SELECT %v FROM %v;", v.name, v.table)
 			db.conn.query = q
-			break
 		}
-		// a := v.(*attribute)
-		// fmt.Println(a.Table, a.Name)
 	}
 
 	return db
@@ -167,21 +166,25 @@ func (db *DB) Where(b boolean) Rows {
 }
 
 func (db *DB) Result(target any) {
+	db.Erros = nil
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
-		//TODO: Handler erros
-		fmt.Println(fmt.Errorf("%v: target result needs to be a pointer try &animals", pkg))
+		db.Erros = append(db.Erros, fmt.Errorf("%v: target result needs to be a pointer try &animals", pkg))
 		return
 	}
 
-	db.handlerResult(value.Elem())
+	elem := reflect.TypeOf(target)
+
+	//Generate query if dont have
+	db.conn.query = "SELECT Animal.id, Animal.name, Animal.emoji FROM Animal;"
+	db.handlerResult(value.Elem(), elem.Elem())
 }
 
-func (db *DB) handlerResult(value reflect.Value) {
+func (db *DB) handlerResult(value reflect.Value, elem reflect.Type) {
 	switch value.Kind() {
 	case reflect.Slice:
-		db.handlerQuery(value)
+		db.handlerQuery(value, elem)
 	case reflect.Struct:
 		fmt.Println("struct")
 	default:
@@ -189,41 +192,89 @@ func (db *DB) handlerResult(value reflect.Value) {
 	}
 }
 
-func (db *DB) handlerQuery(value reflect.Value) {
-	//TODO: Handler erros
-	rows, _ := db.conn.QueryContext(context.Background(), db.conn.query)
+func (db *DB) handlerQuery(value reflect.Value, elem reflect.Type) {
+	rows, err := db.conn.QueryContext(context.Background(), db.conn.query)
+	if err != nil {
+		db.Erros = append(db.Erros, err)
+		return
+	}
 	defer rows.Close()
 
-	switch value.Type().Elem().Kind() {
-	case reflect.String:
-		value.Set(reflect.ValueOf(mapStringSlice(rows)))
+	//Prepare values for query
+	c, err := rows.Columns()
+	if err != nil {
+		db.Erros = append(db.Erros, err)
 	}
-
-	// values := make([]any, 0)
-	// var v any
-	// for rows.Next() {
-	// 	//TODO: Handler erros
-	// 	rows.Scan(&v)
-	// 	values = append(values, v)
-	// }
-
-	// value.Set(reflect.ValueOf(values))
-}
-
-func mapStringSlice(rows *sql.Rows) []string {
-	target := make([]string, 1)
-
-	c, _ := rows.Columns()
 	values := make([]any, len(c))
 	for i := range values {
 		values[i] = new(sql.RawBytes)
 	}
+
+	//Check the result target
+	switch value.Type().Elem().Kind() {
+	case reflect.Struct:
+
+		_, err := mapStructQuery(rows, values, value, elem)
+		if err != nil {
+			db.Erros = append(db.Erros, err)
+			return
+		}
+		// v := reflect.New(value.Type()).Elem()
+		// v.Set(reflect.ValueOf(r))
+	case reflect.String:
+		r, err := mapStringQuery(rows, values)
+		if err != nil {
+			db.Erros = append(db.Erros, err)
+			return
+		}
+		value.Set(reflect.ValueOf(r))
+	}
+}
+
+func mapStructQuery(rows *sql.Rows, values []any, value reflect.Value, elem reflect.Type) (target []any, err error) {
+
+	//TODO: Refatorar tudo
+	//TODO: Adicionar count para slices
+
+	// for i := 0; i < elem.NumField(); i++ {
+	// 	fmt.Println(value.Field(i))
+	// }
+	value.Set(reflect.MakeSlice(value.Type(), 10, 10))
+	for i := 0; rows.Next(); i++ {
+		err = rows.Scan(values...)
+		if err != nil {
+			return nil, err
+		}
+		s := reflect.New(value.Type().Elem()).Elem()
+		//Fills the target
+		for i, a := range values {
+			//fmt.Println(string(*(a.(*sql.RawBytes))))
+			setValue(s.Field(i), a)
+			//fmt.Println(value.Type().Elem().Field(i))
+		}
+		value.Index(i).Set(s)
+		//target = append(target, s)
+	}
+	return target, err
+}
+
+func setValue(v reflect.Value, a any) {
+	switch v.Type().Kind() {
+	case reflect.String:
+		v.Set(reflect.ValueOf(string(*(a.(*sql.RawBytes)))))
+	}
+}
+
+func mapStringQuery(rows *sql.Rows, values []any) (target []string, err error) {
 	for rows.Next() {
-		rows.Scan(values...)
+		err = rows.Scan(values...)
+		if err != nil {
+			return nil, err
+		}
 		for _, a := range values {
 			target = append(target, string(*(a.(*sql.RawBytes))))
 		}
 	}
 
-	return target
+	return target, err
 }

@@ -27,7 +27,10 @@ type Subcategoria struct {
 }
 
 type Animal struct {
-	Id int
+	Id    string
+	Name  string
+	Emoji string
+	Foods []Food
 }
 
 type Food struct {
@@ -64,9 +67,17 @@ func main() {
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
 	// ids := make([]string, 10)
-	ids := make([]string, 10)
-	db.Select(db.Animal.Id).Result(&ids)
-	fmt.Println(ids)
+
+	//works
+	// ids := make([]string, 10)
+	// db.Select(db.Animal.Id).Result(&ids)
+	// fmt.Println(db.Erros)
+	// fmt.Println(ids[0])
+
+	var animals []Animal
+	db.Result(&animals)
+	fmt.Println(db.Erros)
+	fmt.Println(animals)
 	//db.Select(db.Animal.Id).Where(db.Animal.Id.Equals("1"))
 
 	// db.SetTable(&Produto{})
