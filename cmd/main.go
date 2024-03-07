@@ -69,15 +69,16 @@ func main() {
 	// ids := make([]string, 10)
 
 	//works
-	// ids := make([]string, 10)
-	// db.Select(db.Animal.Id).Result(&ids)
-	// fmt.Println(db.Erros)
-	// fmt.Println(ids[0])
+	var ids []string
+	db.Select(db.Animal.Id).Result(&ids)
+	fmt.Println(db.Errors())
+	fmt.Println(ids)
 
-	var animals []Animal
-	db.Result(&animals)
-	fmt.Println(db.Erros)
-	fmt.Println(animals)
+	// var animals []Animal
+	// db.Result(&animals)
+	// fmt.Println(db.Erros)
+	// fmt.Println(animals)
+
 	//db.Select(db.Animal.Id).Where(db.Animal.Id.Equals("1"))
 
 	// db.SetTable(&Produto{})

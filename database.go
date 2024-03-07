@@ -17,8 +17,8 @@ type conn struct {
 }
 
 type DB struct {
-	conn  conn
-	Erros []error
+	conn   conn
+	errors []error
 	//Config
 	//tables map[string]*table
 }
@@ -166,25 +166,24 @@ func (db *DB) Where(b boolean) Rows {
 }
 
 func (db *DB) Result(target any) {
-	db.Erros = nil
+	db.errors = nil
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
-		db.Erros = append(db.Erros, fmt.Errorf("%v: target result needs to be a pointer try &animals", pkg))
-		return
+		if db.error(fmt.Errorf("%v: target result needs to be a pointer try &animals", pkg)) {
+			return
+		}
 	}
 
-	elem := reflect.TypeOf(target)
-
 	//Generate query if dont have
-	db.conn.query = "SELECT Animal.id, Animal.name, Animal.emoji FROM Animal;"
-	db.handlerResult(value.Elem(), elem.Elem())
+	//db.conn.query = "SELECT Animal.id, Animal.name, Animal.emoji FROM Animal;"
+	db.handlerResult(value.Elem())
 }
 
-func (db *DB) handlerResult(value reflect.Value, elem reflect.Type) {
+func (db *DB) handlerResult(value reflect.Value) {
 	switch value.Kind() {
 	case reflect.Slice:
-		db.handlerQuery(value, elem)
+		db.handlerQuery(value)
 	case reflect.Struct:
 		fmt.Println("struct")
 	default:
@@ -192,89 +191,84 @@ func (db *DB) handlerResult(value reflect.Value, elem reflect.Type) {
 	}
 }
 
-func (db *DB) handlerQuery(value reflect.Value, elem reflect.Type) {
+func (db *DB) handlerQuery(value reflect.Value) {
 	rows, err := db.conn.QueryContext(context.Background(), db.conn.query)
-	if err != nil {
-		db.Erros = append(db.Erros, err)
+	if db.error(err) {
 		return
 	}
 	defer rows.Close()
 
-	//Prepare values for query
+	//Prepare dest for query
 	c, err := rows.Columns()
-	if err != nil {
-		db.Erros = append(db.Erros, err)
-	}
-	values := make([]any, len(c))
-	for i := range values {
-		values[i] = new(sql.RawBytes)
+	db.error(err)
+
+	dest := make([]any, len(c))
+	for i := range dest {
+		dest[i] = new(sql.RawBytes)
 	}
 
 	//Check the result target
 	switch value.Type().Elem().Kind() {
 	case reflect.Struct:
-
-		_, err := mapStructQuery(rows, values, value, elem)
-		if err != nil {
-			db.Erros = append(db.Erros, err)
-			return
-		}
-		// v := reflect.New(value.Type()).Elem()
-		// v.Set(reflect.ValueOf(r))
-	case reflect.String:
-		r, err := mapStringQuery(rows, values)
-		if err != nil {
-			db.Erros = append(db.Erros, err)
-			return
-		}
-		value.Set(reflect.ValueOf(r))
+		err = mapStructQuery(rows, dest, value)
+		db.error(err)
+	default:
+		err := mapQuery(rows, dest, value)
+		db.error(err)
 	}
 }
 
-func mapStructQuery(rows *sql.Rows, values []any, value reflect.Value, elem reflect.Type) (target []any, err error) {
+func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
 
-	//TODO: Refatorar tudo
-	//TODO: Adicionar count para slices
-
-	// for i := 0; i < elem.NumField(); i++ {
-	// 	fmt.Println(value.Field(i))
-	// }
+	//TODO: add count for slices
 	value.Set(reflect.MakeSlice(value.Type(), 10, 10))
 	for i := 0; rows.Next(); i++ {
-		err = rows.Scan(values...)
+		err = rows.Scan(dest...)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		s := reflect.New(value.Type().Elem()).Elem()
 		//Fills the target
-		for i, a := range values {
-			//fmt.Println(string(*(a.(*sql.RawBytes))))
+		for i, a := range dest {
 			setValue(s.Field(i), a)
-			//fmt.Println(value.Type().Elem().Field(i))
 		}
 		value.Index(i).Set(s)
-		//target = append(target, s)
 	}
-	return target, err
+	return err
+}
+
+func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
+	value.Set(reflect.MakeSlice(value.Type(), 4, 10))
+
+	for i := 0; rows.Next(); i++ {
+		err = rows.Scan(dest...)
+		if err != nil {
+			return err
+		}
+		s := reflect.New(value.Type().Elem()).Elem()
+		for _, a := range dest {
+			setValue(s, a)
+		}
+		value.Index(i).Set(s)
+	}
+	return err
 }
 
 func setValue(v reflect.Value, a any) {
 	switch v.Type().Kind() {
 	case reflect.String:
-		v.Set(reflect.ValueOf(string(*(a.(*sql.RawBytes)))))
+		v.SetString(string(*(a.(*sql.RawBytes))))
 	}
 }
 
-func mapStringQuery(rows *sql.Rows, values []any) (target []string, err error) {
-	for rows.Next() {
-		err = rows.Scan(values...)
-		if err != nil {
-			return nil, err
-		}
-		for _, a := range values {
-			target = append(target, string(*(a.(*sql.RawBytes))))
-		}
+func (db *DB) error(err error) bool {
+	if err != nil {
+		db.errors = append(db.errors, err)
+		return true
 	}
+	return false
+}
 
-	return target, err
+func (db *DB) Errors() []error {
+	return db.errors
 }
