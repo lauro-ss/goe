@@ -5,14 +5,14 @@ package goe
 // }
 
 type Table interface {
-	Select(...Att) Rows
+	Select(...attribute) Rows
 	//Join(string) Join
 	// Update() int
 	// Delete() int
 	// Create() int
 }
 
-type Att interface {
+type attribute interface {
 	Equals(v any) boolean
 }
 

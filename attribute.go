@@ -4,13 +4,24 @@ import (
 	"fmt"
 )
 
-type att struct {
+type Pk struct {
 	table string
 	name  string
+	Fk    map[string]*Pk
 }
 
-func (a *att) Equals(v any) boolean {
+func (a *Pk) Equals(v any) boolean {
 	fmt.Println(a.table + "." + a.name + " = " + "$1")
+	return boolean{}
+}
+
+type Att struct {
+	name string
+	pk   *Pk
+}
+
+func (a *Att) Equals(v any) boolean {
+	// fmt.Println(a.table + "." + a.name + " = " + "$1")
 	return boolean{}
 }
 

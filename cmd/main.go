@@ -38,11 +38,13 @@ type Food struct {
 }
 
 type AnimalDb struct {
-	Id goe.Att
+	Id    *goe.Pk
+	Name  goe.Att
+	Emoji goe.Att
 }
 
 type Database struct {
-	Animal *AnimalDb
+	Animal AnimalDb
 	//Food   *Food
 	*goe.DB
 }
@@ -59,20 +61,24 @@ func main() {
 	// 	},
 	// }
 
-	db := &Database{Animal: &AnimalDb{}}
+	db := &Database{DB: &goe.DB{}}
 	//goe.Map(db.Animal, &Animal{})
-	goe.Connect(db)
-	goe.Map(db.Animal, Animal{})
+	//goe.Connect(db)
+	goe.Map(db, Animal{})
+	//goe.Map(db, Food{})
+	// err := goe.Map(&db.Animal, Animal{})
+	// fmt.Println(err)
+	fmt.Printf("%p \n", db.Animal.Id)
 	//"db.Select(&users).Where(user.Id.Equals(1).Or())"
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
 	// ids := make([]string, 10)
 
 	//works
-	var ids []string
-	db.Select(db.Animal.Id).Result(&ids)
-	fmt.Println(db.Errors())
-	fmt.Println(ids)
+	// var ids []string
+	// db.Select(db.Animal.Id).Result(&ids)
+	// fmt.Println(db.Errors())
+	// fmt.Println(ids)
 
 	// var animals []Animal
 	// db.Result(&animals)

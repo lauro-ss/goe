@@ -148,12 +148,12 @@ func (db *DB) Open(name string, uri string) error {
 	return nil
 }
 
-func (db *DB) Select(args ...Att) Rows {
+func (db *DB) Select(args ...attribute) Rows {
 	//TODO Better Query
 	for _, v := range args {
 		switch v := v.(type) {
-		case *att:
-			q := fmt.Sprintf("SELECT %v FROM %v;", v.name, v.table)
+		case *Att:
+			q := fmt.Sprintf("SELECT %v FROM;", v.name)
 			db.conn.query = q
 		}
 	}
@@ -213,7 +213,7 @@ func (db *DB) handlerQuery(value reflect.Value) {
 		err = mapStructQuery(rows, dest, value)
 		db.error(err)
 	default:
-		err := mapQuery(rows, dest, value)
+		err = mapQuery(rows, dest, value)
 		db.error(err)
 	}
 }
