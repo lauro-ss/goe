@@ -34,18 +34,28 @@ type Animal struct {
 }
 
 type Food struct {
-	Id int
+	Id      string
+	Name    string
+	Emoji   string
+	Animals []Animal
 }
 
 type AnimalDb struct {
 	Id    *goe.Pk
-	Name  goe.Att
-	Emoji goe.Att
+	Name  *goe.Att
+	Emoji *goe.Att
 }
 
+type FoodDb struct {
+	Id    *goe.Pk
+	Name  *goe.Att
+	Emoji *goe.Att
+}
+
+// TODO: Check if field exists
 type Database struct {
 	Animal AnimalDb
-	//Food   *Food
+	Food   FoodDb
 	*goe.DB
 }
 
@@ -65,9 +75,15 @@ func main() {
 	//goe.Map(db.Animal, &Animal{})
 	//goe.Connect(db)
 	goe.Map(db, Animal{})
-	//goe.Map(db, Food{})
+	goe.Map(db, Food{})
 	// err := goe.Map(&db.Animal, Animal{})
 	// fmt.Println(err)
+	fmt.Printf("%p \n", db.Animal.Id.Fk["Food"])
+	fmt.Printf("%p \n", db.Food.Id)
+
+	fmt.Println("Next")
+
+	fmt.Printf("%p \n", db.Food.Id.Fk["Animal"])
 	fmt.Printf("%p \n", db.Animal.Id)
 	//"db.Select(&users).Where(user.Id.Equals(1).Or())"
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")

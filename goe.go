@@ -25,27 +25,26 @@ func Map(db any, s any) error {
 	}
 	database := reflect.ValueOf(db).Elem()
 	str := reflect.TypeOf(s)
-	return mapData(database.FieldByName(str.Name()), str)
+	return mapData(database, database.FieldByName(str.Name()), str)
 }
 
 // Map makes the mapping from the struct fields "s" to the target "t"
-func mapData(target reflect.Value, str reflect.Type) error {
+func mapData(database reflect.Value, target reflect.Value, str reflect.Type) error {
 	field, exists := str.FieldByName("Id")
 	var pk *Pk
 	if exists {
 		pk = mapPrimaryKey(target.FieldByName("Id"), field, str.Name())
 	}
-	fmt.Printf("%p Aquii\n", pk)
 
 	for i := 0; i < str.NumField(); i++ {
 		field, exists = target.Type().FieldByName(str.Field(i).Name)
 		if exists {
 			switch target.Field(i).Interface().(type) {
-			case Att:
-				mapAttribute(target.Field(i), field)
+			case *Att:
+				mapAttribute(target.Field(i), field, pk)
 			}
 		} else {
-			checkField(target.FieldByName("Id"), str.Field(i))
+			checkField(database, pk, str.Field(i))
 		}
 	}
 
@@ -53,18 +52,42 @@ func mapData(target reflect.Value, str reflect.Type) error {
 }
 
 func mapPrimaryKey(target reflect.Value, field reflect.StructField, tableName string) *Pk {
-	pk := &Pk{name: field.Name, table: tableName}
-	target.Set(reflect.ValueOf(pk))
+	if !target.IsNil() {
+		return (*Pk)(target.UnsafePointer())
+	}
+	p := &Pk{name: field.Name, table: tableName, Fk: make(map[string]*Pk)}
+	target.Set(reflect.ValueOf(p))
 	return (*Pk)(target.UnsafePointer())
 }
 
-func mapAttribute(target reflect.Value, field reflect.StructField) {
-	at := Att{}
+func mapAttribute(target reflect.Value, field reflect.StructField, pk *Pk) {
+	at := &Att{pk: pk}
 	at.name = field.Name
 
 	target.Set(reflect.ValueOf(at))
 }
 
-func checkField(target reflect.Value, f reflect.StructField) {
-	fmt.Println(f, target)
+func checkField(database reflect.Value, pk *Pk, field reflect.StructField) {
+	switch field.Type.Kind() {
+	case reflect.Struct:
+		//many to one
+		fmt.Println("Struct")
+	case reflect.Slice:
+		//possibile many to many
+		str := field.Type.Elem()
+		target := database.FieldByName(str.Name()).FieldByName("Id")
+		fmt.Println(str, pk)
+		if target.IsZero() {
+			field, _ := str.FieldByName("Id")
+			pk.Fk[str.Name()] = mapPrimaryKey(target, field, str.Name())
+		} else {
+			pk.Fk[str.Name()] = getPrimaryKey(database, str)
+		}
+	}
+
+}
+
+func getPrimaryKey(database reflect.Value, str reflect.Type) *Pk {
+	field := database.FieldByName(str.Name()).FieldByName("Id")
+	return (*Pk)(field.UnsafePointer())
 }
