@@ -7,20 +7,6 @@ import (
 	"strings"
 )
 
-// func Connect(u string, c Config) *database {
-// 	return &database{tables: make(map[string]*table)}
-// }
-
-// func Connect(db any) {
-// 	value := reflect.ValueOf(db).Elem()
-// 	value.FieldByName("DB").Set(reflect.ValueOf(&DB{}))
-
-// 	// for i := 0; i < value.NumField(); i++ {
-// 	// 	fmt.Println(value.Field(i).Elem().Type())
-// 	// }
-// 	//fmt.Println(value.Field(0).Elem().Type().Name())
-// }
-
 func Map(db any, s any) error {
 	if reflect.ValueOf(db).Kind() != reflect.Ptr {
 		return fmt.Errorf("%v: the target value needs to be pass as a pointer", pkg)
@@ -43,9 +29,6 @@ func mapData(database reflect.Value, target reflect.Value, str reflect.Type) {
 		field := pks[0]
 		pk = mapPrimaryKey(target.FieldByName(field.Name), field, str.Name())
 	} else {
-		primaryKeys(str)
-	}
-	if pk == nil {
 		//TODO: add a anonymous pk for targets without
 	}
 
@@ -58,7 +41,9 @@ func mapData(database reflect.Value, target reflect.Value, str reflect.Type) {
 			if attr.Type.Kind() != reflect.Slice && attr.Type.Kind() != reflect.Struct {
 				log.Printf("goe: target %v don't have the attribute \"%v\" for %v", target.Type(), attr.Name, str)
 			}
-			mapForeignKey(database, pk, attr)
+			if pk != nil {
+				mapForeignKey(database, pk, attr)
+			}
 		}
 	}
 }
@@ -77,7 +62,7 @@ func mapPrimaryKey(target reflect.Value, field reflect.StructField, tableName st
 }
 
 func mapAttribute(target reflect.Value, field reflect.StructField, pk *Pk) {
-	at := &Att{pk: pk}
+	at := Att{pk: pk}
 	at.name = field.Name
 
 	target.Set(reflect.ValueOf(at))
@@ -121,6 +106,7 @@ func primaryKeys(str reflect.Type) (pks []reflect.StructField) {
 		pks[0] = field
 		return pks
 	} else {
+		//TODO: Return anonymous pk para len(pks) == 0
 		return fieldsByTags("pk", str)
 	}
 }
@@ -150,6 +136,7 @@ func fieldsByTags(tag string, str reflect.Type) (f []reflect.StructField) {
 	return f
 }
 
+// matechField returns true if the field "t" is in the slice "s". otherwise false
 func matchField(s []reflect.StructField, t reflect.StructField) bool {
 	for i := range s {
 		if reflect.DeepEqual(s[i], t) {
@@ -159,9 +146,10 @@ func matchField(s []reflect.StructField, t reflect.StructField) bool {
 	return false
 }
 
+// checkMapping runs through the target fields and checks for nil fields
 func checkMapping(target reflect.Value, str reflect.Type) {
 	for i := 0; i < target.NumField(); i++ {
-		if target.Field(i).IsNil() {
+		if target.Field(i).IsZero() {
 			log.Printf("goe: target field %q is nil on %q. try checking the struct %q for that field name",
 				target.Type().Field(i).Name, target.Type(), str)
 		}

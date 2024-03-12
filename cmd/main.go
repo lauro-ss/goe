@@ -42,14 +42,14 @@ type Food struct {
 
 type AnimalDb struct {
 	IdAnimal *goe.Pk
-	Name     *goe.Att
-	Emoji    *goe.Att
+	Name     goe.Att
+	Emoji    goe.Att
 }
 
 type FoodDb struct {
 	IdFood *goe.Pk
-	Name   *goe.Att
-	Emoji  *goe.Att
+	Name   goe.Att
+	Emoji  goe.Att
 }
 
 // TODO: Check if field exists
@@ -87,6 +87,7 @@ func main() {
 	fmt.Printf("%p \n", db.Animal.IdAnimal)
 
 	fmt.Println(db.Animal.Emoji, db.Food.Emoji)
+	db.Select(db.Animal.Emoji)
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
 	// ids := make([]string, 10)
