@@ -27,29 +27,29 @@ type Subcategoria struct {
 }
 
 type Animal struct {
-	Id    string
-	Name  string
-	Emoji string
-	Foods []Food
+	IdAnimal string `goe:"pk;t:uuid"`
+	Emoji    string
+	Name     string
+	Foods    []Food
 }
 
 type Food struct {
-	Id      string
+	IdFood  string `goe:"pk;t:uuid"`
 	Name    string
-	Emoji   string
 	Animals []Animal
+	Emoji   string
 }
 
 type AnimalDb struct {
-	Id    *goe.Pk
-	Name  *goe.Att
-	Emoji *goe.Att
+	IdAnimal *goe.Pk
+	Name     *goe.Att
+	Emoji    *goe.Att
 }
 
 type FoodDb struct {
-	Id    *goe.Pk
-	Name  *goe.Att
-	Emoji *goe.Att
+	IdFood *goe.Pk
+	Name   *goe.Att
+	Emoji  *goe.Att
 }
 
 // TODO: Check if field exists
@@ -78,14 +78,15 @@ func main() {
 	goe.Map(db, Food{})
 	// err := goe.Map(&db.Animal, Animal{})
 	// fmt.Println(err)
-	fmt.Printf("%p \n", db.Animal.Id.Fk["Food"])
-	fmt.Printf("%p \n", db.Food.Id)
-
+	fmt.Printf("%p \n", db.Animal.IdAnimal.Fk["Food"])
+	fmt.Printf("%p \n", db.Food.IdFood)
+	// fmt.Println(db.Animal.Name)
 	fmt.Println("Next")
 
-	fmt.Printf("%p \n", db.Food.Id.Fk["Animal"])
-	fmt.Printf("%p \n", db.Animal.Id)
-	//"db.Select(&users).Where(user.Id.Equals(1).Or())"
+	fmt.Printf("%p \n", db.Food.IdFood.Fk["Animal"])
+	fmt.Printf("%p \n", db.Animal.IdAnimal)
+
+	fmt.Println(db.Animal.Emoji, db.Food.Emoji)
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
 	// ids := make([]string, 10)
