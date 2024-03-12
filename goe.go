@@ -62,7 +62,7 @@ func mapPrimaryKey(target reflect.Value, field reflect.StructField, tableName st
 }
 
 func mapAttribute(target reflect.Value, field reflect.StructField, pk *Pk) {
-	at := Att{pk: pk}
+	at := &Att{pk: pk}
 	at.name = field.Name
 
 	target.Set(reflect.ValueOf(at))
@@ -149,7 +149,7 @@ func matchField(s []reflect.StructField, t reflect.StructField) bool {
 // checkMapping runs through the target fields and checks for nil fields
 func checkMapping(target reflect.Value, str reflect.Type) {
 	for i := 0; i < target.NumField(); i++ {
-		if target.Field(i).IsZero() {
+		if target.Field(i).IsNil() {
 			log.Printf("goe: target field %q is nil on %q. try checking the struct %q for that field name",
 				target.Type().Field(i).Name, target.Type(), str)
 		}

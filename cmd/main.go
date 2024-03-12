@@ -42,14 +42,14 @@ type Food struct {
 
 type AnimalDb struct {
 	IdAnimal *goe.Pk
-	Name     goe.Att
-	Emoji    goe.Att
+	Name     *goe.Att
+	Emoji    *goe.Att
 }
 
 type FoodDb struct {
 	IdFood *goe.Pk
-	Name   goe.Att
-	Emoji  goe.Att
+	Name   *goe.Att
+	Emoji  *goe.Att
 }
 
 // TODO: Check if field exists

@@ -20,7 +20,7 @@ type Att struct {
 	pk   *Pk
 }
 
-func (a Att) Equals(v any) boolean {
+func (a *Att) Equals(v any) boolean {
 	// fmt.Println(a.table + "." + a.name + " = " + "$1")
 	return boolean{}
 }

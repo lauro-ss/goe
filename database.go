@@ -152,7 +152,7 @@ func (db *DB) Select(args ...attribute) Rows {
 	//TODO Better Query
 	for _, v := range args {
 		switch v := v.(type) {
-		case Att:
+		case *Att:
 			q := fmt.Sprintf("SELECT %v FROM %v;", v.name, v.pk.table)
 			db.conn.query = q
 		case *Pk:
