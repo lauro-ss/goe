@@ -87,7 +87,7 @@ func main() {
 	fmt.Printf("%p Animal \n", db.Animal.IdAnimal)
 
 	fmt.Println(db.Animal.Emoji, db.Food.Emoji)
-	db.Select(db.Animal.IdAnimal)
+	//db.Select(db.Animal.IdAnimal)
 	db.Select(db.Food.IdFood)
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 

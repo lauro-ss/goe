@@ -42,7 +42,7 @@ func mapData(database reflect.Value, target reflect.Value, str reflect.Type) {
 				log.Printf("goe: target %v don't have the attribute \"%v\" for %v", target.Type(), attr.Name, str)
 			}
 			if pk != nil {
-				mapForeignKey(database, pk, attr)
+				checkForeignKey(database, pk, attr)
 			}
 		}
 	}
@@ -68,7 +68,7 @@ func mapAttribute(target reflect.Value, field reflect.StructField, pk *pk) {
 	target.Set(reflect.ValueOf(at))
 }
 
-func mapForeignKey(database reflect.Value, pk *pk, field reflect.StructField) {
+func checkForeignKey(database reflect.Value, pk *pk, field reflect.StructField) {
 	switch field.Type.Kind() {
 	case reflect.Struct:
 		//possible many to one
@@ -82,6 +82,7 @@ func mapForeignKey(database reflect.Value, pk *pk, field reflect.StructField) {
 			case reflect.Slice:
 				if str.Field(i).Type.Elem().Name() == pk.table {
 					fmt.Printf("many %v to many %v \n", str.Name(), pk.table)
+					mapForeignKey(database, pk, str, true)
 				}
 			case reflect.Struct:
 				if str.Field(i).Type.Name() == pk.table {
@@ -90,21 +91,31 @@ func mapForeignKey(database reflect.Value, pk *pk, field reflect.StructField) {
 			}
 
 		}
-
-		//TODO: Add more then one primary key
-		target := database.FieldByName(str.Name()).FieldByName(primaryKeys(str)[0].Name)
-		if target.Kind() == reflect.Invalid {
-			return
-		}
-
-		if target.IsZero() {
-			field := primaryKeys(str)[0]
-			pk.Fk[str.Name()] = mapPrimaryKey(target, field, str.Name())
-		} else {
-			pk.Fk[str.Name()] = getPrimaryKey(database, str)
-		}
 	}
 
+}
+
+func mapForeignKey(database reflect.Value, pk *pk, str reflect.Type, manyToMany bool) {
+	key := str.Name()
+
+	//TODO: Add more then one primary key
+	target := database.FieldByName(key).FieldByName(primaryKeys(str)[0].Name)
+	if target.Kind() == reflect.Invalid {
+		return
+	}
+
+	if target.IsZero() {
+		if manyToMany {
+			key = pk.table + key
+		}
+		field := primaryKeys(str)[0]
+		pk.Fk[key] = mapPrimaryKey(target, field, str.Name())
+		return
+	}
+	if manyToMany {
+		key = key + pk.table
+	}
+	pk.Fk[key] = getPrimaryKey(database, str)
 }
 
 func getPrimaryKey(database reflect.Value, str reflect.Type) *pk {

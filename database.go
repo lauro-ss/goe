@@ -156,8 +156,7 @@ func (db *DB) Select(args ...attribute) Rows {
 			q := fmt.Sprintf("SELECT %v FROM %v;", v.name, v.pk.table)
 			db.conn.query = q
 		case *pk:
-			fmt.Printf("%p Food \n", v.Fk["Food"])
-			fmt.Printf("%p Animal \n", v.Fk["Animal"])
+			fmt.Printf("%p Food \n", v.Fk["AnimalFood"])
 		}
 	}
 
