@@ -23,7 +23,7 @@ func Map(db any, s any) error {
 func mapData(database reflect.Value, target reflect.Value, str reflect.Type) {
 	pks := primaryKeys(str)
 
-	var pk *Pk
+	var pk *pk
 	if len(pks) > 0 {
 		//TODO: Add more then one primary key
 		field := pks[0]
@@ -48,34 +48,48 @@ func mapData(database reflect.Value, target reflect.Value, str reflect.Type) {
 	}
 }
 
-func mapPrimaryKey(target reflect.Value, field reflect.StructField, tableName string) *Pk {
+func mapPrimaryKey(target reflect.Value, field reflect.StructField, tableName string) *pk {
 	if target.Kind() == reflect.Invalid {
 		return nil
 	}
 
 	if !target.IsNil() {
-		return (*Pk)(target.UnsafePointer())
+		return (*pk)(target.Elem().UnsafePointer())
 	}
-	p := &Pk{name: field.Name, table: tableName, Fk: make(map[string]*Pk)}
+	p := &pk{name: field.Name, table: tableName, Fk: make(map[string]*pk)}
 	target.Set(reflect.ValueOf(p))
-	return (*Pk)(target.UnsafePointer())
+	return (*pk)(target.Elem().UnsafePointer())
 }
 
-func mapAttribute(target reflect.Value, field reflect.StructField, pk *Pk) {
-	at := &Att{pk: pk}
+func mapAttribute(target reflect.Value, field reflect.StructField, pk *pk) {
+	at := &att{pk: pk}
 	at.name = field.Name
 
 	target.Set(reflect.ValueOf(at))
 }
 
-func mapForeignKey(database reflect.Value, pk *Pk, field reflect.StructField) {
+func mapForeignKey(database reflect.Value, pk *pk, field reflect.StructField) {
 	switch field.Type.Kind() {
 	case reflect.Struct:
-		//many to one
+		//possible many to one
 		fmt.Println("Struct")
 	case reflect.Slice:
 		//possibile many to many
+
 		str := field.Type.Elem()
+		for i := 0; i < str.NumField(); i++ {
+			switch str.Field(i).Type.Kind() {
+			case reflect.Slice:
+				if str.Field(i).Type.Elem().Name() == pk.table {
+					fmt.Printf("many %v to many %v \n", str.Name(), pk.table)
+				}
+			case reflect.Struct:
+				if str.Field(i).Type.Name() == pk.table {
+					fmt.Printf("many %v to one %v \n", str.Name(), pk.table)
+				}
+			}
+
+		}
 
 		//TODO: Add more then one primary key
 		target := database.FieldByName(str.Name()).FieldByName(primaryKeys(str)[0].Name)
@@ -93,10 +107,10 @@ func mapForeignKey(database reflect.Value, pk *Pk, field reflect.StructField) {
 
 }
 
-func getPrimaryKey(database reflect.Value, str reflect.Type) *Pk {
+func getPrimaryKey(database reflect.Value, str reflect.Type) *pk {
 	//TODO: Add more then one primary key
 	field := database.FieldByName(str.Name()).FieldByName(primaryKeys(str)[0].Name)
-	return (*Pk)(field.UnsafePointer())
+	return (*pk)(field.Elem().UnsafePointer())
 }
 
 func primaryKeys(str reflect.Type) (pks []reflect.StructField) {

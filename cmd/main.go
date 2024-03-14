@@ -41,15 +41,15 @@ type Food struct {
 }
 
 type AnimalDb struct {
-	IdAnimal *goe.Pk
-	Name     *goe.Att
-	Emoji    *goe.Att
+	IdAnimal goe.Pk
+	Name     goe.Att
+	Emoji    goe.Att
 }
 
 type FoodDb struct {
-	IdFood *goe.Pk
-	Name   *goe.Att
-	Emoji  *goe.Att
+	IdFood goe.Pk
+	Name   goe.Att
+	Emoji  goe.Att
 }
 
 // TODO: Check if field exists
@@ -78,16 +78,17 @@ func main() {
 	goe.Map(db, Food{})
 	// err := goe.Map(&db.Animal, Animal{})
 	// fmt.Println(err)
-	fmt.Printf("%p \n", db.Animal.IdAnimal.Fk["Food"])
-	fmt.Printf("%p \n", db.Food.IdFood)
+	//fmt.Printf("%p \n", db.Animal.IdAnimal.Fk["Food"])
+	fmt.Printf("%p Food \n", db.Food.IdFood)
 	// fmt.Println(db.Animal.Name)
 	fmt.Println("Next")
 
-	fmt.Printf("%p \n", db.Food.IdFood.Fk["Animal"])
-	fmt.Printf("%p \n", db.Animal.IdAnimal)
+	//fmt.Printf("%p \n", db.Food.IdFood.Fk["Animal"])
+	fmt.Printf("%p Animal \n", db.Animal.IdAnimal)
 
 	fmt.Println(db.Animal.Emoji, db.Food.Emoji)
-	db.Select(db.Animal.Emoji)
+	db.Select(db.Animal.IdAnimal)
+	db.Select(db.Food.IdFood)
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
 	// ids := make([]string, 10)

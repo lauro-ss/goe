@@ -4,23 +4,31 @@ import (
 	"fmt"
 )
 
-type Pk struct {
-	table string
-	name  string
-	Fk    map[string]*Pk
+type Pk interface {
+	attribute
 }
 
-func (a *Pk) Equals(v any) boolean {
+type Att interface {
+	attribute
+}
+
+type pk struct {
+	table string
+	name  string
+	Fk    map[string]*pk
+}
+
+func (a *pk) Equals(v any) boolean {
 	fmt.Println(a.table + "." + a.name + " = " + "$1")
 	return boolean{}
 }
 
-type Att struct {
+type att struct {
 	name string
-	pk   *Pk
+	pk   *pk
 }
 
-func (a *Att) Equals(v any) boolean {
+func (a *att) Equals(v any) boolean {
 	// fmt.Println(a.table + "." + a.name + " = " + "$1")
 	return boolean{}
 }

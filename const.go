@@ -1,5 +1,7 @@
 package goe
 
 const (
-	pkg = "goe"
+	pkg        = "goe"
+	manyToOne  = 1
+	manyToMany = 2
 )
