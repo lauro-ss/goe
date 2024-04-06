@@ -81,7 +81,7 @@ func checkForeignKey(database reflect.Value, pk *pk, field reflect.StructField) 
 			switch str.Field(i).Type.Kind() {
 			case reflect.Slice:
 				if str.Field(i).Type.Elem().Name() == pk.table {
-					mapManyToOny(database, pk, str)
+					mapManyToOne(database, pk, str)
 				}
 			case reflect.Struct:
 				fmt.Printf("one %v to one %v \n", str.Name(), pk.table)
@@ -99,7 +99,7 @@ func checkForeignKey(database reflect.Value, pk *pk, field reflect.StructField) 
 				}
 			case reflect.Struct:
 				if str.Field(i).Type.Name() == pk.table {
-					mapManyToOny(database, pk, str)
+					mapManyToOne(database, pk, str)
 				}
 			}
 
@@ -108,7 +108,7 @@ func checkForeignKey(database reflect.Value, pk *pk, field reflect.StructField) 
 
 }
 
-func mapManyToOny(database reflect.Value, pk *pk, str reflect.Type) {
+func mapManyToOne(database reflect.Value, pk *pk, str reflect.Type) {
 	key := str.Name()
 
 	//TODO: Add more then one primary key
