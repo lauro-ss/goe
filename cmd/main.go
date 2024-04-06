@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
@@ -31,6 +32,13 @@ type Animal struct {
 	Emoji    string
 	Name     string
 	Foods    []Food
+	Status   []Status
+}
+
+type Status struct {
+	Id   string
+	Name string
+	Animal
 }
 
 type Food struct {
@@ -46,6 +54,16 @@ type AnimalDb struct {
 	Emoji    goe.Att
 }
 
+type StatusDb struct {
+	Id   goe.Pk
+	Name goe.Att
+}
+
+type AnimalFood struct {
+	IdAnimal goe.Pk
+	IdFood   goe.Pk
+}
+
 type FoodDb struct {
 	IdFood goe.Pk
 	Name   goe.Att
@@ -54,8 +72,10 @@ type FoodDb struct {
 
 // TODO: Check if field exists
 type Database struct {
-	Animal AnimalDb
-	Food   FoodDb
+	Animal     AnimalDb
+	Food       FoodDb
+	Status     StatusDb
+	AnimalFood AnimalFood
 	*goe.DB
 }
 
@@ -74,19 +94,38 @@ func main() {
 	db := &Database{DB: &goe.DB{}}
 	//goe.Map(db.Animal, &Animal{})
 	//goe.Connect(db)
+	goe.Map(db, Status{})
 	goe.Map(db, Animal{})
 	goe.Map(db, Food{})
+
+	fmt.Println(db.Animal.IdAnimal)
+	fmt.Printf("%p \n", db.Animal.IdAnimal)
+	fmt.Println(db.Status.Id)
+	fmt.Println(db.Status.Name)
+	fmt.Printf("%p \n", db.Status.Id)
 	// err := goe.Map(&db.Animal, Animal{})
 	// fmt.Println(err)
 	//fmt.Printf("%p \n", db.Animal.IdAnimal.Fk["Food"])
-	fmt.Printf("%p Food \n", db.Food.IdFood)
-	// fmt.Println(db.Animal.Name)
-	fmt.Println("Next")
-
-	//fmt.Printf("%p \n", db.Food.IdFood.Fk["Animal"])
-	fmt.Printf("%p Animal \n", db.Animal.IdAnimal)
-
-	fmt.Println(db.Animal.Emoji, db.Food.Emoji)
+	// fmt.Printf("%p Food \n", db.Food.IdFood)
+	// // fmt.Println(db.Animal.Name)
+	// fmt.Println("Next")
+	// fmt.Println(db.AnimalFood.IdAnimal)
+	// fmt.Println(db.Animal.IdAnimal)
+	// fmt.Printf("%p, %p \n", db.Animal.IdAnimal, db.AnimalFood.IdAnimal)
+	// fmt.Printf("%p \n", db.AnimalFood.IdFood)
+	// fmt.Println(db.AnimalFood.IdFood)
+	// fmt.Println(db.Food.IdFood)
+	// fmt.Printf("%p \n", db.Animal.IdAnimal)
+	// fmt.Println(db.AnimalFood.IdFood)
+	// fmt.Println(db.AnimalFood.IdAnimal)
+	// fmt.Printf("%p \n", db.Food.IdFood)
+	// fmt.Println(db.Food.IdFood)
+	// fmt.Println(db.Animal.IdAnimal)
+	// fmt.Printf("%p \n", db.AnimalFood.IdAnimal)
+	// fmt.Printf("%p \n", db.AnimalFood.IdFood)
+	// fmt.Printf("%p Animal \n", db.Animal.IdAnimal)
+	CheckManyToMany(db)
+	// fmt.Println(db.Animal.Emoji, db.Food.Emoji)
 	//db.Select(db.Animal.IdAnimal)
 	db.Select(db.Food.IdFood)
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
@@ -111,4 +150,24 @@ func main() {
 	// "db.Get(&users).Join('Categoria')"
 	// "db.Select(&user)"
 	// "db.Select('Id','Name', '')"
+}
+
+func CheckManyToMany(db *Database) {
+	ap := fmt.Sprintf("%p", db.Animal.IdAnimal)
+	fp := fmt.Sprintf("%p", db.Food.IdFood)
+	f := fmt.Sprint(db.AnimalFood.IdFood)
+	a := fmt.Sprint(db.AnimalFood.IdAnimal)
+	if !strings.Contains(f, ap) && !strings.Contains(a, fp) {
+		fmt.Println("Fail on " + ap + " " + f)
+		fmt.Println("Fail on " + fp + " " + a)
+	}
+
+	ap = fmt.Sprintf("%p", db.AnimalFood.IdAnimal)
+	fp = fmt.Sprintf("%p", db.AnimalFood.IdFood)
+	f = fmt.Sprint(db.Food.IdFood)
+	a = fmt.Sprint(db.Animal.IdAnimal)
+	if !strings.Contains(f, fp) && !strings.Contains(a, ap) {
+		fmt.Println("Fail pointer " + ap + " on " + a)
+		fmt.Println("Fail pointer " + fp + " on " + f)
+	}
 }

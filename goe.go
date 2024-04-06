@@ -14,6 +14,10 @@ func Map(db any, s any) error {
 	database := reflect.ValueOf(db).Elem()
 	str := reflect.TypeOf(s)
 	target := database.FieldByName(str.Name())
+	if target.Kind() == reflect.Invalid {
+		log.Printf("goe: target %v is not declared on %v", str.Name(), database.Type().Name())
+		return nil
+	}
 	mapData(database, target, str)
 	checkMapping(target, str)
 	return nil
@@ -72,7 +76,17 @@ func checkForeignKey(database reflect.Value, pk *pk, field reflect.StructField) 
 	switch field.Type.Kind() {
 	case reflect.Struct:
 		//possible many to one
-		fmt.Println("Struct")
+		str := field.Type
+		for i := 0; i < str.NumField(); i++ {
+			switch str.Field(i).Type.Kind() {
+			case reflect.Slice:
+				if str.Field(i).Type.Elem().Name() == pk.table {
+					mapManyToOny(database, pk, str)
+				}
+			case reflect.Struct:
+				fmt.Printf("one %v to one %v \n", str.Name(), pk.table)
+			}
+		}
 	case reflect.Slice:
 		//possibile many to many
 
@@ -81,12 +95,11 @@ func checkForeignKey(database reflect.Value, pk *pk, field reflect.StructField) 
 			switch str.Field(i).Type.Kind() {
 			case reflect.Slice:
 				if str.Field(i).Type.Elem().Name() == pk.table {
-					fmt.Printf("many %v to many %v \n", str.Name(), pk.table)
-					mapForeignKey(database, pk, str, true)
+					mapManyToMany(database, pk, str)
 				}
 			case reflect.Struct:
 				if str.Field(i).Type.Name() == pk.table {
-					fmt.Printf("many %v to one %v \n", str.Name(), pk.table)
+					mapManyToOny(database, pk, str)
 				}
 			}
 
@@ -95,7 +108,7 @@ func checkForeignKey(database reflect.Value, pk *pk, field reflect.StructField) 
 
 }
 
-func mapForeignKey(database reflect.Value, pk *pk, str reflect.Type, manyToMany bool) {
+func mapManyToOny(database reflect.Value, pk *pk, str reflect.Type) {
 	key := str.Name()
 
 	//TODO: Add more then one primary key
@@ -105,17 +118,59 @@ func mapForeignKey(database reflect.Value, pk *pk, str reflect.Type, manyToMany 
 	}
 
 	if target.IsZero() {
-		if manyToMany {
-			key = pk.table + key
-		}
 		field := primaryKeys(str)[0]
 		pk.Fk[key] = mapPrimaryKey(target, field, str.Name())
 		return
 	}
-	if manyToMany {
-		key = key + pk.table
-	}
 	pk.Fk[key] = getPrimaryKey(database, str)
+}
+
+func mapManyToMany(database reflect.Value, primary *pk, str reflect.Type) {
+	key := str.Name()
+	target := database.FieldByName(key + primary.table)
+	var table string
+	table = key + primary.table
+	if target.Kind() == reflect.Invalid {
+		target = database.FieldByName(primary.table + key)
+		table = primary.table + key
+	}
+
+	if target.Kind() == reflect.Invalid {
+		//No many to many default target
+		return
+	}
+
+	//Id + current Target
+	pk0 := target.FieldByName("Id" + primary.table)
+
+	if !pk0.IsNil() {
+		return
+	}
+
+	//Id + target map
+	pk1 := target.FieldByName("Id" + key)
+
+	//TODO: Add more then one primary key
+	target = database.FieldByName(key).FieldByName(primaryKeys(str)[0].Name)
+	if target.Kind() == reflect.Invalid {
+		return
+	}
+
+	//Fills the target primary key
+	field := primaryKeys(str)[0]
+	primaryKeyTarget := mapPrimaryKey(target, field, str.Name())
+
+	p := &pk{name: "Id" + primary.table, table: table, Fk: make(map[string]*pk)}
+	p.Fk[key] = primaryKeyTarget
+	pk0.Set(reflect.ValueOf(p))
+
+	p = &pk{name: "Id" + key, table: table, Fk: make(map[string]*pk)}
+	p.Fk[primary.table] = primary
+	pk1.Set(reflect.ValueOf(p))
+
+	//default structs points to the many to many target
+	primary.Fk[primary.table] = (*pk)(pk0.Elem().UnsafePointer())
+	primaryKeyTarget.Fk[key] = (*pk)(pk1.Elem().UnsafePointer())
 }
 
 func getPrimaryKey(database reflect.Value, str reflect.Type) *pk {
