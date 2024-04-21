@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
@@ -28,11 +27,11 @@ type Subcategoria struct {
 }
 
 type Animal struct {
-	IdAnimal string `goe:"pk;t:uuid"`
-	Emoji    string
-	Name     string
-	Foods    []Food
-	Status   []Status
+	Id     string `goe:"pk;t:uuid"`
+	Emoji  string
+	Name   string
+	Foods  []Food
+	Status []Status
 }
 
 type Status struct {
@@ -49,9 +48,9 @@ type Food struct {
 }
 
 type AnimalDb struct {
-	IdAnimal goe.Pk
-	Name     goe.Att
-	Emoji    goe.Att
+	Id    goe.Pk
+	Name  goe.Att
+	Emoji goe.Att
 }
 
 type StatusDb struct {
@@ -124,8 +123,8 @@ func main() {
 	// fmt.Printf("%p \n", db.AnimalFood.IdAnimal)
 	// fmt.Printf("%p \n", db.AnimalFood.IdFood)
 	// fmt.Printf("%p Animal \n", db.Animal.IdAnimal)
-	CheckManyToOne(db)
-	CheckManyToMany(db)
+	// CheckManyToOne(db)
+	// CheckManyToMany(db)
 	// fmt.Println(db.Animal.Emoji, db.Food.Emoji)
 	//db.Select(db.Animal.IdAnimal)
 
@@ -143,7 +142,7 @@ func main() {
 	// 	fmt.Println(a)
 	// }()
 	a := make([]Animal, 10)
-	db.Select(db.Animal.IdAnimal, db.Animal.Emoji, db.Animal.Name).Result(&a)
+	db.Select(db.Animal.Id, db.Animal.Emoji, db.Animal.Name).Result(&a)
 	fmt.Println(a)
 	// db.Select(db.Food.Name).Result(nil)
 	// ids := make([]string, 10)
@@ -168,38 +167,38 @@ func main() {
 	// "db.Select('Id','Name', '')"
 }
 
-func CheckManyToOne(db *Database) {
-	ap := fmt.Sprintf("%p", db.Animal.IdAnimal)
-	sp := fmt.Sprintf("%p", db.Status.Id)
+// func CheckManyToOne(db *Database) {
+// 	ap := fmt.Sprintf("%p", db.Animal.IdAnimal)
+// 	sp := fmt.Sprintf("%p", db.Status.Id)
 
-	s := fmt.Sprint(db.Status.Id)
-	a := fmt.Sprint(db.Animal.IdAnimal)
+// 	s := fmt.Sprint(db.Status.Id)
+// 	a := fmt.Sprint(db.Animal.IdAnimal)
 
-	if !strings.Contains(s, ap) {
-		fmt.Println("Fail on " + ap + " " + s)
-	}
+// 	if !strings.Contains(s, ap) {
+// 		fmt.Println("Fail on " + ap + " " + s)
+// 	}
 
-	if !strings.Contains(a, sp) {
-		fmt.Println("Fail on " + sp + " " + a)
-	}
-}
+// 	if !strings.Contains(a, sp) {
+// 		fmt.Println("Fail on " + sp + " " + a)
+// 	}
+// }
 
-func CheckManyToMany(db *Database) {
-	ap := fmt.Sprintf("%p", db.Animal.IdAnimal)
-	fp := fmt.Sprintf("%p", db.Food.IdFood)
-	f := fmt.Sprint(db.AnimalFood.IdFood)
-	a := fmt.Sprint(db.AnimalFood.IdAnimal)
-	if !strings.Contains(f, ap) && !strings.Contains(a, fp) {
-		fmt.Println("Fail on " + ap + " " + f)
-		fmt.Println("Fail on " + fp + " " + a)
-	}
+// func CheckManyToMany(db *Database) {
+// 	ap := fmt.Sprintf("%p", db.Animal.IdAnimal)
+// 	fp := fmt.Sprintf("%p", db.Food.IdFood)
+// 	f := fmt.Sprint(db.AnimalFood.IdFood)
+// 	a := fmt.Sprint(db.AnimalFood.IdAnimal)
+// 	if !strings.Contains(f, ap) && !strings.Contains(a, fp) {
+// 		fmt.Println("Fail on " + ap + " " + f)
+// 		fmt.Println("Fail on " + fp + " " + a)
+// 	}
 
-	ap = fmt.Sprintf("%p", db.AnimalFood.IdAnimal)
-	fp = fmt.Sprintf("%p", db.AnimalFood.IdFood)
-	f = fmt.Sprint(db.Food.IdFood)
-	a = fmt.Sprint(db.Animal.IdAnimal)
-	if !strings.Contains(f, fp) && !strings.Contains(a, ap) {
-		fmt.Println("Fail pointer " + ap + " on " + a)
-		fmt.Println("Fail pointer " + fp + " on " + f)
-	}
-}
+// 	ap = fmt.Sprintf("%p", db.AnimalFood.IdAnimal)
+// 	fp = fmt.Sprintf("%p", db.AnimalFood.IdFood)
+// 	f = fmt.Sprint(db.Food.IdFood)
+// 	a = fmt.Sprint(db.Animal.IdAnimal)
+// 	if !strings.Contains(f, fp) && !strings.Contains(a, ap) {
+// 		fmt.Println("Fail pointer " + ap + " on " + a)
+// 		fmt.Println("Fail pointer " + fp + " on " + f)
+// 	}
+// }

@@ -60,14 +60,14 @@ func mapPrimaryKey(target reflect.Value, field reflect.StructField, tableName st
 	if !target.IsNil() {
 		return (*pk)(target.Elem().UnsafePointer())
 	}
-	p := &pk{name: field.Name + "." + tableName, table: tableName, Fk: make(map[string]*pk)}
+	p := &pk{name: tableName + "." + field.Name, table: tableName, Fk: make(map[string]*pk)}
 	target.Set(reflect.ValueOf(p))
 	return (*pk)(target.Elem().UnsafePointer())
 }
 
 func mapAttribute(target reflect.Value, field reflect.StructField, pk *pk) {
 	at := &att{pk: pk}
-	at.name = field.Name + "." + pk.table
+	at.name = pk.table + "." + field.Name
 
 	target.Set(reflect.ValueOf(at))
 }
@@ -160,11 +160,11 @@ func mapManyToMany(database reflect.Value, primary *pk, str reflect.Type) {
 	field := primaryKeys(str)[0]
 	primaryKeyTarget := mapPrimaryKey(target, field, str.Name())
 
-	p := &pk{name: "Id" + primary.table + "." + table, table: table, Fk: make(map[string]*pk)}
+	p := &pk{name: table + "." + "Id" + primary.table, table: table, Fk: make(map[string]*pk)}
 	p.Fk[key] = primaryKeyTarget
 	pk0.Set(reflect.ValueOf(p))
 
-	p = &pk{name: "Id" + key + "." + table, table: table, Fk: make(map[string]*pk)}
+	p = &pk{name: table + "." + "Id" + key, table: table, Fk: make(map[string]*pk)}
 	p.Fk[primary.table] = primary
 	pk1.Set(reflect.ValueOf(p))
 

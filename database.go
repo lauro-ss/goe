@@ -34,7 +34,7 @@ func (db *DB) Open(name string, uri string) error {
 
 func (db *DB) Select(args ...any) Rows {
 
-	builder := createBuilder()
+	builder := createBuilder(querySELECT)
 	builder.conn = db.conn
 
 	//TODO: Set a drive type to share stm
@@ -53,6 +53,8 @@ func (db *DB) Select(args ...any) Rows {
 			fmt.Println("Call a method to check struct")
 		}
 	}
+
+	builder.queue.add(&FROM)
 
 	return builder
 }

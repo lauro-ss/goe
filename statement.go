@@ -14,6 +14,10 @@ var (
 		keyword: "SELECT",
 		tip:     DML,
 	}
+	FROM = statement{
+		keyword: "FROM",
+		tip:     DML,
+	}
 )
 
 type statement struct {
@@ -77,23 +81,19 @@ func getTail(n *node, v *statement) *node {
 	return n
 }
 
-func (q *queue) buildSql(sql *strings.Builder) {
-	stringNode(sql, q)
-}
-
-func stringNode(sql *strings.Builder, q *queue) {
+func buildSelect(sql *strings.Builder, q *queue) {
 	if q.head != nil {
-		getStatement(sql, q.head)
+		writeSelect(sql, q.head)
 		q.head = q.head.next
 		q.size--
-		stringNode(sql, q)
+		buildSelect(sql, q)
 		return
 	}
 
 	sql.WriteString(";")
 }
 
-func getStatement(sql *strings.Builder, n *node) {
+func writeSelect(sql *strings.Builder, n *node) {
 	switch n.value.tip {
 	case ATT:
 		// next node is a attribute
@@ -108,7 +108,7 @@ func getStatement(sql *strings.Builder, n *node) {
 		sql.WriteString(n.value.keyword)
 		sql.WriteRune(' ')
 	case TABLE:
-		break
+		sql.WriteString(n.value.keyword)
 	case JOIN:
 		break
 	}

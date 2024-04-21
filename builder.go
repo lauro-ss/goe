@@ -8,15 +8,22 @@ import (
 	"strings"
 )
 
+const (
+	querySELECT int8 = 1
+	queryINSERT int8 = 2
+	queryUPDATE int8 = 3
+)
+
 type builder struct {
-	conn   conn
-	sql    *strings.Builder
-	queue  *queue
-	tables *queue
+	conn      conn
+	sql       *strings.Builder
+	queue     *queue
+	tables    *queue
+	queryType int8
 }
 
-func createBuilder() *builder {
-	return &builder{sql: &strings.Builder{}, queue: createQueue(), tables: createQueue()}
+func createBuilder(qt int8) *builder {
+	return &builder{sql: &strings.Builder{}, queue: createQueue(), tables: createQueue(), queryType: qt}
 }
 
 func (b *builder) Result(target any) {
@@ -34,13 +41,24 @@ func (b *builder) Result(target any) {
 		return
 	}
 
-	fmt.Println(b.sql)
-	//b.handlerResult(value.Elem())
+	b.handlerResult(value.Elem())
+}
+func (b *builder) buildSql() {
+	switch b.queryType {
+	case querySELECT:
+		b.writeTables()
+		buildSelect(b.sql, b.queue)
+	case queryINSERT:
+		break
+	case queryUPDATE:
+		break
+	}
 }
 
 func (b *builder) writeTables() {
-	if b.tables.size > 1 {
-
+	b.queue.add(b.tables.get())
+	if b.tables.size >= 1 {
+		//check joins
 	}
 }
 
@@ -56,7 +74,7 @@ func (b *builder) handlerResult(value reflect.Value) {
 }
 
 func (b *builder) handlerQuery(value reflect.Value) {
-	rows, err := b.conn.QueryContext(context.Background(), "SELECT Animal.id, Animal.name, Animal.emoji FROM Animal;")
+	rows, err := b.conn.QueryContext(context.Background(), b.sql.String())
 
 	//TODO: Better error
 	if err != nil {
@@ -97,8 +115,4 @@ func (b *builder) handlerQuery(value reflect.Value) {
 			return
 		}
 	}
-}
-
-func (b *builder) buildSql() {
-	b.queue.buildSql(b.sql)
 }
