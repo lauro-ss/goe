@@ -5,7 +5,7 @@ package goe
 // }
 
 type Table interface {
-	Select(...attribute) Rows
+	Select(...any) Rows
 	//Join(string) Join
 	// Update() int
 	// Delete() int

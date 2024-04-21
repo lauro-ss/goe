@@ -98,11 +98,11 @@ func main() {
 	goe.Map(db, Animal{})
 	goe.Map(db, Food{})
 
-	fmt.Println(db.Animal.IdAnimal)
-	fmt.Printf("%p \n", db.Animal.IdAnimal)
-	fmt.Println(db.Status.Id)
-	fmt.Println(db.Status.Name)
-	fmt.Printf("%p \n", db.Status.Id)
+	// fmt.Println(db.Animal.IdAnimal)
+	// fmt.Printf("%p \n", db.Animal.IdAnimal)
+	// fmt.Println(db.Status.Id)
+	// fmt.Println(db.Status.Name)
+	// fmt.Printf("%p \n", db.Status.Id)
 	// err := goe.Map(&db.Animal, Animal{})
 	// fmt.Println(err)
 	//fmt.Printf("%p \n", db.Animal.IdAnimal.Fk["Food"])
@@ -124,12 +124,28 @@ func main() {
 	// fmt.Printf("%p \n", db.AnimalFood.IdAnimal)
 	// fmt.Printf("%p \n", db.AnimalFood.IdFood)
 	// fmt.Printf("%p Animal \n", db.Animal.IdAnimal)
+	CheckManyToOne(db)
 	CheckManyToMany(db)
 	// fmt.Println(db.Animal.Emoji, db.Food.Emoji)
 	//db.Select(db.Animal.IdAnimal)
-	db.Select(db.Food.IdFood)
+
 	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
+	// go func() {
+	// 	a := make([]Animal, 10)
+	// 	db.Select(db.Food.IdFood, db.Animal.Emoji).Result(&a)
+	// 	fmt.Println(a)
+	// }()
+
+	// go func() {
+	// 	a := make([]Animal, 10)
+	// 	db.Select(db.Food.IdFood, db.Animal.Emoji).Result(&a)
+	// 	fmt.Println(a)
+	// }()
+	a := make([]Animal, 10)
+	db.Select(db.Animal.IdAnimal, db.Animal.Emoji, db.Animal.Name).Result(&a)
+	fmt.Println(a)
+	// db.Select(db.Food.Name).Result(nil)
 	// ids := make([]string, 10)
 
 	//works
@@ -150,6 +166,22 @@ func main() {
 	// "db.Get(&users).Join('Categoria')"
 	// "db.Select(&user)"
 	// "db.Select('Id','Name', '')"
+}
+
+func CheckManyToOne(db *Database) {
+	ap := fmt.Sprintf("%p", db.Animal.IdAnimal)
+	sp := fmt.Sprintf("%p", db.Status.Id)
+
+	s := fmt.Sprint(db.Status.Id)
+	a := fmt.Sprint(db.Animal.IdAnimal)
+
+	if !strings.Contains(s, ap) {
+		fmt.Println("Fail on " + ap + " " + s)
+	}
+
+	if !strings.Contains(a, sp) {
+		fmt.Println("Fail on " + sp + " " + a)
+	}
 }
 
 func CheckManyToMany(db *Database) {
