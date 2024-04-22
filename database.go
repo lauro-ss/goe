@@ -2,7 +2,6 @@ package goe
 
 import (
 	"database/sql"
-	"fmt"
 	"reflect"
 )
 
@@ -32,29 +31,11 @@ func (db *DB) Open(name string, uri string) error {
 	return nil
 }
 
-func (db *DB) Select(args ...any) Rows {
+func (db *DB) Select(args ...any) From {
 
 	builder := createBuilder(querySELECT)
 	builder.conn = db.conn
-
-	//TODO: Set a drive type to share stm
-	builder.queue.add(&SELECT)
-
-	//TODO Better Query
-	for _, v := range args {
-		switch v := v.(type) {
-		case *att:
-			builder.queue.add(createStatement(v.name, ATT))
-			builder.tables.add(createStatement(v.pk.table, TABLE))
-		case *pk:
-			builder.queue.add(createStatement(v.name, ATT))
-			builder.tables.add(createStatement(v.table, TABLE))
-		default:
-			fmt.Println("Call a method to check struct")
-		}
-	}
-
-	builder.queue.add(&FROM)
+	builder.args = args
 
 	return builder
 }

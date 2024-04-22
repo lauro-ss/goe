@@ -7,6 +7,26 @@ import (
 	"strings"
 )
 
+func Init(db any) error {
+	valueOf := reflect.ValueOf(db)
+	typeOf := reflect.TypeOf(db).Elem()
+	if valueOf.Kind() != reflect.Ptr {
+		return fmt.Errorf("%v: the target value needs to be pass as a pointer", pkg)
+	}
+
+	valueOf = valueOf.Elem()
+
+	for i := 0; i < valueOf.NumField(); i++ {
+		valueOf.Field(i).Set(reflect.ValueOf(reflect.New(typeOf.Field(i).Type.Elem()).Interface()))
+	}
+
+	return nil
+}
+
+func InitField() {
+
+}
+
 func Map(db any, s any) error {
 	if reflect.ValueOf(db).Kind() != reflect.Ptr {
 		return fmt.Errorf("%v: the target value needs to be pass as a pointer", pkg)

@@ -17,6 +17,7 @@ const (
 type builder struct {
 	conn      conn
 	sql       *strings.Builder
+	args      []any
 	queue     *queue
 	tables    *queue
 	queryType int8
@@ -24,6 +25,49 @@ type builder struct {
 
 func createBuilder(qt int8) *builder {
 	return &builder{sql: &strings.Builder{}, queue: createQueue(), tables: createQueue(), queryType: qt}
+}
+
+func (b *builder) From(target any) Rows {
+	//TODO: Set a drive type to share stm
+	b.queue.add(&SELECT)
+
+	valueOf := reflect.ValueOf(target).Elem()
+	typeOf := reflect.TypeOf(target).Elem()
+	// if valueOf.Kind() == reflect.Ptr {
+	// 	valueOf = valueOf.Elem()
+	// }
+
+	for _, a := range b.args {
+		p := fmt.Sprintf("%p", a)
+		fmt.Println(a, p)
+		for i := 0; i < valueOf.NumField(); i++ {
+			v := reflect.ValueOf(target).Elem().Field(i)
+			pp := fmt.Sprint(v.Addr())
+			if p == pp {
+				fmt.Println(typeOf.Field(i))
+			}
+			// if getField(v, p) {
+			// 	fmt.Println(reflect.TypeOf(b).Elem().Field(i))
+			// }
+		}
+	}
+
+	//TODO Better Query
+	// for _, v := range b.args {
+	// 	switch v := v.(type) {
+	// 	case *att:
+	// 		b.queue.add(createStatement(v.name, ATT))
+	// 		b.tables.add(createStatement(v.pk.table, TABLE))
+	// 	case *pk:
+	// 		b.queue.add(createStatement(v.name, ATT))
+	// 		b.tables.add(createStatement(v.table, TABLE))
+	// 	default:
+	// 		fmt.Println("Call a method to check struct")
+	// 	}
+	// }
+
+	b.queue.add(&FROM)
+	return b
 }
 
 func (b *builder) Result(target any) {
@@ -43,6 +87,7 @@ func (b *builder) Result(target any) {
 
 	b.handlerResult(value.Elem())
 }
+
 func (b *builder) buildSql() {
 	switch b.queryType {
 	case querySELECT:

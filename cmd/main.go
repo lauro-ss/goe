@@ -30,7 +30,7 @@ type Animal struct {
 	Id     string `goe:"pk;t:uuid"`
 	Emoji  string
 	Name   string
-	Foods  []Food
+	Foods  []Food `goe:"table:AnimalFood"`
 	Status []Status
 }
 
@@ -43,38 +43,37 @@ type Status struct {
 type Food struct {
 	IdFood  string `goe:"pk;t:uuid"`
 	Name    string
-	Animals []Animal
+	Animals []Animal `goe:"table:AnimalFood"`
 	Emoji   string
 }
 
-type AnimalDb struct {
-	Id    goe.Pk
-	Name  goe.Att
-	Emoji goe.Att
-}
+// type AnimalDb struct {
+// 	Id    goe.Pk
+// 	Name  goe.Att
+// 	Emoji goe.Att
+// }
 
-type StatusDb struct {
-	Id   goe.Pk
-	Name goe.Att
-}
+// type StatusDb struct {
+// 	Id   goe.Pk
+// 	Name goe.Att
+// }
 
-type AnimalFood struct {
-	IdAnimal goe.Pk
-	IdFood   goe.Pk
-}
+// type AnimalFood struct {
+// 	IdAnimal string
+// 	IdFood   string
+// }
 
-type FoodDb struct {
-	IdFood goe.Pk
-	Name   goe.Att
-	Emoji  goe.Att
-}
+// type FoodDb struct {
+// 	IdFood goe.Pk
+// 	Name   goe.Att
+// 	Emoji  goe.Att
+// }
 
 // TODO: Check if field exists
 type Database struct {
-	Animal     AnimalDb
-	Food       FoodDb
-	Status     StatusDb
-	AnimalFood AnimalFood
+	Animal *Animal
+	Food   *Food
+	Status *Status
 	*goe.DB
 }
 
@@ -91,11 +90,12 @@ func main() {
 	// }
 
 	db := &Database{DB: &goe.DB{}}
+	goe.Init(db)
 	//goe.Map(db.Animal, &Animal{})
 	//goe.Connect(db)
-	goe.Map(db, Status{})
-	goe.Map(db, Animal{})
-	goe.Map(db, Food{})
+	// goe.Map(db, Status{})
+	// goe.Map(db, Animal{})
+	// goe.Map(db, Food{})
 
 	// fmt.Println(db.Animal.IdAnimal)
 	// fmt.Printf("%p \n", db.Animal.IdAnimal)
@@ -141,9 +141,12 @@ func main() {
 	// 	db.Select(db.Food.IdFood, db.Animal.Emoji).Result(&a)
 	// 	fmt.Println(a)
 	// }()
+
 	a := make([]Animal, 10)
-	db.Select(db.Animal.Id, db.Animal.Emoji, db.Animal.Name).Result(&a)
+	fmt.Println(db.Animal)
+	db.Select(&db.Animal.Id, &db.Animal.Emoji, &db.Animal.Name).From(db.Animal)
 	fmt.Println(a)
+
 	// db.Select(db.Food.Name).Result(nil)
 	// ids := make([]string, 10)
 
