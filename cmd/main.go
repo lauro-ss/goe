@@ -7,24 +7,24 @@ import (
 	"github.com/lauro-ss/goe"
 )
 
-type Produto struct {
-	Id         string `goe:"pk;t:uuid"`
-	Name       string `goe:"t:varchar(20)"`
-	Categorias []Categoria
-}
+// type Produto struct {
+// 	Id         string `goe:"pk;t:uuid"`
+// 	Name       string `goe:"t:varchar(20)"`
+// 	Categorias []Categoria
+// }
 
-type Categoria struct {
-	Id            string `goe:"pk;t:uuid"`
-	Name          string `goe:"t:varchar(20)"`
-	Produtos      []Produto
-	Subcategorias []Subcategoria
-}
+// type Categoria struct {
+// 	Id            string `goe:"pk;t:uuid"`
+// 	Name          string `goe:"t:varchar(20)"`
+// 	Produtos      []Produto
+// 	Subcategorias []Subcategoria
+// }
 
-type Subcategoria struct {
-	Id         string `goe:"pk;t:uuid"`
-	Name       string `goe:"t:varchar(20)"`
-	Categorias []Categoria
-}
+// type Subcategoria struct {
+// 	Id         string `goe:"pk;t:uuid"`
+// 	Name       string `goe:"t:varchar(20)"`
+// 	Categorias []Categoria
+// }
 
 type Animal struct {
 	Id     string `goe:"pk;t:uuid"`
@@ -35,8 +35,9 @@ type Animal struct {
 }
 
 type Status struct {
-	Id   string
-	Name string
+	Id    string
+	Name  string
+	Alive bool
 	Animal
 }
 
@@ -143,10 +144,9 @@ func main() {
 	// }()
 
 	a := make([]Animal, 10)
-	fmt.Println(db.Animal)
-	db.Select(&db.Animal.Id, &db.Animal.Emoji, &db.Animal.Name).From(db.Animal)
+	//fmt.Println(db.Animal)
+	db.Select(&db.Animal.Id, &db.Animal.Emoji, &db.Animal.Name, &db.Status.Id)
 	fmt.Println(a)
-
 	// db.Select(db.Food.Name).Result(nil)
 	// ids := make([]string, 10)
 

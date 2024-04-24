@@ -26,10 +26,6 @@ type Join interface {
 	Join(string) Join
 }
 
-type From interface {
-	From(any) Rows
-}
-
 type Rows interface {
 	//Where
 	//Join

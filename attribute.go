@@ -12,9 +12,20 @@ type Att interface {
 	attribute
 }
 
+type manyToMany struct {
+	table string
+	ids   map[string]string
+}
+
+type manyToOne struct {
+	id      string
+	hasMany bool
+}
+
 type pk struct {
 	table string
 	name  string
+	fks   map[string]any
 	Fk    map[string]*pk
 }
 

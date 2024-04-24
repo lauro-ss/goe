@@ -14,7 +14,8 @@ type conn struct {
 }
 
 type DB struct {
-	conn conn
+	conn    conn
+	addrMap map[string]any
 	//errors []error
 	//Config
 	//tables map[string]*table
@@ -31,13 +32,14 @@ func (db *DB) Open(name string, uri string) error {
 	return nil
 }
 
-func (db *DB) Select(args ...any) From {
+func (db *DB) Select(args ...any) Rows {
 
+	//fmt.Println(db.addrMap[fmt.Sprintf("%p", args[0])].(*pk).name)
 	builder := createBuilder(querySELECT)
 	builder.conn = db.conn
 	builder.args = args
 
-	return builder
+	return builder.buildSelect(db.addrMap)
 }
 
 // func (db *DB) Where(b boolean) Rows {
