@@ -1,6 +1,8 @@
 package goe
 
-import "strings"
+import (
+	"strings"
+)
 
 const (
 	DML   int16 = 1 //DML as SELECT, INSERT, UPDATE and DELETE
@@ -29,59 +31,7 @@ func createStatement(k string, t int16) *statement {
 	return &statement{keyword: k, tip: t}
 }
 
-type queue struct {
-	head *node
-	size int
-}
-
-type node struct {
-	value *statement
-	next  *node
-}
-
-func createQueue() *queue {
-	return &queue{}
-}
-
-func (q *queue) add(v *statement) {
-	n := &node{value: v}
-
-	if q.head == nil {
-		q.head = n
-		q.size++
-		return
-	}
-
-	tail := getTail(q.head, n.value)
-	if tail == nil {
-		return
-	}
-	tail.next = n
-	q.size++
-}
-
-func (q *queue) get() *statement {
-	if q.head == nil {
-		return nil
-	}
-
-	n := q.head
-	q.head = q.head.next
-	q.size--
-	return n.value
-}
-
-func getTail(n *node, v *statement) *node {
-	if n.value.keyword == v.keyword {
-		return nil
-	}
-	if n.next != nil {
-		return getTail(n.next, v)
-	}
-	return n
-}
-
-func buildSelect(sql *strings.Builder, q *queue) {
+func buildSelect(sql *strings.Builder, q *statementQueue) {
 	if q.head != nil {
 		writeSelect(sql, q.head)
 		q.head = q.head.next
@@ -110,6 +60,7 @@ func writeSelect(sql *strings.Builder, n *node) {
 	case TABLE:
 		sql.WriteString(n.value.keyword)
 	case JOIN:
-		break
+		sql.WriteRune('\n')
+		sql.WriteString(n.value.keyword)
 	}
 }

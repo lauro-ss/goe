@@ -18,13 +18,19 @@ type builder struct {
 	conn      conn
 	sql       *strings.Builder
 	args      []any
-	queue     *queue
-	tables    *queue
+	queue     *statementQueue
+	tables    *statementQueue
+	pks       *pkQueue
 	queryType int8
 }
 
 func createBuilder(qt int8) *builder {
-	return &builder{sql: &strings.Builder{}, queue: createQueue(), tables: createQueue(), queryType: qt}
+	return &builder{
+		sql:       &strings.Builder{},
+		queue:     createStatementQueue(),
+		tables:    createStatementQueue(),
+		queryType: qt,
+		pks:       createPkQueue()}
 }
 
 func (b *builder) buildSelect(addrMap map[string]any) Rows {
@@ -33,18 +39,20 @@ func (b *builder) buildSelect(addrMap map[string]any) Rows {
 
 	//TODO Better Query
 	for _, v := range b.args {
-		switch v := v.(type) {
-		default:
-			addr := fmt.Sprintf("%p", v)
-			fmt.Println(addrMap[addr])
-			// case *att:
-			// 	b.queue.add(createStatement(v.name, ATT))
-			// 	b.tables.add(createStatement(v.pk.table, TABLE))
-			// case *pk:
-			// 	b.queue.add(createStatement(v.name, ATT))
-			// 	b.tables.add(createStatement(v.table, TABLE))
-			// default:
-			// 	fmt.Println("Call a method to check struct")
+		addr := fmt.Sprintf("%p", v)
+		switch atr := addrMap[addr].(type) {
+		case *att:
+			b.queue.add(createStatement(atr.name, ATT))
+			b.tables.add(createStatement(atr.pk.table, TABLE))
+
+			//TODO: Add a list pk?
+			b.pks.add(atr.pk)
+		case *pk:
+			b.queue.add(createStatement(atr.name, ATT))
+			b.tables.add(createStatement(atr.table, TABLE))
+
+			//TODO: Add a list pk?
+			b.pks.add(atr)
 		}
 	}
 
@@ -53,8 +61,6 @@ func (b *builder) buildSelect(addrMap map[string]any) Rows {
 }
 
 func (b *builder) Result(target any) {
-
-	//verifiy tables and joins
 
 	//generate query
 	b.buildSql()
@@ -66,8 +72,8 @@ func (b *builder) Result(target any) {
 		fmt.Printf("%v: target result needs to be a pointer try &animals\n", pkg)
 		return
 	}
-
-	b.handlerResult(value.Elem())
+	fmt.Println(b.sql)
+	//b.handlerResult(value.Elem())
 }
 
 func (b *builder) buildSql() {
@@ -85,7 +91,38 @@ func (b *builder) buildSql() {
 func (b *builder) writeTables() {
 	b.queue.add(b.tables.get())
 	if b.tables.size >= 1 {
-		//check joins
+		for table := b.tables.get(); table != nil; {
+			writeJoins(table, b.pks, b.queue)
+			table = b.tables.get()
+		}
+	}
+}
+
+func writeJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
+	for pk := pks.get(); pk != nil; {
+		switch fk := pk.fks[table.keyword].(type) {
+		case *manyToOne:
+			if fk.hasMany {
+				stQueue.add(
+					createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.name, fk.id), JOIN),
+				)
+
+			}
+		case *manyToMany:
+			stQueue.add(
+				createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.name, fk.ids[pk.table]), JOIN),
+			)
+			stQueue.add(
+				createStatement(
+					fmt.Sprintf(
+						"inner join %v on (%v = %v)",
+						table.keyword, fk.ids[table.keyword],
+						pks.findPk(table.keyword).name), JOIN,
+				),
+			)
+
+		}
+		pk = pks.get()
 	}
 }
 

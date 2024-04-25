@@ -42,7 +42,7 @@ type Status struct {
 }
 
 type Food struct {
-	IdFood  string `goe:"pk;t:uuid"`
+	Id      string `goe:"pk;t:uuid"`
 	Name    string
 	Animals []Animal `goe:"table:AnimalFood"`
 	Emoji   string
@@ -145,7 +145,7 @@ func main() {
 
 	a := make([]Animal, 10)
 	//fmt.Println(db.Animal)
-	db.Select(&db.Animal.Id, &db.Animal.Emoji, &db.Animal.Name, &db.Status.Id)
+	db.Select(&db.Animal.Id, &db.Animal.Emoji, &db.Animal.Name, &db.Food.Emoji).Result(&a)
 	fmt.Println(a)
 	// db.Select(db.Food.Name).Result(nil)
 	// ids := make([]string, 10)
