@@ -1,16 +1,6 @@
 package goe
 
-import (
-	"fmt"
-)
-
-type Pk interface {
-	attribute
-}
-
-type Att interface {
-	attribute
-}
+import "fmt"
 
 type manyToMany struct {
 	table string
@@ -29,21 +19,22 @@ type pk struct {
 	Fk    map[string]*pk
 }
 
-func (a *pk) Equals(v any) boolean {
-	fmt.Println(a.table + "." + a.name + " = " + "$1")
-	return boolean{}
-}
-
 type att struct {
 	name string
 	pk   *pk
 }
 
-func (a *att) Equals(v any) boolean {
-	// fmt.Println(a.table + "." + a.name + " = " + "$1")
-	return boolean{}
+const (
+	EQUALS = 1
+)
+
+type booleanResult struct {
+	arg   string
+	pk    *pk
+	value string
+	tip   int8
 }
 
-// func UUID(name string) Attribute {
-// 	return &attribute{Name: name, Type: "UUID"}
-// }
+func createBooleanResult(arg string, pk *pk, value any, tip int8) *booleanResult {
+	return &booleanResult{arg: arg, pk: pk, value: fmt.Sprintf("'%v'", value), tip: tip}
+}

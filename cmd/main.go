@@ -145,13 +145,16 @@ func main() {
 
 	a := make([]Animal, 10)
 	//fmt.Println(db.Animal)
-	db.Select(&db.Animal.Id, &db.Animal.Emoji, &db.Animal.Name, &db.Food.Emoji).Result(&a)
+	db.Select(&db.Food.Id, &db.Food.Emoji, &db.Food.Name).
+		Where(db.Equals(&db.Animal.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).
+		Result(&a)
 	fmt.Println(a)
 	// db.Select(db.Food.Name).Result(nil)
 	// ids := make([]string, 10)
 
 	//works
 	// var ids []string
+	// db.Equals(db.Animal.Id, 1)
 	// db.Select(db.Animal.Id).Result(&ids)
 	// fmt.Println(db.Errors())
 	// fmt.Println(ids)

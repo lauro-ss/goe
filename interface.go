@@ -12,22 +12,16 @@ type Table interface {
 	// Create() int
 }
 
-type attribute interface {
-	Equals(v any) boolean
-}
-
 type Where interface {
-	Where(boolean) Rows
+	Where(...*booleanResult) Rows
 }
-
-type boolean struct{}
 
 type Join interface {
-	Join(string) Join
+	Join(any) Rows
 }
 
 type Rows interface {
-	//Where
+	Where
 	//Join
 	Result
 }

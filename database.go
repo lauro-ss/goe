@@ -2,6 +2,7 @@ package goe
 
 import (
 	"database/sql"
+	"fmt"
 	"reflect"
 )
 
@@ -87,6 +88,21 @@ func setValue(v reflect.Value, a any) {
 	case reflect.String:
 		v.SetString(string(*(a.(*sql.RawBytes))))
 	}
+}
+
+func (db *DB) Equals(arg any, value any) *booleanResult {
+	addr := fmt.Sprintf("%p", arg)
+
+	//TODO: Add a return interface
+
+	switch atr := db.addrMap[addr].(type) {
+	case *att:
+		return createBooleanResult(atr.name, atr.pk, value, EQUALS)
+	case *pk:
+		return createBooleanResult(atr.name, atr, value, EQUALS)
+	}
+
+	return nil
 }
 
 // func (db *DB) error(err error) bool {

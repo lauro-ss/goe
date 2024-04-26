@@ -5,10 +5,12 @@ import (
 )
 
 const (
-	DML   int16 = 1 //DML as SELECT, INSERT, UPDATE and DELETE
-	ATT   int16 = 2 //Attribute
-	TABLE int16 = 3
-	JOIN  int16 = 4
+	DML      int8 = 1 //DML as SELECT, INSERT, UPDATE and DELETE
+	ATT      int8 = 2 //Attribute
+	TABLE    int8 = 3
+	JOIN     int8 = 4
+	WHERETIP int8 = 5
+	MIDDLE   int8 = 6
 )
 
 var (
@@ -20,14 +22,18 @@ var (
 		keyword: "FROM",
 		tip:     DML,
 	}
+	WHERE = statement{
+		keyword: "WHERE",
+		tip:     MIDDLE,
+	}
 )
 
 type statement struct {
 	keyword string
-	tip     int16
+	tip     int8
 }
 
-func createStatement(k string, t int16) *statement {
+func createStatement(k string, t int8) *statement {
 	return &statement{keyword: k, tip: t}
 }
 
@@ -61,6 +67,12 @@ func writeSelect(sql *strings.Builder, n *node) {
 		sql.WriteString(n.value.keyword)
 	case JOIN:
 		sql.WriteRune('\n')
+		sql.WriteString(n.value.keyword)
+	case MIDDLE:
+		sql.WriteRune('\n')
+		sql.WriteString(n.value.keyword)
+		sql.WriteRune(' ')
+	default:
 		sql.WriteString(n.value.keyword)
 	}
 }

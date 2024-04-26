@@ -18,6 +18,7 @@ type builder struct {
 	conn      conn
 	sql       *strings.Builder
 	args      []any
+	brs       []*booleanResult
 	queue     *statementQueue
 	tables    *statementQueue
 	pks       *pkQueue
@@ -60,6 +61,18 @@ func (b *builder) buildSelect(addrMap map[string]any) Rows {
 	return b
 }
 
+func (b *builder) Where(brs ...*booleanResult) Rows {
+	b.brs = brs
+	for _, br := range b.brs {
+		switch br.tip {
+		case EQUALS:
+			b.tables.add(createStatement(br.pk.table, TABLE))
+			b.pks.add(br.pk)
+		}
+	}
+	return b
+}
+
 func (b *builder) Result(target any) {
 
 	//generate query
@@ -80,11 +93,22 @@ func (b *builder) buildSql() {
 	switch b.queryType {
 	case querySELECT:
 		b.writeTables()
+		b.writeWhere()
 		buildSelect(b.sql, b.queue)
 	case queryINSERT:
 		break
 	case queryUPDATE:
 		break
+	}
+}
+
+func (b *builder) writeWhere() {
+	b.queue.add(&WHERE)
+	for _, br := range b.brs {
+		switch br.tip {
+		case EQUALS:
+			b.queue.add(createStatement(fmt.Sprintf("%v = %v", br.arg, br.value), WHERETIP))
+		}
 	}
 }
 
