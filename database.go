@@ -42,7 +42,11 @@ func (db *DB) Select(args ...any) Rows {
 				for i := 0; i < reflect.ValueOf(v).Elem().NumField(); i++ {
 					stringArgs = append(stringArgs, fmt.Sprintf("%v", reflect.ValueOf(v).Elem().Field(i).Addr()))
 				}
+			} else {
+				stringArgs = append(stringArgs, fmt.Sprintf("%v", v))
 			}
+		} else {
+			//TODO: Add ptr error
 		}
 	}
 
@@ -52,10 +56,6 @@ func (db *DB) Select(args ...any) Rows {
 
 	return builder.buildSelect(db.addrMap)
 }
-
-// func (db *DB) Where(b boolean) Rows {
-// 	return db
-// }
 
 func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
 
@@ -77,6 +77,7 @@ func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error)
 }
 
 func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
+	//TODO: Len of slice be the size of the query
 	value.Set(reflect.MakeSlice(value.Type(), 4, 10))
 
 	for i := 0; rows.Next(); i++ {
@@ -114,15 +115,3 @@ func (db *DB) Equals(arg any, value any) *booleanResult {
 
 	return nil
 }
-
-// func (db *DB) error(err error) bool {
-// 	if err != nil {
-// 		//db.errors = append(db.errors, err)
-// 		return true
-// 	}
-// 	return false
-// }
-
-// func (db *DB) Errors() []error {
-// 	return db.errors
-// }

@@ -51,7 +51,7 @@ func (b *builder) Result(target any) {
 		return
 	}
 	fmt.Println(b.sql)
-	//b.handlerResult(value.Elem())
+	b.handlerResult(value.Elem())
 }
 
 func createBuilder(qt int8) *builder {
@@ -103,6 +103,9 @@ func (b *builder) buildSql() {
 }
 
 func (b *builder) writeWhere() {
+	if len(b.brs) == 0 {
+		return
+	}
 	b.queue.add(&WHERE)
 	for _, br := range b.brs {
 		switch br.tip {
