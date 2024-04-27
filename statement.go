@@ -5,12 +5,11 @@ import (
 )
 
 const (
-	DML      int8 = 1 //DML as SELECT, INSERT, UPDATE and DELETE
-	ATT      int8 = 2 //Attribute
-	TABLE    int8 = 3
-	JOIN     int8 = 4
-	WHERETIP int8 = 5
-	MIDDLE   int8 = 6
+	DML    int8 = 1 //DML as SELECT, INSERT, UPDATE and DELETE
+	ATT    int8 = 2 //Attribute
+	TABLE  int8 = 3
+	JOIN   int8 = 4
+	MIDDLE int8 = 6
 )
 
 var (

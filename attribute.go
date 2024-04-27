@@ -13,10 +13,11 @@ type manyToOne struct {
 }
 
 type pk struct {
-	table string
-	name  string
-	fks   map[string]any
-	Fk    map[string]*pk
+	table    string
+	name     string
+	skipFlag bool
+	fks      map[string]any
+	Fk       map[string]*pk
 }
 
 type att struct {

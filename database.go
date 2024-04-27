@@ -35,10 +35,20 @@ func (db *DB) Open(name string, uri string) error {
 
 func (db *DB) Select(args ...any) Rows {
 
-	//fmt.Println(db.addrMap[fmt.Sprintf("%p", args[0])].(*pk).name)
+	stringArgs := make([]string, 0)
+	for _, v := range args {
+		if reflect.ValueOf(v).Kind() == reflect.Ptr {
+			if reflect.ValueOf(v).Elem().Kind() == reflect.Struct {
+				for i := 0; i < reflect.ValueOf(v).Elem().NumField(); i++ {
+					stringArgs = append(stringArgs, fmt.Sprintf("%v", reflect.ValueOf(v).Elem().Field(i).Addr()))
+				}
+			}
+		}
+	}
+
 	builder := createBuilder(querySELECT)
 	builder.conn = db.conn
-	builder.args = args
+	builder.args = stringArgs
 
 	return builder.buildSelect(db.addrMap)
 }
