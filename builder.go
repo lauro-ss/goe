@@ -1,10 +1,7 @@
 package goe
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -15,7 +12,6 @@ const (
 )
 
 type builder struct {
-	conn      conn
 	sql       *strings.Builder
 	args      []string
 	brs       []*booleanResult
@@ -23,35 +19,6 @@ type builder struct {
 	tables    *statementQueue
 	pks       *pkQueue
 	queryType int8
-}
-
-func (b *builder) Where(brs ...*booleanResult) Rows {
-	b.brs = brs
-	for _, br := range b.brs {
-		switch br.tip {
-		case EQUALS:
-			b.tables.add(createStatement(br.pk.table, TABLE))
-			br.pk.skipFlag = true
-			b.pks.add(br.pk)
-		}
-	}
-	return b
-}
-
-func (b *builder) Result(target any) {
-
-	//generate query
-	b.buildSql()
-
-	// db.errors = nil
-	value := reflect.ValueOf(target)
-
-	if value.Kind() != reflect.Ptr {
-		fmt.Printf("%v: target result needs to be a pointer try &animals\n", pkg)
-		return
-	}
-	fmt.Println(b.sql)
-	b.handlerResult(value.Elem())
 }
 
 func createBuilder(qt int8) *builder {
@@ -63,7 +30,7 @@ func createBuilder(qt int8) *builder {
 		pks:       createPkQueue()}
 }
 
-func (b *builder) buildSelect(addrMap map[string]any) Rows {
+func (b *builder) buildSelect(addrMap map[string]any) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(&SELECT)
 
@@ -86,7 +53,6 @@ func (b *builder) buildSelect(addrMap map[string]any) Rows {
 	}
 
 	b.queue.add(&FROM)
-	return b
 }
 
 func (b *builder) buildSql() {
@@ -156,60 +122,5 @@ func writeJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 			}
 		}
 		pk = pks.get()
-	}
-}
-
-func (b *builder) handlerResult(value reflect.Value) {
-	switch value.Kind() {
-	case reflect.Slice:
-		b.handlerQuery(value)
-	case reflect.Struct:
-		fmt.Println("struct")
-	default:
-		fmt.Println("default")
-	}
-}
-
-func (b *builder) handlerQuery(value reflect.Value) {
-	rows, err := b.conn.QueryContext(context.Background(), b.sql.String())
-
-	//TODO: Better error
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer rows.Close()
-
-	//Prepare dest for query
-	c, err := rows.Columns()
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	dest := make([]any, len(c))
-	for i := range dest {
-		dest[i] = new(sql.RawBytes)
-	}
-
-	//Check the result target
-	switch value.Type().Elem().Kind() {
-	case reflect.Struct:
-		err = mapStructQuery(rows, dest, value)
-
-		//TODO: Better error
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	default:
-		err = mapQuery(rows, dest, value)
-
-		//TODO: Better error
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
 	}
 }

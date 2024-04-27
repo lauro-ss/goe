@@ -17,7 +17,6 @@ type pk struct {
 	name     string
 	skipFlag bool
 	fks      map[string]any
-	Fk       map[string]*pk
 }
 
 type att struct {

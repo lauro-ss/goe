@@ -91,7 +91,7 @@ func main() {
 	// }
 
 	db := &Database{DB: &goe.DB{}}
-	goe.Init(db)
+	goe.Open(db, "pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 	//goe.Map(db.Animal, &Animal{})
 	//goe.Connect(db)
 	// goe.Map(db, Status{})
@@ -129,7 +129,7 @@ func main() {
 	// fmt.Println(db.Animal.Emoji, db.Food.Emoji)
 	//db.Select(db.Animal.IdAnimal)
 
-	db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
+	//db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
 	// go func() {
 	// 	a := make([]Animal, 10)
@@ -143,7 +143,7 @@ func main() {
 	// 	fmt.Println(a)
 	// }()
 
-	a := make([]Animal, 10)
+	a := make([]Animal, 0)
 	//fmt.Println(db.Animal)
 	// var t []struct {
 	// 	Id string
