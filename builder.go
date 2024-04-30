@@ -11,6 +11,21 @@ const (
 	queryUPDATE int8 = 3
 )
 
+var (
+	statementSELECT = &statement{
+		keyword: "SELECT",
+		tip:     DML,
+	}
+	statementFROM = &statement{
+		keyword: "FROM",
+		tip:     DML,
+	}
+	statementWHERE = &statement{
+		keyword: "WHERE",
+		tip:     MIDDLE,
+	}
+)
+
 type builder struct {
 	sql       *strings.Builder
 	args      []string
@@ -30,9 +45,18 @@ func createBuilder(qt int8) *builder {
 		pks:       createPkQueue()}
 }
 
+type statement struct {
+	keyword string
+	tip     int8
+}
+
+func createStatement(k string, t int8) *statement {
+	return &statement{keyword: k, tip: t}
+}
+
 func (b *builder) buildSelect(addrMap map[string]any) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(&SELECT)
+	b.queue.add(statementSELECT)
 
 	//TODO Better Query
 	for _, v := range b.args {
@@ -52,15 +76,15 @@ func (b *builder) buildSelect(addrMap map[string]any) {
 		}
 	}
 
-	b.queue.add(&FROM)
+	b.queue.add(statementFROM)
 }
 
 func (b *builder) buildSql() {
 	switch b.queryType {
 	case querySELECT:
-		b.writeTables()
-		b.writeWhere()
-		buildSelect(b.sql, b.queue)
+		b.buildTables()
+		b.buildWhere()
+		writeSelect(b.sql, b.queue)
 	case queryINSERT:
 		break
 	case queryUPDATE:
@@ -68,11 +92,11 @@ func (b *builder) buildSql() {
 	}
 }
 
-func (b *builder) writeWhere() {
+func (b *builder) buildWhere() {
 	if len(b.brs) == 0 {
 		return
 	}
-	b.queue.add(&WHERE)
+	b.queue.add(statementWHERE)
 	for _, br := range b.brs {
 		switch br.tip {
 		case EQUALS:
@@ -81,17 +105,17 @@ func (b *builder) writeWhere() {
 	}
 }
 
-func (b *builder) writeTables() {
+func (b *builder) buildTables() {
 	b.queue.add(b.tables.get())
 	if b.tables.size >= 1 {
 		for table := b.tables.get(); table != nil; {
-			writeJoins(table, b.pks, b.queue)
+			buildJoins(table, b.pks, b.queue)
 			table = b.tables.get()
 		}
 	}
 }
 
-func writeJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
+func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 	for pk := pks.get(); pk != nil; {
 		if pk.table != table.keyword {
 			switch fk := pk.fks[table.keyword].(type) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
@@ -27,7 +28,7 @@ import (
 // }
 
 type Animal struct {
-	Id     string `goe:"pk;t:uuid"`
+	Id     string `goe:"pk"`
 	Emoji  string
 	Name   string
 	Foods  []Food `goe:"table:AnimalFood"`
@@ -143,7 +144,6 @@ func main() {
 	// 	fmt.Println(a)
 	// }()
 
-	a := make([]Animal, 0)
 	//fmt.Println(db.Animal)
 	// var t []struct {
 	// 	Id string
@@ -152,16 +152,18 @@ func main() {
 	// 	db.Select(&db.Food.Id).Result(&t)
 	// 	fmt.Println(t)
 
-	// go func(a any) {
-	// 	db.Select(db.Animal).Result(&a)
-	// 	fmt.Println(a)
-	// }(a)
-	db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	for i := 0; i < 100; i++ {
+		go func() {
+			a := make([]Animal, 0)
+			db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+			fmt.Println(a)
+		}()
+	}
+	time.Sleep(3 * time.Second)
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)
 	// ids := make([]string, 10)
-	fmt.Println(a)
 	//works
 	// var ids []string
 	// db.Equals(db.Animal.Id, 1)

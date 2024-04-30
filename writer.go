@@ -12,43 +12,19 @@ const (
 	MIDDLE int8 = 6
 )
 
-var (
-	SELECT = statement{
-		keyword: "SELECT",
-		tip:     DML,
-	}
-	FROM = statement{
-		keyword: "FROM",
-		tip:     DML,
-	}
-	WHERE = statement{
-		keyword: "WHERE",
-		tip:     MIDDLE,
-	}
-)
-
-type statement struct {
-	keyword string
-	tip     int8
-}
-
-func createStatement(k string, t int8) *statement {
-	return &statement{keyword: k, tip: t}
-}
-
-func buildSelect(sql *strings.Builder, q *statementQueue) {
+func writeSelect(sql *strings.Builder, q *statementQueue) {
 	if q.head != nil {
-		writeSelect(sql, q.head)
+		writeStatement(sql, q.head)
 		q.head = q.head.next
 		q.size--
-		buildSelect(sql, q)
+		writeSelect(sql, q)
 		return
 	}
 
 	sql.WriteString(";")
 }
 
-func writeSelect(sql *strings.Builder, n *node) {
+func writeStatement(sql *strings.Builder, n *node) {
 	switch n.value.tip {
 	case ATT:
 		// next node is a attribute
