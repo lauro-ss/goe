@@ -14,15 +14,15 @@ const (
 var (
 	statementSELECT = &statement{
 		keyword: "SELECT",
-		tip:     DML,
+		tip:     writeDML,
 	}
 	statementFROM = &statement{
 		keyword: "FROM",
-		tip:     DML,
+		tip:     writeDML,
 	}
 	statementWHERE = &statement{
 		keyword: "WHERE",
-		tip:     MIDDLE,
+		tip:     writeMIDDLE,
 	}
 )
 
@@ -62,14 +62,14 @@ func (b *builder) buildSelect(addrMap map[string]any) {
 	for _, v := range b.args {
 		switch atr := addrMap[v].(type) {
 		case *att:
-			b.queue.add(createStatement(atr.name, ATT))
-			b.tables.add(createStatement(atr.pk.table, TABLE))
+			b.queue.add(createStatement(atr.name, writeATT))
+			b.tables.add(createStatement(atr.pk.table, writeTABLE))
 
 			//TODO: Add a list pk?
 			b.pks.add(atr.pk)
 		case *pk:
-			b.queue.add(createStatement(atr.name, ATT))
-			b.tables.add(createStatement(atr.table, TABLE))
+			b.queue.add(createStatement(atr.name, writeATT))
+			b.tables.add(createStatement(atr.table, writeTABLE))
 
 			//TODO: Add a list pk?
 			b.pks.add(atr)
@@ -122,24 +122,24 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 			case *manyToOne:
 				if fk.hasMany {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.name, fk.id), JOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.name, fk.id), writeJOIN),
 					)
 				} else {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).name, fk.id), JOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).name, fk.id), writeJOIN),
 					)
 				}
 			case *manyToMany:
 				if !pk.skipFlag {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.name, fk.ids[pk.table]), JOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.name, fk.ids[pk.table]), writeJOIN),
 					)
 					stQueue.add(
 						createStatement(
 							fmt.Sprintf(
 								"inner join %v on (%v = %v)",
 								table.keyword, fk.ids[table.keyword],
-								pks.findPk(table.keyword).name), JOIN,
+								pks.findPk(table.keyword).name), writeJOIN,
 						),
 					)
 				}

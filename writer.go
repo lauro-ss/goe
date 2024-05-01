@@ -5,11 +5,11 @@ import (
 )
 
 const (
-	DML    int8 = 1 //DML as SELECT, INSERT, UPDATE and DELETE
-	ATT    int8 = 2 //Attribute
-	TABLE  int8 = 3
-	JOIN   int8 = 4
-	MIDDLE int8 = 6
+	writeDML    int8 = 1 //DML as SELECT, INSERT, UPDATE and DELETE
+	writeATT    int8 = 2 //Attribute
+	writeTABLE  int8 = 3
+	writeJOIN   int8 = 4
+	writeMIDDLE int8 = 6
 )
 
 func writeSelect(sql *strings.Builder, q *statementQueue) {
@@ -26,24 +26,24 @@ func writeSelect(sql *strings.Builder, q *statementQueue) {
 
 func writeStatement(sql *strings.Builder, n *node) {
 	switch n.value.tip {
-	case ATT:
+	case writeATT:
 		// next node is a attribute
-		if n.next != nil && n.next.value.tip == ATT {
+		if n.next != nil && n.next.value.tip == writeATT {
 			sql.WriteString(n.value.keyword)
 			sql.WriteRune(',')
 			return
 		}
 		sql.WriteString(n.value.keyword)
 		sql.WriteRune(' ')
-	case DML:
+	case writeDML:
 		sql.WriteString(n.value.keyword)
 		sql.WriteRune(' ')
-	case TABLE:
+	case writeTABLE:
 		sql.WriteString(n.value.keyword)
-	case JOIN:
+	case writeJOIN:
 		sql.WriteRune('\n')
 		sql.WriteString(n.value.keyword)
-	case MIDDLE:
+	case writeMIDDLE:
 		sql.WriteRune('\n')
 		sql.WriteString(n.value.keyword)
 		sql.WriteRune(' ')

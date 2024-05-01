@@ -19,7 +19,7 @@ func (s *state) Where(brs ...*booleanResult) Rows {
 	for _, br := range s.builder.brs {
 		switch br.tip {
 		case EQUALS:
-			s.builder.tables.add(createStatement(br.pk.table, TABLE))
+			s.builder.tables.add(createStatement(br.pk.table, writeTABLE))
 			flagPk := *br.pk
 			flagPk.skipFlag = true
 			s.builder.pks.add(&flagPk)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
@@ -152,14 +151,17 @@ func main() {
 	// 	db.Select(&db.Food.Id).Result(&t)
 	// 	fmt.Println(t)
 
-	for i := 0; i < 100; i++ {
-		go func() {
-			a := make([]Animal, 0)
-			db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
-			fmt.Println(a)
-		}()
-	}
-	time.Sleep(3 * time.Second)
+	// for i := 0; i < 100; i++ {
+	// 	go func() {
+	// 		a := make([]Animal, 0)
+	// 		db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	// 		fmt.Println(a)
+	// 	}()
+	// }
+	// time.Sleep(3 * time.Second)
+	a := make([]Animal, 0)
+	db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	fmt.Println(a)
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)
