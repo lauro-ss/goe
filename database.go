@@ -26,7 +26,7 @@ func (db *DB) open(name string, uri string) error {
 	return nil
 }
 
-func (db *DB) Select(args ...any) Rows {
+func (db *DB) Select(args ...any) State {
 
 	stringArgs := make([]string, 0)
 	for _, v := range args {

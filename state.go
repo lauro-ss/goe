@@ -14,7 +14,7 @@ func createState(conn conn, qt int8) *state {
 	return &state{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *state) Where(brs ...*booleanResult) Rows {
+func (s *state) Where(brs ...*booleanResult) State {
 	s.builder.brs = brs
 	for _, br := range s.builder.brs {
 		switch br.tip {
@@ -44,7 +44,7 @@ func (s *state) Result(target any) {
 	handlerResult(s.conn, s.builder.sql.String(), value.Elem())
 }
 
-func (s *state) querySelect(args []string, addrMap map[string]any) Rows {
+func (s *state) querySelect(args []string, addrMap map[string]any) State {
 	s.builder.args = args
 	s.builder.buildSelect(addrMap)
 	return s
