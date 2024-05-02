@@ -26,8 +26,39 @@ func (db *DB) open(name string, uri string) error {
 	return nil
 }
 
-func (db *DB) Select(args ...any) State {
+func (db *DB) Select(args ...any) StateSelect {
 
+	stringArgs := getArgs(args...)
+
+	state := createState(db.conn, querySELECT)
+
+	return state.querySelect(stringArgs, db.addrMap)
+}
+
+func (db *DB) Insert(table any) StateInsert {
+	stringArgs := getArgs(table)
+
+	state := createState(db.conn, queryINSERT)
+
+	return state.queryInsert(stringArgs, db.addrMap)
+}
+
+func (db *DB) Equals(arg any, value any) *booleanResult {
+	addr := fmt.Sprintf("%p", arg)
+
+	//TODO: Add a return interface
+
+	switch atr := db.addrMap[addr].(type) {
+	case *att:
+		return createBooleanResult(atr.selectName, atr.pk, value, EQUALS)
+	case *pk:
+		return createBooleanResult(atr.selectName, atr, value, EQUALS)
+	}
+
+	return nil
+}
+
+func getArgs(args ...any) []string {
 	stringArgs := make([]string, 0)
 	for _, v := range args {
 		if reflect.ValueOf(v).Kind() == reflect.Ptr {
@@ -42,23 +73,5 @@ func (db *DB) Select(args ...any) State {
 			//TODO: Add ptr error
 		}
 	}
-
-	state := createState(db.conn, querySELECT)
-
-	return state.querySelect(stringArgs, db.addrMap)
-}
-
-func (db *DB) Equals(arg any, value any) *booleanResult {
-	addr := fmt.Sprintf("%p", arg)
-
-	//TODO: Add a return interface
-
-	switch atr := db.addrMap[addr].(type) {
-	case *att:
-		return createBooleanResult(atr.name, atr.pk, value, EQUALS)
-	case *pk:
-		return createBooleanResult(atr.name, atr, value, EQUALS)
-	}
-
-	return nil
+	return stringArgs
 }

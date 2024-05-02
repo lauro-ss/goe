@@ -99,7 +99,7 @@ func (q *pkQueue) get() *pk {
 }
 
 func getPkNodeTail(n *pkNode, v *pk) *pkNode {
-	if n.value.name == v.name {
+	if n.value.selectName == v.selectName {
 		return nil
 	}
 	if n.next != nil {

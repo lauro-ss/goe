@@ -2,6 +2,7 @@ package goe
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -12,6 +13,7 @@ const (
 )
 
 var (
+	// Select keywords
 	statementSELECT = &statement{
 		keyword: "SELECT",
 		tip:     writeDML,
@@ -24,6 +26,20 @@ var (
 		keyword: "WHERE",
 		tip:     writeMIDDLE,
 	}
+
+	// Insert keywords
+	statementINSERT = &statement{
+		keyword: "INSERT",
+		tip:     writeDML,
+	}
+	statementINTO = &statement{
+		keyword: "INTO",
+		tip:     writeDML,
+	}
+	statementVALUES = &statement{
+		keyword: "VALUES",
+		tip:     writeDML,
+	}
 )
 
 type builder struct {
@@ -33,6 +49,7 @@ type builder struct {
 	queue     *statementQueue
 	tables    *statementQueue
 	pks       *pkQueue
+	argsCount int
 	queryType int8
 }
 
@@ -62,13 +79,13 @@ func (b *builder) buildSelect(addrMap map[string]any) {
 	for _, v := range b.args {
 		switch atr := addrMap[v].(type) {
 		case *att:
-			b.queue.add(createStatement(atr.name, writeATT))
+			b.queue.add(createStatement(atr.selectName, writeATT))
 			b.tables.add(createStatement(atr.pk.table, writeTABLE))
 
 			//TODO: Add a list pk?
 			b.pks.add(atr.pk)
 		case *pk:
-			b.queue.add(createStatement(atr.name, writeATT))
+			b.queue.add(createStatement(atr.selectName, writeATT))
 			b.tables.add(createStatement(atr.table, writeTABLE))
 
 			//TODO: Add a list pk?
@@ -86,7 +103,7 @@ func (b *builder) buildSql() {
 		b.buildWhere()
 		writeSelect(b.sql, b.queue)
 	case queryINSERT:
-		break
+		writeInsert(b.sql, b.queue)
 	case queryUPDATE:
 		break
 	}
@@ -122,24 +139,24 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 			case *manyToOne:
 				if fk.hasMany {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.name, fk.id), writeJOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.id), writeJOIN),
 					)
 				} else {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).name, fk.id), writeJOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).selectName, fk.id), writeJOIN),
 					)
 				}
 			case *manyToMany:
 				if !pk.skipFlag {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.name, fk.ids[pk.table]), writeJOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table]), writeJOIN),
 					)
 					stQueue.add(
 						createStatement(
 							fmt.Sprintf(
 								"inner join %v on (%v = %v)",
 								table.keyword, fk.ids[table.keyword],
-								pks.findPk(table.keyword).name), writeJOIN,
+								pks.findPk(table.keyword).selectName), writeJOIN,
 						),
 					)
 				}
@@ -147,4 +164,54 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 		}
 		pk = pks.get()
 	}
+}
+
+func (b *builder) buildInsert(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementINSERT)
+
+	b.queue.add(statementINTO)
+
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.queue.add(createStatement(atr.pk.table, writeDML))
+			b.queue.add(createStatement(atr.attributeName, writeATT))
+			b.argsCount++
+
+		case *pk:
+			b.queue.add(createStatement(atr.table, writeDML))
+			b.queue.add(createStatement(atr.attributeName, writeATT))
+			b.argsCount++
+		}
+	}
+
+	b.queue.add(statementVALUES)
+}
+
+func (b *builder) buildValues(value reflect.Value) {
+
+	for i := 0; i < b.argsCount; i++ {
+		v := value.Field(i)
+		switch v.Kind() {
+		case reflect.String:
+			b.queue.add(createStatement(fmt.Sprintf("'%v'", value.Field(i)), writeATT))
+		}
+
+	}
+	//TODO Better Query
+	// for _, v := range b.args {
+	// 	switch atr := addrMap[v].(type) {
+	// 	case *att:
+	// 		b.queue.add(createStatement(atr.pk.table, writeDML))
+	// 		b.queue.add(createStatement(atr.attributeName, writeATT))
+
+	// 	case *pk:
+	// 		b.queue.add(createStatement(atr.table, writeDML))
+	// 		b.queue.add(createStatement(atr.attributeName, writeATT))
+
+	// 	}
+	// }
+
 }

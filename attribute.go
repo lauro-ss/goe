@@ -13,15 +13,25 @@ type manyToOne struct {
 }
 
 type pk struct {
-	table    string
-	name     string
-	skipFlag bool
-	fks      map[string]any
+	table         string
+	selectName    string
+	attributeName string
+	skipFlag      bool
+	fks           map[string]any
+}
+
+func createPk(table string, selectName string, attributeName string) *pk {
+	return &pk{table: table, selectName: selectName, attributeName: attributeName, fks: make(map[string]any)}
 }
 
 type att struct {
-	name string
-	pk   *pk
+	selectName    string
+	attributeName string
+	pk            *pk
+}
+
+func createAtt(selectName string, attributeName string, pk *pk) *att {
+	return &att{selectName: selectName, attributeName: attributeName, pk: pk}
 }
 
 const (

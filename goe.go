@@ -51,10 +51,11 @@ func initField(valueOf reflect.Value, db *DB) {
 			}
 		default:
 			if valueOf.Type().Field(i).Name != fieldName {
-				var at att
-				at.pk = p
-				at.name = fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name)
-				db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = &at
+				at := createAtt(
+					fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
+					valueOf.Type().Field(i).Name,
+					p)
+				db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
 			}
 		}
 	}
@@ -64,7 +65,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 	var p *pk
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
-		p = &pk{name: typeOf.Name() + "." + id.Name, table: typeOf.Name(), fks: make(map[string]any)}
+		p = createPk(typeOf.Name(), typeOf.Name()+"."+id.Name, id.Name)
 		return p, id.Name
 	}
 
@@ -73,8 +74,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 		//Set anonymous pk
 		return nil, ""
 	}
-
-	p = &pk{name: typeOf.Name() + "." + fields[0].Name, table: typeOf.Name(), fks: make(map[string]any)}
+	p = createPk(typeOf.Name(), typeOf.Name()+"."+fields[0].Name, fields[0].Name)
 	return p, fields[0].Name
 }
 

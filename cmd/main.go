@@ -162,6 +162,12 @@ func main() {
 	a := make([]Animal, 0)
 	db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
 	fmt.Println(a)
+	animal := Animal{
+		Id:    "408834cc-bbdf-4173-bcae-34aaacfcd5fe",
+		Name:  "Rat",
+		Emoji: "Emoji",
+	}
+	db.Insert(db.Animal).Values(animal)
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)
