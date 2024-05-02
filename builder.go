@@ -45,11 +45,11 @@ var (
 type builder struct {
 	sql       *strings.Builder
 	args      []string
+	attrNames []string
 	brs       []*booleanResult
 	queue     *statementQueue
 	tables    *statementQueue
 	pks       *pkQueue
-	argsCount int
 	queryType int8
 }
 
@@ -133,8 +133,9 @@ func (b *builder) buildTables() {
 }
 
 func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
+	var skipTable string
 	for pk := pks.get(); pk != nil; {
-		if pk.table != table.keyword {
+		if pk.table != table.keyword && skipTable != table.keyword {
 			switch fk := pk.fks[table.keyword].(type) {
 			case *manyToOne:
 				if fk.hasMany {
@@ -146,20 +147,22 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).selectName, fk.id), writeJOIN),
 					)
 				}
+				// skips the table keyword that has already be matched
+				skipTable = table.keyword
 			case *manyToMany:
-				if !pk.skipFlag {
-					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table]), writeJOIN),
-					)
-					stQueue.add(
-						createStatement(
-							fmt.Sprintf(
-								"inner join %v on (%v = %v)",
-								table.keyword, fk.ids[table.keyword],
-								pks.findPk(table.keyword).selectName), writeJOIN,
-						),
-					)
-				}
+				stQueue.add(
+					createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table]), writeJOIN),
+				)
+				stQueue.add(
+					createStatement(
+						fmt.Sprintf(
+							"inner join %v on (%v = %v)",
+							table.keyword, fk.ids[table.keyword],
+							pks.findPk(table.keyword).selectName), writeJOIN,
+					),
+				)
+				// skips the table keyword that has already be matched
+				skipTable = table.keyword
 			}
 		}
 		pk = pks.get()
@@ -172,33 +175,39 @@ func (b *builder) buildInsert(addrMap map[string]any) {
 
 	b.queue.add(statementINTO)
 
+	attrNames := make([]string, 0, len(b.args))
 	//TODO Better Query
 	for _, v := range b.args {
 		switch atr := addrMap[v].(type) {
 		case *att:
 			b.queue.add(createStatement(atr.pk.table, writeDML))
 			b.queue.add(createStatement(atr.attributeName, writeATT))
-			b.argsCount++
+			attrNames = append(attrNames, atr.attributeName)
 
 		case *pk:
-			b.queue.add(createStatement(atr.table, writeDML))
-			b.queue.add(createStatement(atr.attributeName, writeATT))
-			b.argsCount++
+			if !atr.autoIncrement {
+				b.queue.add(createStatement(atr.table, writeDML))
+				b.queue.add(createStatement(atr.attributeName, writeATT))
+				attrNames = append(attrNames, atr.attributeName)
+			}
 		}
 	}
+
+	b.attrNames = attrNames
 
 	b.queue.add(statementVALUES)
 }
 
 func (b *builder) buildValues(value reflect.Value) {
 
-	for i := 0; i < b.argsCount; i++ {
-		v := value.Field(i)
+	for _, attr := range b.attrNames {
+		v := value.FieldByName(attr)
 		switch v.Kind() {
 		case reflect.String:
-			b.queue.add(createStatement(fmt.Sprintf("'%v'", value.Field(i)), writeATT))
+			b.queue.add(createStatement(fmt.Sprintf("'%v'", v), writeATT))
+		default:
+			b.queue.add(createStatement(fmt.Sprintf("%v", v), writeATT))
 		}
-
 	}
 	//TODO Better Query
 	// for _, v := range b.args {

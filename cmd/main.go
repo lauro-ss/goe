@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
 )
@@ -27,11 +25,18 @@ import (
 // }
 
 type Animal struct {
-	Id     string `goe:"pk"`
-	Emoji  string
-	Name   string
-	Foods  []Food `goe:"table:AnimalFood"`
-	Status []Status
+	Id       string `goe:"pk"`
+	Emoji    string
+	Name     string
+	Foods    []Food `goe:"table:AnimalFood"`
+	Status   []Status
+	Habitats []Habitat `goe:"table:AnimalHabitat"`
+}
+
+type Habitat struct {
+	Id      int
+	Name    string
+	Animals []Animal `goe:"table:AnimalHabitat"`
 }
 
 type Status struct {
@@ -72,9 +77,10 @@ type Food struct {
 
 // TODO: Check if field exists
 type Database struct {
-	Animal *Animal
-	Food   *Food
-	Status *Status
+	Animal  *Animal
+	Food    *Food
+	Status  *Status
+	Habitat *Habitat
 	*goe.DB
 }
 
@@ -159,15 +165,20 @@ func main() {
 	// 	}()
 	// }
 	// time.Sleep(3 * time.Second)
-	a := make([]Animal, 0)
-	db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
-	fmt.Println(a)
+	// a := make([]Animal, 0)
+	// db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	// fmt.Println(a)
 	animal := Animal{
 		Id:    "408834cc-bbdf-4173-bcae-34aaacfcd5fe",
 		Name:  "Rat",
 		Emoji: "Emoji",
 	}
 	db.Insert(db.Animal).Values(animal)
+
+	// h := make([]Habitat, 0)
+	// db.Select(db.Habitat, db.Animal, db.Status, db.Food).Result(&h)
+	// fmt.Println(h)
+	db.Insert(db.Habitat).Values(Habitat{Name: "Cidade"})
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)

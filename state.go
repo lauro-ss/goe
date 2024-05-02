@@ -20,9 +20,7 @@ func (s *state) Where(brs ...*booleanResult) StateSelect {
 		switch br.tip {
 		case EQUALS:
 			s.builder.tables.add(createStatement(br.pk.table, writeTABLE))
-			flagPk := *br.pk
-			flagPk.skipFlag = true
-			s.builder.pks.add(&flagPk)
+			s.builder.pks.add(br.pk)
 		}
 	}
 	return s

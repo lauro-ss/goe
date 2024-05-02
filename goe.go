@@ -65,7 +65,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 	var p *pk
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
-		p = createPk(typeOf.Name(), typeOf.Name()+"."+id.Name, id.Name)
+		p = createPk(typeOf.Name(), typeOf.Name()+"."+id.Name, id.Name, isAutoIncrement(id))
 		return p, id.Name
 	}
 
@@ -74,8 +74,12 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 		//Set anonymous pk
 		return nil, ""
 	}
-	p = createPk(typeOf.Name(), typeOf.Name()+"."+fields[0].Name, fields[0].Name)
+	p = createPk(typeOf.Name(), typeOf.Name()+"."+fields[0].Name, fields[0].Name, isAutoIncrement(fields[0]))
 	return p, fields[0].Name
+}
+
+func isAutoIncrement(id reflect.StructField) bool {
+	return id.Type.Kind() == reflect.Int
 }
 
 func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db *DB) any {

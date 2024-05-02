@@ -16,12 +16,17 @@ type pk struct {
 	table         string
 	selectName    string
 	attributeName string
-	skipFlag      bool
+	autoIncrement bool
 	fks           map[string]any
 }
 
-func createPk(table string, selectName string, attributeName string) *pk {
-	return &pk{table: table, selectName: selectName, attributeName: attributeName, fks: make(map[string]any)}
+func createPk(table string, selectName string, attributeName string, autoIncrement bool) *pk {
+	return &pk{
+		table:         table,
+		selectName:    selectName,
+		attributeName: attributeName,
+		autoIncrement: autoIncrement,
+		fks:           make(map[string]any)}
 }
 
 type att struct {
