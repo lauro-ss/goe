@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
 )
@@ -166,19 +168,22 @@ func main() {
 	// }
 	// time.Sleep(3 * time.Second)
 	// a := make([]Animal, 0)
-	// db.Select(db.Animal).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	// db.Select(db.Animal, db.Status).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
 	// fmt.Println(a)
 	animal := Animal{
-		Id:    "408834cc-bbdf-4173-bcae-34aaacfcd5fe",
+		Id:    "408834cc-bbdf-4173-bcae-34aaacfcd5fb",
 		Name:  "Rat",
 		Emoji: "Emoji",
 	}
-	db.Insert(db.Animal).Values(animal)
+	db.Insert(db.Animal).Values(&animal)
+	fmt.Println(animal)
 
 	// h := make([]Habitat, 0)
 	// db.Select(db.Habitat, db.Animal, db.Status, db.Food).Result(&h)
 	// fmt.Println(h)
-	db.Insert(db.Habitat).Values(Habitat{Name: "Cidade"})
+	// h := &Habitat{Name: "Floresta"}
+	// db.Insert(db.Habitat).Values(h)
+	// fmt.Println(h)
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)

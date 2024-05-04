@@ -40,11 +40,16 @@ var (
 		keyword: "VALUES",
 		tip:     writeDML,
 	}
+	statementRETURNING = &statement{
+		keyword: "RETURNING",
+		tip:     writeDML,
+	}
 )
 
 type builder struct {
 	sql       *strings.Builder
 	args      []string
+	argsAny   []any
 	attrNames []string
 	brs       []*booleanResult
 	queue     *statementQueue
@@ -63,8 +68,9 @@ func createBuilder(qt int8) *builder {
 }
 
 type statement struct {
-	keyword string
-	tip     int8
+	keyword     string
+	allowCopies bool
+	tip         int8
 }
 
 func createStatement(k string, t int8) *statement {
@@ -114,11 +120,12 @@ func (b *builder) buildWhere() {
 		return
 	}
 	b.queue.add(statementWHERE)
-	for _, br := range b.brs {
+	for i, br := range b.brs {
 		switch br.tip {
 		case EQUALS:
-			b.queue.add(createStatement(fmt.Sprintf("%v = %v", br.arg, br.value), 0))
+			b.queue.add(createStatement(fmt.Sprintf("%v = $%v", br.arg, i+1), 0))
 		}
+		b.argsAny = append(b.argsAny, br.value)
 	}
 }
 
@@ -190,6 +197,7 @@ func (b *builder) buildInsert(addrMap map[string]any) {
 				b.queue.add(createStatement(atr.attributeName, writeATT))
 				attrNames = append(attrNames, atr.attributeName)
 			}
+			b.pks.add(atr)
 		}
 	}
 
@@ -198,17 +206,19 @@ func (b *builder) buildInsert(addrMap map[string]any) {
 	b.queue.add(statementVALUES)
 }
 
-func (b *builder) buildValues(value reflect.Value) {
-
-	for _, attr := range b.attrNames {
-		v := value.FieldByName(attr)
-		switch v.Kind() {
-		case reflect.String:
-			b.queue.add(createStatement(fmt.Sprintf("'%v'", v), writeATT))
-		default:
-			b.queue.add(createStatement(fmt.Sprintf("%v", v), writeATT))
-		}
+func (b *builder) buildValues(value reflect.Value) string {
+	b.argsAny = make([]any, 0, len(b.attrNames))
+	for i, attr := range b.attrNames {
+		b.argsAny = append(b.argsAny, value.FieldByName(attr).Interface())
+		b.queue.add(createStatement(fmt.Sprintf("$%v", i+1), writeATT))
 	}
+	pk := b.pks.get()
+	b.queue.add(statementRETURNING)
+	st := createStatement(pk.attributeName, 0)
+	st.allowCopies = true
+	b.queue.add(st)
+	return pk.attributeName
+	//fmt.Println(b.pks.get(), b.pks.get())
 	//TODO Better Query
 	// for _, v := range b.args {
 	// 	switch atr := addrMap[v].(type) {

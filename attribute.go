@@ -1,7 +1,5 @@
 package goe
 
-import "fmt"
-
 type manyToMany struct {
 	table string
 	ids   map[string]string
@@ -46,10 +44,10 @@ const (
 type booleanResult struct {
 	arg   string
 	pk    *pk
-	value string
+	value any
 	tip   int8
 }
 
 func createBooleanResult(arg string, pk *pk, value any, tip int8) *booleanResult {
-	return &booleanResult{arg: arg, pk: pk, value: fmt.Sprintf("'%v'", value), tip: tip}
+	return &booleanResult{arg: arg, pk: pk, value: value, tip: tip}
 }

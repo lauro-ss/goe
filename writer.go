@@ -86,13 +86,6 @@ func writeInsertStatement(sql *strings.Builder, n *node) {
 		}
 	case writeTABLE:
 		sql.WriteString(n.value.keyword)
-	case writeJOIN:
-		sql.WriteRune('\n')
-		sql.WriteString(n.value.keyword)
-	case writeMIDDLE:
-		sql.WriteRune('\n')
-		sql.WriteString(n.value.keyword)
-		sql.WriteRune(' ')
 	default:
 		sql.WriteString(n.value.keyword)
 	}

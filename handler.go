@@ -7,19 +7,42 @@ import (
 	"reflect"
 )
 
-func handlerResult(conn conn, sqlQuery string, value reflect.Value) {
+func handlerValues(conn conn, sqlQuery string, value reflect.Value, args []any, idName string) {
+	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
+	id := returnTarget(value, idName)
+	err := row.Scan(id)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	value.FieldByName(idName).Set(reflect.ValueOf(id).Elem())
+}
+
+func returnTarget(value reflect.Value, idName string) any {
+	switch value.FieldByName(idName).Kind() {
+	case reflect.Int:
+		return new(int)
+	case reflect.String:
+		return new(string)
+	default:
+		return new(any)
+	}
+}
+
+func handlerResult(conn conn, sqlQuery string, value reflect.Value, args []any) {
 	switch value.Kind() {
 	case reflect.Slice:
-		handlerQuery(conn, sqlQuery, value)
+		handlerQuery(conn, sqlQuery, value, args)
 	case reflect.Struct:
+		//handlerQueryRow(conn, sqlQuery, value, args)
 		fmt.Println("struct")
 	default:
 		fmt.Println("default")
 	}
 }
 
-func handlerQuery(conn conn, sqlQuery string, value reflect.Value) {
-	rows, err := conn.QueryContext(context.Background(), sqlQuery)
+func handlerQuery(conn conn, sqlQuery string, value reflect.Value, args []any) {
+	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
 	//TODO: Better error
 	if err != nil {

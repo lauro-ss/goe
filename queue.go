@@ -43,7 +43,7 @@ func (q *statementQueue) get() *statement {
 }
 
 func getTail(n *node, v *statement) *node {
-	if n.value.keyword == v.keyword {
+	if n.value.keyword == v.keyword && !v.allowCopies {
 		return nil
 	}
 	if n.next != nil {
@@ -87,6 +87,7 @@ func (q *pkQueue) add(v *pk) {
 
 func (q *pkQueue) get() *pk {
 	if q.currrent == nil {
+		// resets the queue
 		q.currrent = q.head
 		return nil
 	}

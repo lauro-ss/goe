@@ -39,7 +39,7 @@ func (s *state) Result(target any) {
 	s.builder.buildSql()
 
 	fmt.Println(s.builder.sql)
-	handlerResult(s.conn, s.builder.sql.String(), value.Elem())
+	handlerResult(s.conn, s.builder.sql.String(), value.Elem(), s.builder.argsAny)
 }
 
 func (s *state) querySelect(args []string, addrMap map[string]any) StateSelect {
@@ -52,18 +52,20 @@ func (s *state) Values(target any) {
 	// db.errors = nil
 	value := reflect.ValueOf(target)
 
-	if value.Kind() != reflect.Struct {
-		fmt.Printf("%v: target value needs to be a struct\n", pkg)
+	if value.Kind() != reflect.Ptr {
+		fmt.Printf("%v: target result needs to be a pointer try &animals\n", pkg)
 		return
 	}
 
-	s.builder.buildValues(value)
+	value = value.Elem()
+
+	idName := s.builder.buildValues(value)
 
 	//generate query
 	s.builder.buildSql()
 
 	fmt.Println(s.builder.sql)
-	//handlerResult(s.conn, s.builder.sql.String(), value.Elem())
+	handlerValues(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
 }
 
 func (s *state) queryInsert(args []string, addrMap map[string]any) StateInsert {
