@@ -22,8 +22,26 @@ func handlerValues(conn conn, sqlQuery string, value reflect.Value, args []any, 
 
 func returnTarget(targetId reflect.Value) any {
 	switch targetId.Kind() {
+	case reflect.Uint64:
+		return new(uint64)
+	case reflect.Uint32:
+		return new(uint32)
+	case reflect.Uint16:
+		return new(uint16)
+	case reflect.Uint8:
+		return new(uint8)
+	case reflect.Uint:
+		return new(uint)
 	case reflect.Int:
 		return new(int)
+	case reflect.Int8:
+		return new(int8)
+	case reflect.Int16:
+		return new(int16)
+	case reflect.Int32:
+		return new(int32)
+	case reflect.Int64:
+		return new(int64)
 	case reflect.String:
 		return new(string)
 	default:
