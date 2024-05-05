@@ -9,17 +9,19 @@ import (
 
 func handlerValues(conn conn, sqlQuery string, value reflect.Value, args []any, idName string) {
 	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
-	id := returnTarget(value, idName)
+
+	targetId := value.FieldByName(idName)
+	id := returnTarget(targetId)
 	err := row.Scan(id)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	value.FieldByName(idName).Set(reflect.ValueOf(id).Elem())
+	targetId.Set(reflect.ValueOf(id).Elem())
 }
 
-func returnTarget(value reflect.Value, idName string) any {
-	switch value.FieldByName(idName).Kind() {
+func returnTarget(targetId reflect.Value) any {
+	switch targetId.Kind() {
 	case reflect.Int:
 		return new(int)
 	case reflect.String:
@@ -125,5 +127,39 @@ func setValue(v reflect.Value, a any) {
 	switch v.Type().Kind() {
 	case reflect.String:
 		v.SetString(string(*(a.(*sql.RawBytes))))
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(parseInt(*(a.(*sql.RawBytes))))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(parseUint(*(a.(*sql.RawBytes))))
 	}
+}
+
+func parseInt(bts []byte) int64 {
+	var n int64
+	var neg bool
+	if bts[0] == '-' {
+		neg = true
+		bts = bts[1:]
+	}
+	for _, b := range bts {
+		d := b - '0' //reduces the byte by the rune 0, if the byte is digit 0 will be: 48 - 48
+		n *= int64(10)
+		n1 := n + int64(d)
+		n = n1
+	}
+	if neg {
+		n = -n
+	}
+	return n
+}
+
+func parseUint(bts []byte) uint64 {
+	var n uint64
+	for _, b := range bts {
+		d := b - '0' //reduces the byte by the rune 0, if the byte is digit 0 will be: 48 - 48
+		n *= uint64(10)
+		n1 := n + uint64(d)
+		n = n1
+	}
+	return n
 }

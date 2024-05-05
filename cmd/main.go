@@ -170,17 +170,17 @@ func main() {
 	// a := make([]Animal, 0)
 	// db.Select(db.Animal, db.Status).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
 	// fmt.Println(a)
-	animal := Animal{
-		Id:    "408834cc-bbdf-4173-bcae-34aaacfcd5fb",
-		Name:  "Rat",
-		Emoji: "Emoji",
-	}
-	db.Insert(db.Animal).Values(&animal)
-	fmt.Println(animal)
+	// animal := Animal{
+	// 	Id:    "408834cc-bbdf-4173-bcae-34aaacfcd5fd",
+	// 	Name:  "Rat",
+	// 	Emoji: "Emoji",
+	// }
+	// db.Insert(db.Animal).Values(&animal)
+	// fmt.Println(animal)
 
-	// h := make([]Habitat, 0)
-	// db.Select(db.Habitat, db.Animal, db.Status, db.Food).Result(&h)
-	// fmt.Println(h)
+	h := make([]Habitat, 0)
+	db.Select(db.Habitat).Result(&h)
+	fmt.Println(h)
 	// h := &Habitat{Name: "Floresta"}
 	// db.Insert(db.Habitat).Values(h)
 	// fmt.Println(h)
