@@ -14,5 +14,9 @@ type Result interface {
 }
 
 type StateInsert interface {
-	Values(any)
+	Value(any)
+}
+
+type StateBetwent interface {
+	Values(any, any)
 }

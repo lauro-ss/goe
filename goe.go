@@ -107,17 +107,17 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 				table := re.Split(tag, 2)[1]
 				var mtm manyToMany
 				mtm.table = table
-				mtm.ids = make(map[string]string)
+				mtm.ids = make(map[string]attributeStrings)
 
 				id := primaryKeys(typeOf)[0].Name
 				id += typeOf.Name()
-				mtm.ids[typeOf.Name()] = fmt.Sprintf("%v.%v", table, id)
+				mtm.ids[typeOf.Name()] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id)
 
 				// target id
 				id = primaryKeys(targetTypeOf)[0].Name
 				id += targetTypeOf.Name()
 
-				mtm.ids[targetTypeOf.Name()] = fmt.Sprintf("%v.%v", table, id)
+				mtm.ids[targetTypeOf.Name()] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id)
 
 				return &mtm
 			}

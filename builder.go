@@ -206,6 +206,28 @@ func (b *builder) buildInsert(addrMap map[string]any) {
 	b.queue.add(statementVALUES)
 }
 
+func (b *builder) buildInsertManyToMany(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementINSERT)
+
+	b.queue.add(statementINTO)
+
+	attrNames := make([]string, 0, len(b.args))
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.tables.add(createStatement(atr.pk.table, writeTABLE))
+			b.pks.add(atr.pk)
+		case *pk:
+			b.tables.add(createStatement(atr.table, writeTABLE))
+			b.pks.add(atr)
+		}
+	}
+
+	b.attrNames = attrNames
+}
+
 func (b *builder) buildValues(value reflect.Value) string {
 	b.argsAny = make([]any, 0, len(b.attrNames))
 	for i, attr := range b.attrNames {
@@ -218,19 +240,29 @@ func (b *builder) buildValues(value reflect.Value) string {
 	st.allowCopies = true
 	b.queue.add(st)
 	return pk.attributeName
-	//fmt.Println(b.pks.get(), b.pks.get())
-	//TODO Better Query
-	// for _, v := range b.args {
-	// 	switch atr := addrMap[v].(type) {
-	// 	case *att:
-	// 		b.queue.add(createStatement(atr.pk.table, writeDML))
-	// 		b.queue.add(createStatement(atr.attributeName, writeATT))
 
-	// 	case *pk:
-	// 		b.queue.add(createStatement(atr.table, writeDML))
-	// 		b.queue.add(createStatement(atr.attributeName, writeATT))
+}
 
-	// 	}
-	// }
+func (b *builder) buildValuesManyToMany() {
+	if b.tables.size != 2 {
+		return
+	}
+	stTable := b.tables.get()
 
+	pk1 := b.pks.get()
+	pk2 := b.pks.get()
+
+	mtm := pk2.fks[stTable.keyword]
+	if mtm == nil {
+		return
+	}
+
+	mtmValue := mtm.(*manyToMany)
+	b.queue.add(createStatement(mtmValue.table, writeDML))
+	b.queue.add(createStatement(mtmValue.ids[pk1.table].attributeName, writeATT))
+	b.queue.add(createStatement(mtmValue.ids[pk2.table].attributeName, writeATT))
+	b.queue.add(statementVALUES)
+
+	b.queue.add(createStatement("$1", writeATT))
+	b.queue.add(createStatement("$2", writeATT))
 }

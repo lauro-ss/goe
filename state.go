@@ -48,8 +48,7 @@ func (s *state) querySelect(args []string, addrMap map[string]any) StateSelect {
 	return s
 }
 
-func (s *state) Values(target any) {
-	// db.errors = nil
+func (s *state) Value(target any) {
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
@@ -71,5 +70,23 @@ func (s *state) Values(target any) {
 func (s *state) queryInsert(args []string, addrMap map[string]any) StateInsert {
 	s.builder.args = args
 	s.builder.buildInsert(addrMap)
+	return s
+}
+
+func (s *state) Values(v1 any, v2 any) {
+	s.builder.argsAny = append(s.builder.argsAny, v1)
+	s.builder.argsAny = append(s.builder.argsAny, v2)
+
+	s.builder.buildValuesManyToMany()
+
+	s.builder.buildSql()
+
+	fmt.Println(s.builder.sql)
+	handlerValuesManytoMany(s.conn, s.builder.sql.String(), s.builder.argsAny)
+}
+
+func (s *state) queryInsertManyToMany(args []string, addrMap map[string]any) StateBetwent {
+	s.builder.args = args
+	s.builder.buildInsertManyToMany(addrMap)
 	return s
 }

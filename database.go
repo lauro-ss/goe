@@ -43,6 +43,14 @@ func (db *DB) Insert(table any) StateInsert {
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
+func (db *DB) InsertBetwent(table1 any, table2 any) StateBetwent {
+	stringArgs := getArgs(table1, table2)
+
+	state := createState(db.conn, queryINSERT)
+
+	return state.queryInsertManyToMany(stringArgs, db.addrMap)
+}
+
 func (db *DB) Equals(arg any, value any) *booleanResult {
 	addr := fmt.Sprintf("%p", arg)
 

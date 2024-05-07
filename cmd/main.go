@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
 )
@@ -178,12 +176,20 @@ func main() {
 	// db.Insert(db.Animal).Values(&animal)
 	// fmt.Println(animal)
 
-	h := make([]Habitat, 0)
-	db.Select(db.Habitat).Result(&h)
-	fmt.Println(h)
-	// h := &Habitat{Name: "Floresta"}
-	// db.Insert(db.Habitat).Values(h)
+	// h := make([]Habitat, 0)
+	// db.Select(db.Habitat).Result(&h)
 	// fmt.Println(h)
+	// h := &Habitat{Name: "Floresta"}
+	// db.Insert(db.Habitat).Value(h)
+	// fmt.Println(h)
+	// v := struct {
+	// 	IdAnimal string
+	// 	IdFood   string
+	// }{
+	// 	IdAnimal: "",
+	// 	IdFood:   "",
+	// }
+	db.InsertBetwent(db.Animal, db.Food).Values("408834cc-bbdf-4173-bcae-34aaacfcd5fe", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)

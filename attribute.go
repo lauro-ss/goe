@@ -2,7 +2,7 @@ package goe
 
 type manyToMany struct {
 	table string
-	ids   map[string]string
+	ids   map[string]attributeStrings
 }
 
 type manyToOne struct {
@@ -10,31 +10,38 @@ type manyToOne struct {
 	hasMany bool
 }
 
-type pk struct {
-	table         string
+type attributeStrings struct {
 	selectName    string
 	attributeName string
+}
+
+func createAttributeStrings(selectName string, attributeName string) attributeStrings {
+	return attributeStrings{selectName: selectName, attributeName: attributeName}
+}
+
+type pk struct {
+	table         string
 	autoIncrement bool
 	fks           map[string]any
+	attributeStrings
 }
 
 func createPk(table string, selectName string, attributeName string, autoIncrement bool) *pk {
 	return &pk{
-		table:         table,
-		selectName:    selectName,
-		attributeName: attributeName,
-		autoIncrement: autoIncrement,
-		fks:           make(map[string]any)}
+		table:            table,
+		attributeStrings: createAttributeStrings(selectName, attributeName),
+		autoIncrement:    autoIncrement,
+		fks:              make(map[string]any)}
 }
 
 type att struct {
-	selectName    string
-	attributeName string
-	pk            *pk
+	attributeStrings
+	pk *pk
 }
 
 func createAtt(selectName string, attributeName string, pk *pk) *att {
-	return &att{selectName: selectName, attributeName: attributeName, pk: pk}
+	return &att{
+		attributeStrings: createAttributeStrings(selectName, attributeName), pk: pk}
 }
 
 const (
