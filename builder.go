@@ -10,6 +10,7 @@ const (
 	querySELECT int8 = 1
 	queryINSERT int8 = 2
 	queryUPDATE int8 = 3
+	queryDELETE int8 = 4
 )
 
 var (
@@ -42,6 +43,16 @@ var (
 	}
 	statementRETURNING = &statement{
 		keyword: "RETURNING",
+		tip:     writeDML,
+	}
+
+	// Update keywords
+	statementUPDATE = &statement{
+		keyword: "UPDATE",
+		tip:     writeDML,
+	}
+	statementSET = &statement{
+		keyword: "SET",
 		tip:     writeDML,
 	}
 )
@@ -112,6 +123,8 @@ func (b *builder) buildSql() {
 		writeInsert(b.sql, b.queue)
 	case queryUPDATE:
 		break
+	case queryDELETE:
+		break
 	}
 }
 
@@ -158,13 +171,13 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 				skipTable = table.keyword
 			case *manyToMany:
 				stQueue.add(
-					createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table]), writeJOIN),
+					createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table].selectName), writeJOIN),
 				)
 				stQueue.add(
 					createStatement(
 						fmt.Sprintf(
 							"inner join %v on (%v = %v)",
-							table.keyword, fk.ids[table.keyword],
+							table.keyword, fk.ids[table.keyword].selectName,
 							pks.findPk(table.keyword).selectName), writeJOIN,
 					),
 				)
@@ -174,6 +187,34 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 		}
 		pk = pks.get()
 	}
+}
+
+func (b *builder) buildUpdate(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementUPDATE)
+
+	attrNames := make([]string, 0, len(b.args))
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.queue.add(createStatement(atr.pk.table, writeDML))
+			b.queue.add(createStatement(atr.attributeName, writeATT))
+			attrNames = append(attrNames, atr.attributeName)
+
+		case *pk:
+			if !atr.autoIncrement {
+				b.queue.add(createStatement(atr.table, writeDML))
+				b.queue.add(createStatement(atr.attributeName, writeATT))
+				attrNames = append(attrNames, atr.attributeName)
+			}
+			b.pks.add(atr)
+		}
+	}
+
+	b.queue.add(statementSET)
+
+	b.attrNames = attrNames
 }
 
 func (b *builder) buildInsert(addrMap map[string]any) {

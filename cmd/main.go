@@ -169,11 +169,11 @@ func main() {
 	// db.Select(db.Animal, db.Status).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
 	// fmt.Println(a)
 	// animal := Animal{
-	// 	Id:    "408834cc-bbdf-4173-bcae-34aaacfcd5fd",
-	// 	Name:  "Rat",
+	// 	Id:    "8583db14-7ea7-4912-9b0c-ba33700c1e09",
+	// 	Name:  "Cow",
 	// 	Emoji: "Emoji",
 	// }
-	// db.Insert(db.Animal).Values(&animal)
+	// db.Insert(db.Animal).Result(&animal)
 	// fmt.Println(animal)
 
 	// h := make([]Habitat, 0)
@@ -189,7 +189,9 @@ func main() {
 	// 	IdAnimal: "",
 	// 	IdFood:   "",
 	// }
-	db.InsertBetwent(db.Animal, db.Food).Values("408834cc-bbdf-4173-bcae-34aaacfcd5fe", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
+	//db.InsertBetwent(db.Animal, db.Food).Result("408834cc-bbdf-4173-bcae-34aaacfcd5fe", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
+	h := &Habitat{Name: "Floresta"}
+	db.Update(db.Habitat).Where(db.Equals(&db.Habitat.Id, "teste1")).Result(h)
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)

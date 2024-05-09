@@ -26,7 +26,7 @@ func (db *DB) open(name string, uri string) error {
 	return nil
 }
 
-func (db *DB) Select(args ...any) StateSelect {
+func (db *DB) Select(args ...any) State {
 
 	stringArgs := getArgs(args...)
 
@@ -35,7 +35,7 @@ func (db *DB) Select(args ...any) StateSelect {
 	return state.querySelect(stringArgs, db.addrMap)
 }
 
-func (db *DB) Insert(table any) StateInsert {
+func (db *DB) Insert(table any) State {
 	stringArgs := getArgs(table)
 
 	state := createState(db.conn, queryINSERT)
@@ -43,12 +43,20 @@ func (db *DB) Insert(table any) StateInsert {
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
-func (db *DB) InsertBetwent(table1 any, table2 any) StateBetwent {
+func (db *DB) InsertBetwent(table1 any, table2 any) State {
 	stringArgs := getArgs(table1, table2)
 
 	state := createState(db.conn, queryINSERT)
 
 	return state.queryInsertManyToMany(stringArgs, db.addrMap)
+}
+
+func (db *DB) Update(table any) State {
+	stringArgs := getArgs(table)
+
+	state := createState(db.conn, queryUPDATE)
+
+	return state.queryUpdate(stringArgs, db.addrMap)
 }
 
 func (db *DB) Equals(arg any, value any) *booleanResult {

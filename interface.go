@@ -1,22 +1,14 @@
 package goe
 
-type StateSelect interface {
+type State interface {
 	Where
 	Result
 }
 
 type Where interface {
-	Where(...*booleanResult) StateSelect
+	Where(...*booleanResult) State
 }
 
 type Result interface {
-	Result(target any)
-}
-
-type StateInsert interface {
-	Value(any)
-}
-
-type StateBetwent interface {
-	Values(any, any)
+	Result(...any)
 }
