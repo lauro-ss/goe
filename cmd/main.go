@@ -190,8 +190,9 @@ func main() {
 	// 	IdFood:   "",
 	// }
 	//db.InsertBetwent(db.Animal, db.Food).Result("408834cc-bbdf-4173-bcae-34aaacfcd5fe", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
-	h := &Habitat{Name: "Floresta"}
-	db.Update(db.Habitat).Where(db.Equals(&db.Habitat.Id, "teste1")).Result(h)
+	h := &Habitat{Name: "Vault 33"}
+	db.Update(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Result(h)
+	//db.UpdateBetwent(db.Animal,db.Food).Where(d)
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)

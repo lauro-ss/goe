@@ -60,7 +60,7 @@ func (s *state) resultSelect(target ...any) {
 func (s *state) resultInsert(target ...any) {
 	switch len(target) {
 	case 1:
-		s.value(target[0])
+		s.valueInsert(target[0])
 	case 2:
 		s.values(target[0], target[1])
 	default:
@@ -72,7 +72,7 @@ func (s *state) resultInsert(target ...any) {
 func (s *state) resultUpdate(target ...any) {
 	switch len(target) {
 	case 1:
-		s.value(target[0])
+		s.valueUpdate(target[0])
 	case 2:
 		s.values(target[0], target[1])
 	default:
@@ -87,7 +87,7 @@ func (s *state) querySelect(args []string, addrMap map[string]any) State {
 	return s
 }
 
-func (s *state) value(target any) {
+func (s *state) valueInsert(target any) {
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
@@ -97,23 +97,41 @@ func (s *state) value(target any) {
 
 	value = value.Elem()
 
-	if s.builder.queryType == queryINSERT {
-		idName := s.builder.buildValues(value)
+	idName := s.builder.buildValues(value)
 
-		//generate query
-		s.builder.buildSql()
+	//generate query
+	s.builder.buildSql()
 
-		fmt.Println(s.builder.sql)
-		handlerValues(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
-		return
-	}
-
+	fmt.Println(s.builder.sql)
+	handlerValuesReturning(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
 }
 
 func (s *state) queryInsert(args []string, addrMap map[string]any) State {
 	s.builder.args = args
 	s.builder.buildInsert(addrMap)
 	return s
+}
+
+func (s *state) valueUpdate(target any) {
+	value := reflect.ValueOf(target)
+
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+
+	if value.Kind() != reflect.Struct {
+		fmt.Printf("%v: value for update needs to be a struct\n", pkg)
+		return
+	}
+
+	s.builder.buildSet(value)
+
+	//generate query
+	s.builder.buildSql()
+
+	fmt.Println(s.builder.sql)
+	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
+
 }
 
 func (s *state) queryUpdate(args []string, addrMap map[string]any) State {
@@ -131,7 +149,7 @@ func (s *state) values(v1 any, v2 any) {
 	s.builder.buildSql()
 
 	fmt.Println(s.builder.sql)
-	handlerValuesManytoMany(s.conn, s.builder.sql.String(), s.builder.argsAny)
+	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
 }
 
 func (s *state) queryInsertManyToMany(args []string, addrMap map[string]any) State {

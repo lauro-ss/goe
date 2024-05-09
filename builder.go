@@ -114,6 +114,7 @@ func (b *builder) buildSelect(addrMap map[string]any) {
 }
 
 func (b *builder) buildSql() {
+	//TODO: Remove this switch
 	switch b.queryType {
 	case querySELECT:
 		b.buildTables()
@@ -122,7 +123,8 @@ func (b *builder) buildSql() {
 	case queryINSERT:
 		writeInsert(b.sql, b.queue)
 	case queryUPDATE:
-		break
+		b.buildWhere()
+		writeUpdate(b.sql, b.queue)
 	case queryDELETE:
 		break
 	}
@@ -133,12 +135,14 @@ func (b *builder) buildWhere() {
 		return
 	}
 	b.queue.add(statementWHERE)
-	for i, br := range b.brs {
+	argsCount := len(b.argsAny) + 1
+	for _, br := range b.brs {
 		switch br.tip {
 		case EQUALS:
-			b.queue.add(createStatement(fmt.Sprintf("%v = $%v", br.arg, i+1), 0))
+			b.queue.add(createStatement(fmt.Sprintf("%v = $%v", br.arg, argsCount), 0))
 		}
 		b.argsAny = append(b.argsAny, br.value)
+		argsCount++
 	}
 }
 
@@ -199,21 +203,20 @@ func (b *builder) buildUpdate(addrMap map[string]any) {
 		switch atr := addrMap[v].(type) {
 		case *att:
 			b.queue.add(createStatement(atr.pk.table, writeDML))
-			b.queue.add(createStatement(atr.attributeName, writeATT))
+			b.queue.add(statementSET)
+			//b.queue.add(createStatement(fmt.Sprintf("%v = %v", atr.attributeName, "$1"), writeATT))
 			attrNames = append(attrNames, atr.attributeName)
 
 		case *pk:
 			if !atr.autoIncrement {
 				b.queue.add(createStatement(atr.table, writeDML))
-				b.queue.add(createStatement(atr.attributeName, writeATT))
+				b.queue.add(statementSET)
+				//b.queue.add(createStatement(fmt.Sprintf("%v = %v", atr.attributeName, "$1"), writeATT))
 				attrNames = append(attrNames, atr.attributeName)
 			}
 			b.pks.add(atr)
 		}
 	}
-
-	b.queue.add(statementSET)
-
 	b.attrNames = attrNames
 }
 
@@ -267,6 +270,14 @@ func (b *builder) buildInsertManyToMany(addrMap map[string]any) {
 	}
 
 	b.attrNames = attrNames
+}
+
+func (b *builder) buildSet(value reflect.Value) {
+	b.argsAny = make([]any, 0, len(b.attrNames))
+	for i, attr := range b.attrNames {
+		b.argsAny = append(b.argsAny, value.FieldByName(attr).Interface())
+		b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, i+1), writeATT))
+	}
 }
 
 func (b *builder) buildValues(value reflect.Value) string {

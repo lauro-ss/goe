@@ -7,7 +7,7 @@ import (
 	"reflect"
 )
 
-func handlerValuesManytoMany(conn conn, sqlQuery string, args []any) {
+func handlerValues(conn conn, sqlQuery string, args []any) {
 	_, err := conn.ExecContext(context.Background(), sqlQuery, args...)
 	if err != nil {
 		fmt.Println(err)
@@ -15,7 +15,7 @@ func handlerValuesManytoMany(conn conn, sqlQuery string, args []any) {
 	}
 }
 
-func handlerValues(conn conn, sqlQuery string, value reflect.Value, args []any, idName string) {
+func handlerValuesReturning(conn conn, sqlQuery string, value reflect.Value, args []any, idName string) {
 	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
 
 	targetId := value.FieldByName(idName)

@@ -90,3 +90,45 @@ func writeInsertStatement(sql *strings.Builder, n *node) {
 		sql.WriteString(n.value.keyword)
 	}
 }
+
+func writeUpdate(sql *strings.Builder, q *statementQueue) {
+	if q.head != nil {
+		writeUpdateStatement(sql, q.head)
+		q.head = q.head.next
+		q.size--
+		writeUpdate(sql, q)
+		return
+	}
+
+	sql.WriteString(";")
+}
+
+func writeUpdateStatement(sql *strings.Builder, n *node) {
+	switch n.value.tip {
+	case writeATT:
+		// next node is a attribute
+		if n.next != nil {
+			if n.next.value.tip == writeATT {
+				sql.WriteString(n.value.keyword)
+				sql.WriteRune(',')
+				return
+			} else {
+				sql.WriteString(n.value.keyword)
+				sql.WriteRune(' ')
+				return
+			}
+		}
+		sql.WriteString(n.value.keyword)
+	case writeDML:
+		sql.WriteString(n.value.keyword)
+		sql.WriteRune(' ')
+	case writeTABLE:
+		sql.WriteString(n.value.keyword)
+	case writeMIDDLE:
+		sql.WriteRune('\n')
+		sql.WriteString(n.value.keyword)
+		sql.WriteRune(' ')
+	default:
+		sql.WriteString(n.value.keyword)
+	}
+}
