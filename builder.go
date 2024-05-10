@@ -178,9 +178,11 @@ func (b *builder) buildWhere() {
 		switch br.tip {
 		case whereEQUALS:
 			b.queue.add(createStatement(fmt.Sprintf("%v = $%v", br.arg, argsCount), 0))
+			b.argsAny = append(b.argsAny, br.value)
+			argsCount++
+		case whereAND:
+			b.queue.add(createStatement(" AND ", 0))
 		}
-		b.argsAny = append(b.argsAny, br.value)
-		argsCount++
 	}
 }
 
