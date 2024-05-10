@@ -118,6 +118,29 @@ func (b *builder) buildSelect(addrMap map[string]any) {
 	b.queue.add(statementFROM)
 }
 
+func (b *builder) buildSelectJoins(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementSELECT)
+
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.tables.add(createStatement(atr.pk.table, writeTABLE))
+
+			//TODO: Add a list pk?
+			b.pks.add(atr.pk)
+		case *pk:
+			b.tables.add(createStatement(atr.table, writeTABLE))
+
+			//TODO: Add a list pk?
+			b.pks.add(atr)
+		}
+	}
+
+	b.queue.add(statementFROM)
+}
+
 func (b *builder) buildSql() {
 	//TODO: Remove this switch
 	switch b.queryType {
@@ -137,7 +160,7 @@ func (b *builder) buildSql() {
 
 func (b *builder) buildSqlDelete() {
 	b.buildWhere()
-	writeUpdate(b.sql, b.queue)
+	writeDelete(b.sql, b.queue)
 }
 
 func (b *builder) buildeSqlUpdateBetwent() {

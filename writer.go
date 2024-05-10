@@ -149,9 +149,15 @@ func writeDeleteStatement(sql *strings.Builder, n *node) {
 	switch n.value.tip {
 	case writeDML:
 		sql.WriteString(n.value.keyword)
-		sql.WriteRune(' ')
+		if n.next != nil {
+			sql.WriteRune(' ')
+		}
 	case writeTABLE:
 		sql.WriteString(n.value.keyword)
+	case writeMIDDLE:
+		sql.WriteRune('\n')
+		sql.WriteString(n.value.keyword)
+		sql.WriteRune(' ')
 	default:
 		sql.WriteString(n.value.keyword)
 	}

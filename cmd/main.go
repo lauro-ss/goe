@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
 )
@@ -47,7 +49,7 @@ type Status struct {
 }
 
 type Food struct {
-	Id      string `goe:"pk;t:uuid"`
+	Id      string `goe:"pk"`
 	Name    string
 	Animals []Animal `goe:"table:AnimalFood"`
 	Emoji   string
@@ -165,9 +167,10 @@ func main() {
 	// 	}()
 	// }
 	// time.Sleep(3 * time.Second)
-	// a := make([]Animal, 0)
-	// db.Select(db.Animal, db.Status).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
-	// fmt.Println(a)
+	a := make([]Animal, 0)
+	db.Select(db.Animal).Join(db.Habitat, db.Food).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	//db.Select(db.Animal, db.Status, db.Habitat).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	fmt.Println(a)
 	// animal := Animal{
 	// 	Id:    "8583db14-7ea7-4912-9b0c-ba33700c1e09",
 	// 	Name:  "Cow",

@@ -7,6 +7,7 @@ import (
 
 type stateSelect struct {
 	conn    conn
+	addrMap map[string]any
 	builder *builder
 }
 
@@ -19,9 +20,15 @@ func (s *stateSelect) Where(brs ...*booleanResult) SelectWhere {
 	return s
 }
 
-func (s *stateSelect) querySelect(args []string, addrMap map[string]any) *stateSelect {
+func (s *stateSelect) Join(tables ...any) Select {
+	s.builder.args = append(s.builder.args, getArgs(tables...)...)
+	s.builder.buildSelectJoins(s.addrMap)
+	return s
+}
+
+func (s *stateSelect) querySelect(args []string) *stateSelect {
 	s.builder.args = args
-	s.builder.buildSelect(addrMap)
+	s.builder.buildSelect(s.addrMap)
 	return s
 }
 

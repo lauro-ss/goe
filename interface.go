@@ -2,6 +2,7 @@ package goe
 
 type Select interface {
 	WhereSelect
+	Join
 	Result
 }
 
@@ -11,6 +12,10 @@ type WhereSelect interface {
 
 type SelectWhere interface {
 	Result
+}
+
+type Join interface {
+	Join(...any) Select
 }
 
 type Result interface {

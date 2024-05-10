@@ -31,8 +31,8 @@ func (db *DB) Select(args ...any) Select {
 	stringArgs := getArgs(args...)
 
 	state := createSelectState(db.conn, querySELECT)
-
-	return state.querySelect(stringArgs, db.addrMap)
+	state.addrMap = db.addrMap
+	return state.querySelect(stringArgs)
 }
 
 func (db *DB) Insert(table any) Insert {
