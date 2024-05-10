@@ -26,37 +26,45 @@ func (db *DB) open(name string, uri string) error {
 	return nil
 }
 
-func (db *DB) Select(args ...any) State {
+func (db *DB) Select(args ...any) Select {
 
 	stringArgs := getArgs(args...)
 
-	state := createState(db.conn, querySELECT)
+	state := createSelectState(db.conn, querySELECT)
 
 	return state.querySelect(stringArgs, db.addrMap)
 }
 
-func (db *DB) Insert(table any) State {
+func (db *DB) Insert(table any) Insert {
 	stringArgs := getArgs(table)
 
-	state := createState(db.conn, queryINSERT)
+	state := createInsertState(db.conn, queryINSERT)
 
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
-func (db *DB) InsertBetwent(table1 any, table2 any) State {
+func (db *DB) InsertBetwent(table1 any, table2 any) InsertBetwent {
 	stringArgs := getArgs(table1, table2)
 
-	state := createState(db.conn, queryINSERT)
+	state := createInsertState(db.conn, queryINSERT)
 
-	return state.queryInsertManyToMany(stringArgs, db.addrMap)
+	return state.queryInsertBetwent(stringArgs, db.addrMap)
 }
 
-func (db *DB) Update(table any) State {
+func (db *DB) Update(table any) Update {
 	stringArgs := getArgs(table)
 
-	state := createState(db.conn, queryUPDATE)
+	state := createUpdateState(db.conn, queryUPDATE)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
+}
+
+func (db *DB) UpdateBetwent(table1 any, table2 any) Update {
+	stringArgs := getArgs(table1, table2)
+
+	state := createUpdateBetwentState(db.conn, queryUPDATE)
+
+	return state.queryUpdateBetwent(stringArgs, db.addrMap)
 }
 
 func (db *DB) Equals(arg any, value any) *booleanResult {
@@ -66,12 +74,16 @@ func (db *DB) Equals(arg any, value any) *booleanResult {
 
 	switch atr := db.addrMap[addr].(type) {
 	case *att:
-		return createBooleanResult(atr.selectName, atr.pk, value, EQUALS)
+		return createBooleanResult(atr.selectName, atr.pk, value, whereEQUALS)
 	case *pk:
-		return createBooleanResult(atr.selectName, atr, value, EQUALS)
+		return createBooleanResult(atr.selectName, atr, value, whereEQUALS)
 	}
 
 	return nil
+}
+
+func (db *DB) And() *booleanResult {
+	return createBooleanResult("", nil, "", whereAND)
 }
 
 func getArgs(args ...any) []string {

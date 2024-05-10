@@ -173,7 +173,7 @@ func main() {
 	// 	Name:  "Cow",
 	// 	Emoji: "Emoji",
 	// }
-	// db.Insert(db.Animal).Result(&animal)
+	// db.Insert(db.Animal).Value(&animal)
 	// fmt.Println(animal)
 
 	// h := make([]Habitat, 0)
@@ -189,10 +189,23 @@ func main() {
 	// 	IdAnimal: "",
 	// 	IdFood:   "",
 	// }
-	//db.InsertBetwent(db.Animal, db.Food).Result("408834cc-bbdf-4173-bcae-34aaacfcd5fe", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
-	h := &Habitat{Name: "Vault 33"}
-	db.Update(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Result(h)
-	//db.UpdateBetwent(db.Animal,db.Food).Where(d)
+	//db.InsertBetwent(db.Animal, db.Food).Values("8583db14-7ea7-4912-9b0c-ba33700c1e09", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
+	// h := &Habitat{Name: "Vault 32"}
+	// db.Update(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Value(h)
+	// hh := make([]Habitat, 0)
+	// db.Select(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Result(&hh)
+	// fmt.Println(hh)
+	db.UpdateBetwent(db.Animal, db.Food).Where(
+		db.Equals(&db.Food.Id, "bc4beb79-035e-43cc-8bbf-b8ea8d17e56e"),
+		db.And(),
+		db.Equals(&db.Animal.Id, "8583db14-7ea7-4912-9b0c-ba33700c1e09"),
+	).Value("bc4beb79-035e-43cc-8bbf-b8ea8d17e56e")
+
+	// db.UpdateBetwent(db.Food, db.Animal).Where(
+	// 	db.Equals(&db.Animal.Id, ""),
+	// 	db.And(),
+	// 	db.Equals(&db.Food.Id, ""),
+	// ).Value("")
 	// db.Select(db.Status).Where(db.Equals(&db.Status.Alive, false)).Result(&a)
 
 	// db.Select(db.Food.Name).Result(nil)

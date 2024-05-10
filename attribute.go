@@ -45,7 +45,8 @@ func createAtt(selectName string, attributeName string, pk *pk) *att {
 }
 
 const (
-	EQUALS = 1
+	whereEQUALS = 1
+	whereAND    = 2
 )
 
 type booleanResult struct {

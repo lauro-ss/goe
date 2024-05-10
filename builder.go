@@ -130,6 +130,11 @@ func (b *builder) buildSql() {
 	}
 }
 
+func (b *builder) buildeSqlUpdateBetwent() {
+	b.buildWhereBetwent()
+	writeUpdate(b.sql, b.queue)
+}
+
 func (b *builder) buildWhere() {
 	if len(b.brs) == 0 {
 		return
@@ -138,12 +143,50 @@ func (b *builder) buildWhere() {
 	argsCount := len(b.argsAny) + 1
 	for _, br := range b.brs {
 		switch br.tip {
-		case EQUALS:
+		case whereEQUALS:
 			b.queue.add(createStatement(fmt.Sprintf("%v = $%v", br.arg, argsCount), 0))
 		}
 		b.argsAny = append(b.argsAny, br.value)
 		argsCount++
 	}
+}
+
+func (b *builder) buildWhereBetwent() {
+	if len(b.brs) == 0 {
+		return
+	}
+	b.queue.add(statementWHERE)
+	argsCount := len(b.argsAny) + 1
+
+	for _, br := range b.brs {
+		switch br.tip {
+		case whereEQUALS:
+			st := buildWhereBetwent(b.pks, br.pk, argsCount)
+			if st != nil {
+				b.queue.add(st)
+				b.argsAny = append(b.argsAny, br.value)
+				argsCount++
+			}
+		case whereAND:
+			b.queue.add(createStatement(" AND ", 0))
+		}
+	}
+}
+
+func buildWhereBetwent(pkQueue *pkQueue, brPk *pk, argsCount int) *statement {
+	pk2 := pkQueue.get()
+	if pk2 == nil {
+		pk2 = pkQueue.get()
+	}
+	for pk2 != nil {
+		mtm := brPk.fks[pk2.table]
+		if mtm != nil {
+			mtmValue := mtm.(*manyToMany)
+			return createStatement(fmt.Sprintf("%v = $%v", mtmValue.ids[brPk.table].attributeName, argsCount), 0)
+		}
+		pk2 = pkQueue.get()
+	}
+	return nil
 }
 
 func (b *builder) buildTables() {
@@ -220,6 +263,25 @@ func (b *builder) buildUpdate(addrMap map[string]any) {
 	b.attrNames = attrNames
 }
 
+func (b *builder) buildUpdateBetwent(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementUPDATE)
+
+	attrNames := make([]string, 0, len(b.args))
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.tables.add(createStatement(atr.pk.table, writeTABLE))
+			b.pks.add(atr.pk)
+		case *pk:
+			b.tables.add(createStatement(atr.table, writeTABLE))
+			b.pks.add(atr)
+		}
+	}
+	b.attrNames = attrNames
+}
+
 func (b *builder) buildInsert(addrMap map[string]any) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementINSERT)
@@ -278,6 +340,28 @@ func (b *builder) buildSet(value reflect.Value) {
 		b.argsAny = append(b.argsAny, value.FieldByName(attr).Interface())
 		b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, i+1), writeATT))
 	}
+}
+
+func (b *builder) buildSetBetwent() {
+	if b.tables.size != 2 {
+		return
+	}
+
+	stTable := b.tables.get()
+
+	// skips the first primary key
+	b.pks.get()
+	pk2 := b.pks.get()
+
+	mtm := pk2.fks[stTable.keyword]
+	if mtm == nil {
+		return
+	}
+
+	mtmValue := mtm.(*manyToMany)
+	b.queue.add(createStatement(mtmValue.table, writeDML))
+	b.queue.add(statementSET)
+	b.queue.add(createStatement(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName), writeATT))
 }
 
 func (b *builder) buildValues(value reflect.Value) string {
