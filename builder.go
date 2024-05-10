@@ -55,6 +55,11 @@ var (
 		keyword: "SET",
 		tip:     writeDML,
 	}
+
+	statementDELETE = &statement{
+		keyword: "DELETE",
+		tip:     writeDML,
+	}
 )
 
 type builder struct {
@@ -128,6 +133,11 @@ func (b *builder) buildSql() {
 	case queryDELETE:
 		break
 	}
+}
+
+func (b *builder) buildSqlDelete() {
+	b.buildWhere()
+	writeUpdate(b.sql, b.queue)
 }
 
 func (b *builder) buildeSqlUpdateBetwent() {
@@ -401,4 +411,22 @@ func (b *builder) buildValuesManyToMany() {
 
 	b.queue.add(createStatement("$1", writeATT))
 	b.queue.add(createStatement("$2", writeATT))
+}
+
+func (b *builder) buildDelete(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementDELETE)
+	b.queue.add(statementFROM)
+
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.queue.add(createStatement(atr.pk.table, writeDML))
+
+		case *pk:
+			b.queue.add(createStatement(atr.table, writeDML))
+		}
+	}
+
 }

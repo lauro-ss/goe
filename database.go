@@ -67,6 +67,14 @@ func (db *DB) UpdateBetwent(table1 any, table2 any) Update {
 	return state.queryUpdateBetwent(stringArgs, db.addrMap)
 }
 
+func (db *DB) Delete(table any) Delete {
+	stringArgs := getArgs(table)
+
+	state := createDeleteState(db.conn, queryUPDATE)
+
+	return state.queryDelete(stringArgs, db.addrMap)
+}
+
 func (db *DB) Equals(arg any, value any) *booleanResult {
 	addr := fmt.Sprintf("%p", arg)
 

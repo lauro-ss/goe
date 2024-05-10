@@ -195,11 +195,13 @@ func main() {
 	// hh := make([]Habitat, 0)
 	// db.Select(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Result(&hh)
 	// fmt.Println(hh)
-	db.UpdateBetwent(db.Animal, db.Food).Where(
-		db.Equals(&db.Food.Id, "bc4beb79-035e-43cc-8bbf-b8ea8d17e56e"),
-		db.And(),
-		db.Equals(&db.Animal.Id, "8583db14-7ea7-4912-9b0c-ba33700c1e09"),
-	).Value("bc4beb79-035e-43cc-8bbf-b8ea8d17e56e")
+	// db.UpdateBetwent(db.Animal, db.Food).Where(
+	// 	db.Equals(&db.Food.Id, "bc4beb79-035e-43cc-8bbf-b8ea8d17e56e"),
+	// 	db.And(),
+	// 	db.Equals(&db.Animal.Id, "8583db14-7ea7-4912-9b0c-ba33700c1e09"),
+	// ).Value("bc4beb79-035e-43cc-8bbf-b8ea8d17e56e")
+
+	db.Delete(db.Habitat).Where(db.Equals(&db.Habitat.Id, 1))
 
 	// db.UpdateBetwent(db.Food, db.Animal).Where(
 	// 	db.Equals(&db.Animal.Id, ""),

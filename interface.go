@@ -45,3 +45,7 @@ type Value interface {
 type Values interface {
 	Values(any, any)
 }
+
+type Delete interface {
+	Where(...*booleanResult)
+}

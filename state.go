@@ -176,9 +176,23 @@ type stateDelete struct {
 	builder *builder
 }
 
-type state struct {
-	conn    conn
-	builder *builder
+func createDeleteState(conn conn, qt int8) *stateDelete {
+	return &stateDelete{conn: conn, builder: createBuilder(qt)}
+}
+
+func (s *stateDelete) queryDelete(args []string, addrMap map[string]any) Delete {
+	s.builder.args = args
+	s.builder.buildDelete(addrMap)
+	return s
+}
+
+func (s *stateDelete) Where(brs ...*booleanResult) {
+	where(s.builder, brs...)
+
+	s.builder.buildSqlDelete()
+
+	fmt.Println(s.builder.sql)
+	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
 }
 
 func where(builder *builder, brs ...*booleanResult) {

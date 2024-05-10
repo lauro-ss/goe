@@ -132,3 +132,27 @@ func writeUpdateStatement(sql *strings.Builder, n *node) {
 		sql.WriteString(n.value.keyword)
 	}
 }
+
+func writeDelete(sql *strings.Builder, q *statementQueue) {
+	if q.head != nil {
+		writeDeleteStatement(sql, q.head)
+		q.head = q.head.next
+		q.size--
+		writeDelete(sql, q)
+		return
+	}
+
+	sql.WriteString(";")
+}
+
+func writeDeleteStatement(sql *strings.Builder, n *node) {
+	switch n.value.tip {
+	case writeDML:
+		sql.WriteString(n.value.keyword)
+		sql.WriteRune(' ')
+	case writeTABLE:
+		sql.WriteString(n.value.keyword)
+	default:
+		sql.WriteString(n.value.keyword)
+	}
+}
