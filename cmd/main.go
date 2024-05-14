@@ -139,25 +139,21 @@ func main() {
 
 	//db.Open("pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
 
-	// go func() {
-	// 	a := make([]Animal, 10)
-	// 	db.Select(db.Food.IdFood, db.Animal.Emoji).Result(&a)
-	// 	fmt.Println(a)
-	// }()
-
-	// go func() {
-	// 	a := make([]Animal, 10)
-	// 	db.Select(db.Food.IdFood, db.Animal.Emoji).Result(&a)
-	// 	fmt.Println(a)
-	// }()
-
+	// for i := 0; i < 10; i++ {
+	// 	go func() {
+	// 		a := make([]Animal, 10)
+	// 		db.Select(&db.Food.Id, &db.Animal.Emoji).Result(&a)
+	// 		fmt.Println(a)
+	// 	}()
+	// }
+	// time.Sleep(3 * time.Second)
 	//fmt.Println(db.Animal)
 	// var t []struct {
 	// 	Id string
 	// }
 
-	// 	db.Select(&db.Food.Id).Result(&t)
-	// 	fmt.Println(t)
+	// db.Select(&db.Food.Id).Result(&t)
+	// fmt.Println(t)
 
 	// for i := 0; i < 100; i++ {
 	// 	go func() {
@@ -167,10 +163,17 @@ func main() {
 	// 	}()
 	// }
 	// time.Sleep(3 * time.Second)
-	a := make([]Animal, 0)
-	db.Select(db.Animal).Join(db.Habitat, db.Food).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	// a := make([]Animal, 0)
+	// db.Select(db.Animal).Join(db.Habitat, db.Status).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
+	// fmt.Println(a)
+	// db.Select(db.Animal).Join(db.Habitat, db.Status).Where(
+	// 	db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47"),
+	// 	db.Or(),
+	// 	db.Equals(&db.Habitat.Id, 1),
+	// ).Result(&a)
+	// db.Select(db.Animal).
+	// 	Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
 	//db.Select(db.Animal, db.Status, db.Habitat).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
-	fmt.Println(a)
 	// animal := Animal{
 	// 	Id:    "8583db14-7ea7-4912-9b0c-ba33700c1e09",
 	// 	Name:  "Cow",
@@ -195,16 +198,16 @@ func main() {
 	//db.InsertBetwent(db.Animal, db.Food).Values("8583db14-7ea7-4912-9b0c-ba33700c1e09", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
 	// h := &Habitat{Name: "Vault 32"}
 	// db.Update(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Value(h)
-	// hh := make([]Habitat, 0)
-	// db.Select(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Result(&hh)
-	// fmt.Println(hh)
-	// db.UpdateBetwent(db.Animal, db.Food).Where(
-	// 	db.Equals(&db.Food.Id, "bc4beb79-035e-43cc-8bbf-b8ea8d17e56e"),
-	// 	db.And(),
-	// 	db.Equals(&db.Animal.Id, "8583db14-7ea7-4912-9b0c-ba33700c1e09"),
-	// ).Value("bc4beb79-035e-43cc-8bbf-b8ea8d17e56e")
+	hh := make([]Habitat, 0)
+	db.Select(db.Habitat).Where().Result(&hh)
+	fmt.Println(hh)
+	db.UpdateBetwent(db.Animal, db.Food).Where(
+		db.Equals(&db.Food.Id, "bc4beb79-035e-43cc-8bbf-b8ea8d17e56e"),
+		db.And(),
+		db.Equals(&db.Animal.Id, "8583db14-7ea7-4912-9b0c-ba33700c1e09"),
+	).Value("bc4beb79-035e-43cc-8bbf-b8ea8d17e56e")
 
-	db.Delete(db.Habitat).Where(db.Equals(&db.Habitat.Id, 1))
+	db.Delete(db.Habitat).Where()
 
 	// db.UpdateBetwent(db.Food, db.Animal).Where(
 	// 	db.Equals(&db.Animal.Id, ""),

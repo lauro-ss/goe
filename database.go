@@ -75,23 +75,25 @@ func (db *DB) Delete(table any) Delete {
 	return state.queryDelete(stringArgs, db.addrMap)
 }
 
-func (db *DB) Equals(arg any, value any) *booleanResult {
+func (db *DB) Equals(arg any, value any) operator {
 	addr := fmt.Sprintf("%p", arg)
-
-	//TODO: Add a return interface
 
 	switch atr := db.addrMap[addr].(type) {
 	case *att:
-		return createBooleanResult(atr.selectName, atr.pk, value, whereEQUALS)
+		return createComplexOperator(atr.selectName, "=", value, atr.pk)
 	case *pk:
-		return createBooleanResult(atr.selectName, atr, value, whereEQUALS)
+		return createComplexOperator(atr.selectName, "=", value, atr)
 	}
 
 	return nil
 }
 
-func (db *DB) And() *booleanResult {
-	return createBooleanResult("", nil, "", whereAND)
+func (db *DB) And() operator {
+	return simpleOperator{operator: "AND"}
+}
+
+func (db *DB) Or() operator {
+	return simpleOperator{operator: "OR"}
 }
 
 func getArgs(args ...any) []string {

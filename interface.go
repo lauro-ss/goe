@@ -7,7 +7,7 @@ type Select interface {
 }
 
 type WhereSelect interface {
-	Where(...*booleanResult) SelectWhere
+	Where(...operator) SelectWhere
 }
 
 type SelectWhere interface {
@@ -36,7 +36,7 @@ type Update interface {
 }
 
 type WhereUpdate interface {
-	Where(...*booleanResult) UpdateWhere
+	Where(...operator) UpdateWhere
 }
 
 type UpdateWhere interface {
@@ -52,5 +52,9 @@ type Values interface {
 }
 
 type Delete interface {
-	Where(...*booleanResult)
+	Where(...operator)
+}
+
+type operator interface {
+	operation() string
 }

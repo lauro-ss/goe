@@ -15,7 +15,7 @@ func createSelectState(conn conn, qt int8) *stateSelect {
 	return &stateSelect{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateSelect) Where(brs ...*booleanResult) SelectWhere {
+func (s *stateSelect) Where(brs ...operator) SelectWhere {
 	where(s.builder, brs...)
 	return s
 }
@@ -114,7 +114,7 @@ func createUpdateState(conn conn, qt int8) *stateUpdate {
 	return &stateUpdate{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateUpdate) Where(brs ...*booleanResult) UpdateWhere {
+func (s *stateUpdate) Where(brs ...operator) UpdateWhere {
 	where(s.builder, brs...)
 	return s
 }
@@ -156,7 +156,7 @@ func createUpdateBetwentState(conn conn, qt int8) *stateUpdateBetwent {
 	return &stateUpdateBetwent{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateUpdateBetwent) Where(brs ...*booleanResult) UpdateWhere {
+func (s *stateUpdateBetwent) Where(brs ...operator) UpdateWhere {
 	where(s.builder, brs...)
 	return s
 }
@@ -193,7 +193,7 @@ func (s *stateDelete) queryDelete(args []string, addrMap map[string]any) Delete 
 	return s
 }
 
-func (s *stateDelete) Where(brs ...*booleanResult) {
+func (s *stateDelete) Where(brs ...operator) {
 	where(s.builder, brs...)
 
 	s.builder.buildSqlDelete()
@@ -202,12 +202,12 @@ func (s *stateDelete) Where(brs ...*booleanResult) {
 	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
 }
 
-func where(builder *builder, brs ...*booleanResult) {
+func where(builder *builder, brs ...operator) {
 	builder.brs = brs
 	for _, br := range builder.brs {
-		if br.pk != nil {
-			builder.tables.add(createStatement(br.pk.table, writeTABLE))
-			builder.pks.add(br.pk)
+		if op, ok := br.(complexOperator); ok {
+			builder.tables.add(createStatement(op.pk.table, writeTABLE))
+			builder.pks.add(op.pk)
 		}
 	}
 }

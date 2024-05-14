@@ -67,7 +67,7 @@ type builder struct {
 	args      []string
 	argsAny   []any
 	attrNames []string
-	brs       []*booleanResult
+	brs       []operator
 	queue     *statementQueue
 	tables    *statementQueue
 	pks       *pkQueue
@@ -174,14 +174,15 @@ func (b *builder) buildWhere() {
 	}
 	b.queue.add(statementWHERE)
 	argsCount := len(b.argsAny) + 1
-	for _, br := range b.brs {
-		switch br.tip {
-		case whereEQUALS:
-			b.queue.add(createStatement(fmt.Sprintf("%v = $%v", br.arg, argsCount), 0))
-			b.argsAny = append(b.argsAny, br.value)
+	for _, op := range b.brs {
+		switch v := op.(type) {
+		case complexOperator:
+			v.setValueFlag(fmt.Sprintf("$%v", argsCount))
+			b.queue.add(createStatement(v.operation(), 0))
+			b.argsAny = append(b.argsAny, v.value)
 			argsCount++
-		case whereAND:
-			b.queue.add(createStatement(" AND ", 0))
+		case simpleOperator:
+			b.queue.add(createStatement(v.operation(), 0))
 		}
 	}
 }
@@ -193,17 +194,17 @@ func (b *builder) buildWhereBetwent() {
 	b.queue.add(statementWHERE)
 	argsCount := len(b.argsAny) + 1
 
-	for _, br := range b.brs {
-		switch br.tip {
-		case whereEQUALS:
-			st := buildWhereBetwent(b.pks, br.pk, argsCount)
+	for _, op := range b.brs {
+		switch v := op.(type) {
+		case complexOperator:
+			st := buildWhereBetwent(b.pks, v.pk, argsCount)
 			if st != nil {
 				b.queue.add(st)
-				b.argsAny = append(b.argsAny, br.value)
+				b.argsAny = append(b.argsAny, v.value)
 				argsCount++
 			}
-		case whereAND:
-			b.queue.add(createStatement(" AND ", 0))
+		case simpleOperator:
+			b.queue.add(createStatement(v.operation(), 0))
 		}
 	}
 }

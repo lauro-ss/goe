@@ -43,19 +43,3 @@ func createAtt(selectName string, attributeName string, pk *pk) *att {
 	return &att{
 		attributeStrings: createAttributeStrings(selectName, attributeName), pk: pk}
 }
-
-const (
-	whereEQUALS = 1
-	whereAND    = 2
-)
-
-type booleanResult struct {
-	arg   string
-	pk    *pk
-	value any
-	tip   int8
-}
-
-func createBooleanResult(arg string, pk *pk, value any, tip int8) *booleanResult {
-	return &booleanResult{arg: arg, pk: pk, value: value, tip: tip}
-}
