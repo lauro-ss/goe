@@ -12,6 +12,7 @@ type conn struct {
 
 type DB struct {
 	conn    conn
+	config  Config
 	addrMap map[string]any
 }
 
@@ -24,6 +25,52 @@ func (db *DB) open(name string, uri string) error {
 		return err
 	}
 	return nil
+}
+
+type migrateTable struct {
+	pk       *pk
+	atts     []*att
+	migrated bool
+}
+
+func (db *DB) Migrate() {
+	tables := make(map[string]*migrateTable, 0)
+	for _, v := range db.addrMap {
+		switch atr := v.(type) {
+		case *pk:
+			if tables[atr.table] == nil {
+				tables[atr.table] = newMigrateTable(db, atr.table)
+			}
+		}
+	}
+
+	for _, t := range tables {
+		generateSql(t, tables)
+	}
+}
+
+func newMigrateTable(db *DB, tableName string) *migrateTable {
+	table := new(migrateTable)
+	for _, v := range db.addrMap {
+		switch atr := v.(type) {
+		case *pk:
+			if atr.table == tableName {
+				table.pk = atr
+			}
+		case *att:
+			if atr.pk.table == tableName {
+				table.atts = append(table.atts, atr)
+			}
+		}
+	}
+
+	return table
+}
+
+func generateSql(mt *migrateTable, tables map[string]*migrateTable) {
+	if !mt.migrated {
+		fmt.Println("CREATE TABLE " + mt.pk.table)
+	}
 }
 
 func (db *DB) Select(args ...any) Select {

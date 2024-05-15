@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
 )
@@ -99,7 +97,11 @@ func main() {
 	// }
 
 	db := &Database{DB: &goe.DB{}}
-	goe.Open(db, "pgx", "user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable")
+	goe.Open(db,
+		"pgx",
+		"user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable",
+		goe.Config{MigrationsPath: "/"})
+	db.Migrate()
 	//goe.Map(db.Animal, &Animal{})
 	//goe.Connect(db)
 	// goe.Map(db, Status{})
@@ -198,16 +200,16 @@ func main() {
 	//db.InsertBetwent(db.Animal, db.Food).Values("8583db14-7ea7-4912-9b0c-ba33700c1e09", "523da8fd-3e75-4220-a244-a2a73a21ae3e")
 	// h := &Habitat{Name: "Vault 32"}
 	// db.Update(db.Habitat).Where(db.Equals(&db.Habitat.Id, 0)).Value(h)
-	hh := make([]Habitat, 0)
-	db.Select(db.Habitat).Where().Result(&hh)
-	fmt.Println(hh)
-	db.UpdateBetwent(db.Animal, db.Food).Where(
-		db.Equals(&db.Food.Id, "bc4beb79-035e-43cc-8bbf-b8ea8d17e56e"),
-		db.And(),
-		db.Equals(&db.Animal.Id, "8583db14-7ea7-4912-9b0c-ba33700c1e09"),
-	).Value("bc4beb79-035e-43cc-8bbf-b8ea8d17e56e")
+	// hh := make([]Habitat, 0)
+	// db.Select(db.Habitat).Where().Result(&hh)
+	// fmt.Println(hh)
+	// db.UpdateBetwent(db.Animal, db.Food).Where(
+	// 	db.Equals(&db.Food.Id, "bc4beb79-035e-43cc-8bbf-b8ea8d17e56e"),
+	// 	db.And(),
+	// 	db.Equals(&db.Animal.Id, "8583db14-7ea7-4912-9b0c-ba33700c1e09"),
+	// ).Value("bc4beb79-035e-43cc-8bbf-b8ea8d17e56e")
 
-	db.Delete(db.Habitat).Where()
+	// db.Delete(db.Habitat).Where()
 
 	// db.UpdateBetwent(db.Food, db.Animal).Where(
 	// 	db.Equals(&db.Animal.Id, ""),

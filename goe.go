@@ -7,7 +7,11 @@ import (
 	"strings"
 )
 
-func Open(db any, driverName string, uri string) error {
+type Config struct {
+	MigrationsPath string
+}
+
+func Open(db any, driverName string, uri string, config Config) error {
 	valueOf := reflect.ValueOf(db)
 	if valueOf.Kind() != reflect.Ptr {
 		return fmt.Errorf("%v: the target value needs to be pass as a pointer", pkg)
@@ -29,7 +33,11 @@ func Open(db any, driverName string, uri string) error {
 		}
 	}
 
-	dbTarget.open(driverName, uri)
+	err := dbTarget.open(driverName, uri)
+	if err != nil {
+		return err
+	}
+	dbTarget.config = config
 	valueOf.FieldByName("DB").Set(reflect.ValueOf(dbTarget))
 	return nil
 }
@@ -87,7 +95,7 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 		switch value := v.(type) {
 		case *pk:
 			if value.table == targetTypeOf.Name() {
-				switch fk := value.fks[targetTypeOf.Name()].(type) {
+				switch fk := value.fks[typeOf.Name()].(type) {
 				case *manyToMany:
 					return fk
 				}
