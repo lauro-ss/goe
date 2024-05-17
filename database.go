@@ -98,8 +98,8 @@ func (db *DB) InsertBetwent(table1 any, table2 any) InsertBetwent {
 	return state.queryInsertBetwent(stringArgs, db.addrMap)
 }
 
-func (db *DB) Update(table any) Update {
-	stringArgs := getArgs(table)
+func (db *DB) Update(tables ...any) Update {
+	stringArgs := getArgs(tables...)
 
 	state := createUpdateState(db.conn, queryUPDATE)
 
