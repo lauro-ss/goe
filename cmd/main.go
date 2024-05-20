@@ -25,9 +25,9 @@ import (
 // }
 
 type Animal struct {
-	Id       string `goe:"pk"`
-	Emoji    string
-	Name     string
+	Id       string `goe:"pk;type:varchar(16)"`
+	Emoji    *string
+	Name     string `goe:"type:varchar(30)"`
 	Foods    []Food `goe:"table:AnimalFood"`
 	Status   []Status
 	Habitats []Habitat `goe:"table:AnimalHabitat"`

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type conn struct {
@@ -45,7 +46,7 @@ func (db *DB) Migrate() {
 	}
 
 	for _, t := range tables {
-		generateSql(t, tables)
+		generateSql(db, t, tables)
 	}
 }
 
@@ -67,10 +68,78 @@ func newMigrateTable(db *DB, tableName string) *migrateTable {
 	return table
 }
 
-func generateSql(mt *migrateTable, tables map[string]*migrateTable) {
+type databaseTable struct {
+	columnName   string
+	dataType     string
+	defaultValue *string
+	isNullable   string
+}
+
+func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
+	sqlTableInfos := `SELECT column_name, CASE 
+	WHEN data_type = 'character varying' 
+	THEN CONCAT('varchar','(',character_maximum_length,')')
+	WHEN data_type = 'text'
+	THEN 'string'
+	WHEN data_type = 'boolean'
+	THEN 'bool'
+	ELSE data_type END, 
+	column_default, 
+	is_nullable 
+	FROM information_schema.columns WHERE table_name = $1;
+	`
+
 	if !mt.migrated {
-		fmt.Println("CREATE TABLE " + mt.pk.table)
+		rows, err := db.conn.Query(sqlTableInfos, mt.pk.table)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer rows.Close()
+
+		dts := make([]databaseTable, 0)
+		dt := databaseTable{}
+		for rows.Next() {
+			err = rows.Scan(&dt.columnName, &dt.dataType, &dt.defaultValue, &dt.isNullable)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			dts = append(dts, dt)
+		}
+		if len(dts) > 0 {
+			//check fileds
+			for i := range dts {
+				checkFields(dts[i], mt, tables)
+			}
+		} else {
+			fmt.Println("CREATE TABLE " + mt.pk.table)
+		}
 	}
+}
+
+func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable) {
+	if databaseTable.columnName == strings.ToLower(mt.pk.attributeName) {
+		// primary key field
+		//fmt.Println(databaseTable, mt.pk)
+	}
+	for _, att := range mt.atts {
+		if databaseTable.columnName == strings.ToLower(att.attributeName) {
+			if databaseTable.dataType != att.dataType {
+				fmt.Println(alterColumn(mt.pk.table, att.attributeName, att.dataType))
+			}
+		}
+	}
+}
+
+func alterColumn(table, column, dataType string) string {
+	dataMap := map[string]string{
+		"string": "text",
+	}
+	if dataMap[dataType] == "" {
+		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v", table, column, dataType)
+	}
+	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v", table, column, dataMap[dataType])
 }
 
 func (db *DB) Select(args ...any) Select {

@@ -1,5 +1,7 @@
 package goe
 
+import "strings"
+
 type manyToMany struct {
 	table string
 	ids   map[string]attributeStrings
@@ -13,10 +15,11 @@ type manyToOne struct {
 type attributeStrings struct {
 	selectName    string
 	attributeName string
+	dataType      string
 }
 
-func createAttributeStrings(selectName string, attributeName string) attributeStrings {
-	return attributeStrings{selectName: selectName, attributeName: attributeName}
+func createAttributeStrings(selectName string, attributeName string, dataType string) attributeStrings {
+	return attributeStrings{selectName: selectName, attributeName: attributeName, dataType: dataType}
 }
 
 type pk struct {
@@ -26,20 +29,21 @@ type pk struct {
 	attributeStrings
 }
 
-func createPk(table string, selectName string, attributeName string, autoIncrement bool) *pk {
+func createPk(table string, selectName string, attributeName string, autoIncrement bool, typeString string) *pk {
 	return &pk{
-		table:            table,
-		attributeStrings: createAttributeStrings(selectName, attributeName),
+		table:            strings.ToLower(table),
+		attributeStrings: createAttributeStrings(selectName, attributeName, typeString),
 		autoIncrement:    autoIncrement,
 		fks:              make(map[string]any)}
 }
 
 type att struct {
 	attributeStrings
-	pk *pk
+	nullable bool
+	pk       *pk
 }
 
-func createAtt(selectName string, attributeName string, pk *pk) *att {
+func createAtt(selectName string, attributeName string, pk *pk, typeString string, nullable bool) *att {
 	return &att{
-		attributeStrings: createAttributeStrings(selectName, attributeName), pk: pk}
+		attributeStrings: createAttributeStrings(selectName, attributeName, typeString), pk: pk, nullable: nullable}
 }
