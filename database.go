@@ -30,7 +30,7 @@ func (db *DB) open(name string, uri string) error {
 
 type migrateTable struct {
 	pk       *pk
-	atts     []*att
+	atts     map[string]any
 	migrated bool
 }
 
@@ -52,15 +52,22 @@ func (db *DB) Migrate() {
 
 func newMigrateTable(db *DB, tableName string) *migrateTable {
 	table := new(migrateTable)
+	table.atts = make(map[string]any)
 	for _, v := range db.addrMap {
 		switch atr := v.(type) {
 		case *pk:
 			if atr.table == tableName {
 				table.pk = atr
+				for _, fkAny := range atr.fks {
+					switch fk := fkAny.(type) {
+					case *manyToOne:
+						table.atts[strings.Split(fk.id, ".")[1]] = fk
+					}
+				}
 			}
 		case *att:
 			if atr.pk.table == tableName {
-				table.atts = append(table.atts, atr)
+				table.atts[atr.attributeName] = atr
 			}
 		}
 	}
@@ -72,11 +79,12 @@ type databaseTable struct {
 	columnName   string
 	dataType     string
 	defaultValue *string
-	isNullable   string
+	nullable     bool
 }
 
 func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
-	sqlTableInfos := `SELECT column_name, CASE 
+	sqlTableInfos := `SELECT
+	column_name, CASE 
 	WHEN data_type = 'character varying' 
 	THEN CONCAT('varchar','(',character_maximum_length,')')
 	WHEN data_type = 'text'
@@ -85,8 +93,11 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 	THEN 'bool'
 	ELSE data_type END, 
 	column_default, 
-	is_nullable 
-	FROM information_schema.columns WHERE table_name = $1;
+	CASE
+	WHEN is_nullable = 'YES'
+	THEN True
+	ELSE False END AS is_nullable
+	FROM information_schema.columns WHERE table_name = $1;	
 	`
 
 	if !mt.migrated {
@@ -100,7 +111,7 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 		dts := make([]databaseTable, 0)
 		dt := databaseTable{}
 		for rows.Next() {
-			err = rows.Scan(&dt.columnName, &dt.dataType, &dt.defaultValue, &dt.isNullable)
+			err = rows.Scan(&dt.columnName, &dt.dataType, &dt.defaultValue, &dt.nullable)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -119,15 +130,23 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 }
 
 func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable) {
-	if databaseTable.columnName == strings.ToLower(mt.pk.attributeName) {
+	if databaseTable.columnName == mt.pk.attributeName {
 		// primary key field
 		//fmt.Println(databaseTable, mt.pk)
+		return
 	}
-	for _, att := range mt.atts {
-		if databaseTable.columnName == strings.ToLower(att.attributeName) {
-			if databaseTable.dataType != att.dataType {
-				fmt.Println(alterColumn(mt.pk.table, att.attributeName, att.dataType))
-			}
+	attrAny := mt.atts[databaseTable.columnName]
+	if attrAny == nil {
+		//fmt.Printf("goe:field '%v'exists on database table but is missed on struct %v\n", databaseTable.columnName, mt.pk.table)
+		//prompt a question to drop or set as a rename field
+	}
+	switch attr := attrAny.(type) {
+	case *att:
+		if databaseTable.dataType != attr.dataType {
+			//fmt.Println(alterColumn(attr.pk.table, databaseTable.columnName, attr.dataType))
+		}
+		if databaseTable.nullable != attr.nullable {
+			fmt.Println(nullableColumn(attr.pk.table, attr.attributeName, attr.nullable))
 		}
 	}
 }
@@ -140,6 +159,17 @@ func alterColumn(table, column, dataType string) string {
 		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v", table, column, dataType)
 	}
 	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v", table, column, dataMap[dataType])
+}
+
+func nullableColumn(table, columnName string, nullable bool) string {
+	if nullable {
+		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v DROP NOT NULL", table, columnName)
+	}
+	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v SET NOT NULL", table, columnName)
+}
+
+func renameColumn(table, oldColumnName, newColumnName string) string {
+	return fmt.Sprintf("ALTER TABLE %v RENAME COLUMN %v TO %v", table, oldColumnName, newColumnName)
 }
 
 func (db *DB) Select(args ...any) Select {

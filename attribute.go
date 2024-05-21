@@ -19,7 +19,10 @@ type attributeStrings struct {
 }
 
 func createAttributeStrings(selectName string, attributeName string, dataType string) attributeStrings {
-	return attributeStrings{selectName: selectName, attributeName: attributeName, dataType: dataType}
+	return attributeStrings{
+		selectName:    strings.ToLower(selectName),
+		attributeName: strings.ToLower(attributeName),
+		dataType:      strings.ToLower(dataType)}
 }
 
 type pk struct {

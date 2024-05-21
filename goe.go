@@ -136,7 +136,7 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 		case reflect.Struct:
 			if targetTypeOf.Field(i).Type.Name() == typeOf.Name() {
 				var mto manyToOne
-				mto.id = fmt.Sprintf("%v.%v", targetTypeOf.Name(), primaryKeys(typeOf)[0].Name+typeOf.Name())
+				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
 				mto.hasMany = true
 				return &mto
 			}
@@ -152,7 +152,7 @@ func isManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type) *manyToOne {
 		case reflect.Slice:
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
 				var mto manyToOne
-				mto.id = fmt.Sprintf("%v.%v", typeOf.Name(), primaryKeys(targetTypeOf)[0].Name+targetTypeOf.Name())
+				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(typeOf.Name()), strings.ToLower(primaryKeys(targetTypeOf)[0].Name+targetTypeOf.Name()))
 				mto.hasMany = false
 
 				return &mto
