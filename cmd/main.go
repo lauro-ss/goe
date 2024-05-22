@@ -28,6 +28,7 @@ type Animal struct {
 	Id       string `goe:"pk;type:varchar(16)"`
 	Emoji    *string
 	Name     string `goe:"type:varchar(30)"`
+	Tail     string `goe:"type:varchar(30)"`
 	Foods    []Food `goe:"table:AnimalFood"`
 	Status   []Status
 	Habitats []Habitat `goe:"table:AnimalHabitat"`
@@ -40,14 +41,14 @@ type Habitat struct {
 }
 
 type Status struct {
-	Id    string
+	Id    string `goe:"type:uuid"`
 	Name  string
 	Alive bool
 	Animal
 }
 
 type Food struct {
-	Id      string `goe:"pk"`
+	Id      string `goe:"type:uuid"`
 	Name    string
 	Animals []Animal `goe:"table:AnimalFood"`
 	Emoji   string

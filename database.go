@@ -28,9 +28,14 @@ func (db *DB) open(name string, uri string) error {
 	return nil
 }
 
+type migrateAttribute struct {
+	attribute any
+	migrated  bool
+}
+
 type migrateTable struct {
 	pk       *pk
-	atts     map[string]any
+	atts     map[string]*migrateAttribute
 	migrated bool
 }
 
@@ -52,22 +57,31 @@ func (db *DB) Migrate() {
 
 func newMigrateTable(db *DB, tableName string) *migrateTable {
 	table := new(migrateTable)
-	table.atts = make(map[string]any)
+	table.atts = make(map[string]*migrateAttribute)
 	for _, v := range db.addrMap {
 		switch atr := v.(type) {
 		case *pk:
 			if atr.table == tableName {
 				table.pk = atr
+				ma := new(migrateAttribute)
+				ma.attribute = atr
+				table.atts[atr.attributeName] = ma
 				for _, fkAny := range atr.fks {
 					switch fk := fkAny.(type) {
 					case *manyToOne:
-						table.atts[strings.Split(fk.id, ".")[1]] = fk
+						if !fk.hasMany {
+							ma := new(migrateAttribute)
+							ma.attribute = fk
+							table.atts[strings.Split(fk.id, ".")[1]] = ma
+						}
 					}
 				}
 			}
 		case *att:
 			if atr.pk.table == tableName {
-				table.atts[atr.attributeName] = atr
+				ma := new(migrateAttribute)
+				ma.attribute = atr
+				table.atts[atr.attributeName] = ma
 			}
 		}
 	}
@@ -87,10 +101,13 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 	column_name, CASE 
 	WHEN data_type = 'character varying' 
 	THEN CONCAT('varchar','(',character_maximum_length,')')
-	WHEN data_type = 'text'
-	THEN 'string'
-	WHEN data_type = 'boolean'
-	THEN 'bool'
+	WHEN data_type = 'text' THEN 'string'
+	WHEN data_type = 'boolean' THEN 'bool'
+	WHEN data_type = 'smallint' THEN 'int16'
+	WHEN data_type = 'integer' THEN 'int32'
+	WHEN data_type = 'bigint' THEN 'int64'
+	WHEN data_type = 'real' THEN 'float32'
+	WHEN data_type = 'double precision' THEN 'float64'
 	ELSE data_type END, 
 	column_default, 
 	CASE
@@ -99,6 +116,14 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 	ELSE False END AS is_nullable
 	FROM information_schema.columns WHERE table_name = $1;	
 	`
+	dataMap := map[string]string{
+		"string":  "text",
+		"int16":   "smallint",
+		"int32":   "integer",
+		"int64":   "bigint",
+		"float32": "real",
+		"float64": "double precision",
+	}
 
 	if !mt.migrated {
 		rows, err := db.conn.Query(sqlTableInfos, mt.pk.table)
@@ -121,40 +146,74 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 		if len(dts) > 0 {
 			//check fileds
 			for i := range dts {
-				checkFields(dts[i], mt, tables)
+				checkFields(dts[i], mt, tables, dataMap)
 			}
+			checkNewFields(mt)
 		} else {
 			fmt.Println("CREATE TABLE " + mt.pk.table)
 		}
 	}
 }
 
-func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable) {
-	if databaseTable.columnName == mt.pk.attributeName {
-		// primary key field
-		//fmt.Println(databaseTable, mt.pk)
-		return
-	}
+func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string) {
 	attrAny := mt.atts[databaseTable.columnName]
 	if attrAny == nil {
 		//fmt.Printf("goe:field '%v'exists on database table but is missed on struct %v\n", databaseTable.columnName, mt.pk.table)
 		//prompt a question to drop or set as a rename field
+		//attrAny = mt.atts[databaseTable.columnName]
+		return
 	}
-	switch attr := attrAny.(type) {
-	case *att:
+	switch attr := attrAny.attribute.(type) {
+	case *pk:
+		attr.dataType = checkDataType(attr.dataType)
 		if databaseTable.dataType != attr.dataType {
-			//fmt.Println(alterColumn(attr.pk.table, databaseTable.columnName, attr.dataType))
+			//fmt.Println(alterColumn(attr.table, databaseTable.columnName, attr.dataType, dataMap))
+		}
+		attrAny.migrated = true
+	case *att:
+		attr.dataType = checkDataType(attr.dataType)
+		if databaseTable.dataType != attr.dataType {
+			//fmt.Println(alterColumn(attr.pk.table, databaseTable.columnName, attr.dataType, dataMap))
 		}
 		if databaseTable.nullable != attr.nullable {
-			fmt.Println(nullableColumn(attr.pk.table, attr.attributeName, attr.nullable))
+			//fmt.Println(nullableColumn(attr.pk.table, attr.attributeName, attr.nullable))
+		}
+		attrAny.migrated = true
+	case *manyToOne:
+		attrAny.migrated = true
+	}
+}
+
+func checkNewFields(mt *migrateTable) {
+	for _, v := range mt.atts {
+		if !v.migrated {
+			switch attr := v.attribute.(type) {
+			case *att:
+				fmt.Println(addColumn(mt.pk.table, attr.attributeName, attr.dataType, attr.nullable))
+			}
 		}
 	}
 }
 
-func alterColumn(table, column, dataType string) string {
-	dataMap := map[string]string{
-		"string": "text",
+func addColumn(table, column, dataType string, nullable bool) string {
+	if nullable {
+		return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v NULL", table, column, dataType)
 	}
+	return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v NOT NULL", table, column, dataType)
+}
+
+func checkDataType(structDataType string) string {
+	if structDataType == "int8" || structDataType == "uint8" || structDataType == "uint16" {
+		structDataType = "int16"
+	} else if structDataType == "int" || structDataType == "uint" || structDataType == "uint32" {
+		structDataType = "int32"
+	} else if structDataType == "uint64" {
+		structDataType = "int64"
+	}
+	return structDataType
+}
+
+func alterColumn(table, column, dataType string, dataMap map[string]string) string {
 	if dataMap[dataType] == "" {
 		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v", table, column, dataType)
 	}
