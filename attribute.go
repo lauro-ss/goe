@@ -43,10 +43,11 @@ func createPk(table string, selectName string, attributeName string, autoIncreme
 type att struct {
 	attributeStrings
 	nullable bool
+	unique   bool
 	pk       *pk
 }
 
-func createAtt(selectName string, attributeName string, pk *pk, typeString string, nullable bool) *att {
+func createAtt(selectName string, attributeName string, pk *pk, typeString string, nullable bool, unique bool) *att {
 	return &att{
-		attributeStrings: createAttributeStrings(selectName, attributeName, typeString), pk: pk, nullable: nullable}
+		attributeStrings: createAttributeStrings(selectName, attributeName, typeString), pk: pk, nullable: nullable, unique: unique}
 }

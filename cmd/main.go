@@ -25,11 +25,11 @@ import (
 // }
 
 type Animal struct {
-	Id       string `goe:"pk;type:varchar(16)"`
-	Emoji    *string
-	Name     string `goe:"type:varchar(30)"`
-	Tail     string `goe:"type:varchar(30)"`
-	Foods    []Food `goe:"table:AnimalFood"`
+	Id       string  `goe:"pk;type:varchar(16)"`
+	Emoji    *string `goe:"index:unique"`
+	Name     string  `goe:"type:varchar(30)"`
+	Tail     string  `goe:"type:varchar(30)"`
+	Foods    []Food  `goe:"table:AnimalFood"`
 	Status   []Status
 	Habitats []Habitat `goe:"table:AnimalHabitat"`
 }

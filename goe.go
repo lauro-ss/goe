@@ -66,6 +66,7 @@ func initField(valueOf reflect.Value, db *DB) {
 					p,
 					getType(field),
 					field.Type.String()[0] == '*',
+					getIndex(field),
 				)
 				db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
 			}
@@ -206,4 +207,9 @@ func getType(field reflect.StructField) string {
 		return dataType[1:]
 	}
 	return dataType
+}
+
+func getIndex(field reflect.StructField) bool {
+	value := getTagValue(field.Tag.Get("goe"), "index:")
+	return value == "unique"
 }

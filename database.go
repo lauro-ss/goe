@@ -29,8 +29,10 @@ func (db *DB) open(name string, uri string) error {
 }
 
 type migrateAttribute struct {
-	attribute any
-	migrated  bool
+	attribute     any
+	migrated      bool
+	index         bool
+	migratedIndex bool
 }
 
 type migrateTable struct {
@@ -52,6 +54,7 @@ func (db *DB) Migrate() {
 
 	for _, t := range tables {
 		generateSql(db, t, tables)
+		generateIndex(db, t.atts, t.pk.table)
 	}
 }
 
@@ -81,6 +84,8 @@ func newMigrateTable(db *DB, tableName string) *migrateTable {
 			if atr.pk.table == tableName {
 				ma := new(migrateAttribute)
 				ma.attribute = atr
+				//TODO: Add more index
+				ma.index = atr.unique
 				table.atts[atr.attributeName] = ma
 			}
 		}
@@ -153,6 +158,68 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 			fmt.Println("CREATE TABLE " + mt.pk.table)
 		}
 	}
+}
+
+type databaseIndex struct {
+	attributeName string
+	unique        bool
+	primaryKey    bool
+}
+
+func generateIndex(db *DB, attrs map[string]*migrateAttribute, table string) {
+	sql := `SELECT a.attname as attribute, i.indisunique as is_unique, i.indisprimary as is_primary FROM pg_index i
+	JOIN pg_attribute a ON i.indexrelid = a.attrelid
+	JOIN pg_class ci ON ci.oid = i.indexrelid
+	JOIN pg_class c ON c.oid = i.indrelid
+	WHERE c.relname = $1;
+	`
+
+	rows, err := db.conn.Query(sql, table)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	dis := make([]databaseIndex, 0)
+	di := databaseIndex{}
+	for rows.Next() {
+		err = rows.Scan(&di.attributeName, &di.unique, &di.primaryKey)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		dis = append(dis, di)
+	}
+	//check fileds
+	for _, di = range dis {
+		attrAny := attrs[di.attributeName]
+		if attrAny != nil {
+			switch attr := attrAny.attribute.(type) {
+			case *att:
+				fmt.Println("check changes", attr)
+			}
+		} else {
+			fmt.Println(attrAny)
+		}
+	}
+	checkNewIndexs(attrs)
+
+}
+
+func checkNewIndexs(attrs map[string]*migrateAttribute) {
+	for _, v := range attrs {
+		if v.index && !v.migratedIndex {
+			switch attr := v.attribute.(type) {
+			case *att:
+				fmt.Println(createUniqueIndex(attr.pk.table, attr.attributeName))
+			}
+		}
+	}
+}
+
+func createUniqueIndex(table, attribute string) string {
+	return fmt.Sprintf("CREATE UNIQUE INDEX ON %v (%v);", table, attribute)
 }
 
 func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string) {
