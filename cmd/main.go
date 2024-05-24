@@ -28,16 +28,17 @@ type Animal struct {
 	Id       string  `goe:"pk;type:varchar(16)"`
 	Emoji    *string `goe:"index:unique"`
 	Name     string  `goe:"type:varchar(30)"`
-	Tail     string  `goe:"type:varchar(30)"`
-	Foods    []Food  `goe:"table:AnimalFood"`
+	Tail     string
+	Foods    []Food `goe:"table:AnimalFood"`
 	Status   []Status
 	Habitats []Habitat `goe:"table:AnimalHabitat"`
 }
 
 type Habitat struct {
-	Id      int
-	Name    string
-	Animals []Animal `goe:"table:AnimalHabitat"`
+	Id       int
+	Name     string
+	Weathers []Weather
+	Animals  []Animal `goe:"table:AnimalHabitat"`
 }
 
 type Status struct {
@@ -52,6 +53,13 @@ type Food struct {
 	Name    string
 	Animals []Animal `goe:"table:AnimalFood"`
 	Emoji   string
+}
+
+type Weather struct {
+	Name  string
+	Id    string `goe:"type:varchar(16)"`
+	Emoji *string
+	*Habitat
 }
 
 // type AnimalDb struct {
@@ -82,6 +90,7 @@ type Database struct {
 	Food    *Food
 	Status  *Status
 	Habitat *Habitat
+	Weather *Weather
 	*goe.DB
 }
 

@@ -51,11 +51,20 @@ func initField(valueOf reflect.Value, db *DB) {
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
 			if mtm := isManytoMany(valueOf.Field(i).Type().Elem(), valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db); mtm != nil {
-				p.fks[valueOf.Field(i).Type().Elem().Name()] = mtm
+				key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
+				p.fks[key] = mtm
 			}
 		case reflect.Struct:
-			if mto := isManyToOne(valueOf.Field(i).Type(), valueOf.Type()); mto != nil {
-				p.fks[valueOf.Field(i).Type().Name()] = mto
+			if mto := isManyToOne(valueOf.Field(i).Type(), valueOf.Type(), false); mto != nil {
+				key := strings.ToLower(valueOf.Field(i).Type().Name())
+				p.fks[key] = mto
+			}
+		case reflect.Ptr:
+			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
+				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type(), true); mto != nil {
+					key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
+					p.fks[key] = mto
+				}
 			}
 		default:
 			field = valueOf.Type().Field(i)
@@ -137,6 +146,15 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 		case reflect.Struct:
 			if targetTypeOf.Field(i).Type.Name() == typeOf.Name() {
 				var mto manyToOne
+				mto.targetTable = strings.ToLower(typeOf.Name())
+				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
+				mto.hasMany = true
+				return &mto
+			}
+		case reflect.Ptr:
+			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
+				var mto manyToOne
+				mto.targetTable = strings.ToLower(typeOf.Name())
 				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
 				mto.hasMany = true
 				return &mto
@@ -147,15 +165,16 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 	return nil
 }
 
-func isManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type) *manyToOne {
+func isManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type, nullable bool) *manyToOne {
 	for i := 0; i < targetTypeOf.NumField(); i++ {
 		switch targetTypeOf.Field(i).Type.Kind() {
 		case reflect.Slice:
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
 				var mto manyToOne
+				mto.targetTable = strings.ToLower(targetTypeOf.Name())
 				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(typeOf.Name()), strings.ToLower(primaryKeys(targetTypeOf)[0].Name+targetTypeOf.Name()))
 				mto.hasMany = false
-
+				mto.nullable = nullable
 				return &mto
 			}
 		}

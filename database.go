@@ -153,11 +153,43 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 			for i := range dts {
 				checkFields(dts[i], mt, tables, dataMap)
 			}
-			checkNewFields(mt)
+			checkNewFields(mt, dataMap)
 		} else {
+			t := table{}
 			fmt.Println("CREATE TABLE " + mt.pk.table)
+			for _, attrAny := range mt.atts {
+				switch attr := attrAny.attribute.(type) {
+				case *pk:
+					attr.dataType = checkDataType(attr.dataType, dataMap)
+					t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, attr.dataType)
+				case *att:
+					attr.dataType = checkDataType(attr.dataType, dataMap)
+					t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v\n", attr.attributeName, attr.dataType, func(n bool) string {
+						if n {
+							return "NULL"
+						} else {
+							return "NOT NULL"
+						}
+					}(attr.nullable)))
+				case *manyToOne:
+					pk := tables[attr.targetTable].pk
+					pk.dataType = checkDataType(pk.dataType, dataMap)
+					fmt.Printf("%v %v %v REFERENCES %v\n", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
+						if n {
+							return "NULL"
+						} else {
+							return "NOT NULL"
+						}
+					}(attr.nullable), pk.table)
+				}
+			}
 		}
 	}
+}
+
+type table struct {
+	createPk    string
+	createAttrs []string
 }
 
 type databaseIndex struct {
@@ -232,13 +264,13 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 	}
 	switch attr := attrAny.attribute.(type) {
 	case *pk:
-		attr.dataType = checkDataType(attr.dataType)
+		attr.dataType = checkDataType(attr.dataType, dataMap)
 		if databaseTable.dataType != attr.dataType {
 			//fmt.Println(alterColumn(attr.table, databaseTable.columnName, attr.dataType, dataMap))
 		}
 		attrAny.migrated = true
 	case *att:
-		attr.dataType = checkDataType(attr.dataType)
+		attr.dataType = checkDataType(attr.dataType, dataMap)
 		if databaseTable.dataType != attr.dataType {
 			//fmt.Println(alterColumn(attr.pk.table, databaseTable.columnName, attr.dataType, dataMap))
 		}
@@ -251,12 +283,13 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 	}
 }
 
-func checkNewFields(mt *migrateTable) {
+func checkNewFields(mt *migrateTable, dataMap map[string]string) {
 	for _, v := range mt.atts {
 		if !v.migrated {
 			switch attr := v.attribute.(type) {
 			case *att:
-				fmt.Println(addColumn(mt.pk.table, attr.attributeName, attr.dataType, attr.nullable))
+				attr.dataType = checkDataType(attr.dataType, dataMap)
+				//fmt.Println(addColumn(mt.pk.table, attr.attributeName, attr.dataType, attr.nullable))
 			}
 		}
 	}
@@ -269,13 +302,16 @@ func addColumn(table, column, dataType string, nullable bool) string {
 	return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v NOT NULL", table, column, dataType)
 }
 
-func checkDataType(structDataType string) string {
+func checkDataType(structDataType string, dataMap map[string]string) string {
 	if structDataType == "int8" || structDataType == "uint8" || structDataType == "uint16" {
 		structDataType = "int16"
 	} else if structDataType == "int" || structDataType == "uint" || structDataType == "uint32" {
 		structDataType = "int32"
 	} else if structDataType == "uint64" {
 		structDataType = "int64"
+	}
+	if dataMap[structDataType] != "" {
+		structDataType = dataMap[structDataType]
 	}
 	return structDataType
 }

@@ -8,8 +8,10 @@ type manyToMany struct {
 }
 
 type manyToOne struct {
-	id      string
-	hasMany bool
+	targetTable string
+	nullable    bool
+	id          string
+	hasMany     bool
 }
 
 type attributeStrings struct {
