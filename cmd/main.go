@@ -60,6 +60,14 @@ type Weather struct {
 	Id    string `goe:"type:varchar(16)"`
 	Emoji *string
 	*Habitat
+	Season
+}
+
+type Season struct {
+	Id       string
+	Name     string
+	Emoji    *string
+	Weathers []Weather
 }
 
 // type AnimalDb struct {
@@ -91,6 +99,7 @@ type Database struct {
 	Status  *Status
 	Habitat *Habitat
 	Weather *Weather
+	Season  *Season
 	*goe.DB
 }
 

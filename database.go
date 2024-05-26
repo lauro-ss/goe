@@ -52,9 +52,30 @@ func (db *DB) Migrate() {
 		}
 	}
 
+	dataMap := map[string]string{
+		"string":  "text",
+		"int16":   "smallint",
+		"int32":   "integer",
+		"int64":   "bigint",
+		"float32": "real",
+		"float64": "double precision",
+	}
+
+	// check for changes
 	for _, t := range tables {
-		generateSql(db, t, tables)
-		generateIndex(db, t.atts, t.pk.table)
+		generateSql(db, t, tables, dataMap)
+		generateIndex(db, t.atts, t.pk.table, dataMap)
+	}
+
+	var tablesCreate []table
+	// create new tables
+	for _, t := range tables {
+		if !t.migrated {
+			tablesCreate = createTable(t, tables, dataMap, tablesCreate)
+		}
+	}
+	for _, t := range tablesCreate {
+		fmt.Println(t.createPk)
 	}
 }
 
@@ -101,7 +122,7 @@ type databaseTable struct {
 	nullable     bool
 }
 
-func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
+func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string) {
 	sqlTableInfos := `SELECT
 	column_name, CASE 
 	WHEN data_type = 'character varying' 
@@ -121,73 +142,92 @@ func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable) {
 	ELSE False END AS is_nullable
 	FROM information_schema.columns WHERE table_name = $1;	
 	`
-	dataMap := map[string]string{
-		"string":  "text",
-		"int16":   "smallint",
-		"int32":   "integer",
-		"int64":   "bigint",
-		"float32": "real",
-		"float64": "double precision",
-	}
 
-	if !mt.migrated {
-		rows, err := db.conn.Query(sqlTableInfos, mt.pk.table)
+	rows, err := db.conn.Query(sqlTableInfos, mt.pk.table)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	dts := make([]databaseTable, 0)
+	dt := databaseTable{}
+	for rows.Next() {
+		err = rows.Scan(&dt.columnName, &dt.dataType, &dt.defaultValue, &dt.nullable)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		defer rows.Close()
-
-		dts := make([]databaseTable, 0)
-		dt := databaseTable{}
-		for rows.Next() {
-			err = rows.Scan(&dt.columnName, &dt.dataType, &dt.defaultValue, &dt.nullable)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			dts = append(dts, dt)
+		dts = append(dts, dt)
+	}
+	if len(dts) > 0 {
+		//check fileds
+		for i := range dts {
+			checkFields(dts[i], mt, tables, dataMap)
 		}
-		if len(dts) > 0 {
-			//check fileds
-			for i := range dts {
-				checkFields(dts[i], mt, tables, dataMap)
-			}
-			checkNewFields(mt, dataMap)
-		} else {
-			t := table{}
-			fmt.Println("CREATE TABLE " + mt.pk.table)
-			for _, attrAny := range mt.atts {
-				switch attr := attrAny.attribute.(type) {
-				case *pk:
-					attr.dataType = checkDataType(attr.dataType, dataMap)
-					t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, attr.dataType)
-				case *att:
-					attr.dataType = checkDataType(attr.dataType, dataMap)
-					t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v\n", attr.attributeName, attr.dataType, func(n bool) string {
-						if n {
-							return "NULL"
-						} else {
-							return "NOT NULL"
-						}
-					}(attr.nullable)))
-				case *manyToOne:
-					pk := tables[attr.targetTable].pk
-					pk.dataType = checkDataType(pk.dataType, dataMap)
-					fmt.Printf("%v %v %v REFERENCES %v\n", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
-						if n {
-							return "NULL"
-						} else {
-							return "NOT NULL"
-						}
-					}(attr.nullable), pk.table)
-				}
-			}
-		}
+		checkNewFields(mt, dataMap)
 	}
 }
 
+func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, tablesCreate []table) []table {
+	t := table{}
+	mt.migrated = true
+	t.name = mt.pk.table
+	for _, attrAny := range mt.atts {
+		switch attr := attrAny.attribute.(type) {
+		case *pk:
+			attr.dataType = checkDataType(attr.dataType, dataMap)
+			t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, attr.dataType)
+		case *att:
+			attr.dataType = checkDataType(attr.dataType, dataMap)
+			t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v\n", attr.attributeName, attr.dataType, func(n bool) string {
+				if n {
+					return "NULL"
+				} else {
+					return "NOT NULL"
+				}
+			}(attr.nullable)))
+		case *manyToOne:
+			tableFk := tables[attr.targetTable]
+			if tableFk == nil {
+				fmt.Printf("goe: table '%v' not mapped\n", attr.targetTable)
+				return nil
+			}
+			//TODO: Check if table exists
+			if tableFk.migrated {
+				pk := tableFk.pk
+				pk.dataType = checkDataType(pk.dataType, dataMap)
+				t.createAttrs = append(t.createAttrs,
+					fmt.Sprintf("%v %v %v REFERENCES %v\n", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
+						if n {
+							return "NULL"
+						} else {
+							return "NOT NULL"
+						}
+					}(attr.nullable), pk.table),
+				)
+			} else {
+				tablesCreate = append(tablesCreate, createTable(tableFk, tables, dataMap, tablesCreate)...)
+				pk := tableFk.pk
+				pk.dataType = checkDataType(pk.dataType, dataMap)
+				t.createAttrs = append(t.createAttrs,
+					fmt.Sprintf("%v %v %v REFERENCES %v\n", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
+						if n {
+							return "NULL"
+						} else {
+							return "NOT NULL"
+						}
+					}(attr.nullable), pk.table),
+				)
+			}
+		}
+	}
+	tablesCreate = append(tablesCreate, t)
+	return tablesCreate
+}
+
 type table struct {
+	name        string
 	createPk    string
 	createAttrs []string
 }
@@ -198,7 +238,7 @@ type databaseIndex struct {
 	primaryKey    bool
 }
 
-func generateIndex(db *DB, attrs map[string]*migrateAttribute, table string) {
+func generateIndex(db *DB, attrs map[string]*migrateAttribute, table string, dataMap map[string]string) {
 	sql := `SELECT a.attname as attribute, i.indisunique as is_unique, i.indisprimary as is_primary FROM pg_index i
 	JOIN pg_attribute a ON i.indexrelid = a.attrelid
 	JOIN pg_class ci ON ci.oid = i.indexrelid
@@ -269,6 +309,7 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 			//fmt.Println(alterColumn(attr.table, databaseTable.columnName, attr.dataType, dataMap))
 		}
 		attrAny.migrated = true
+		tables[attr.table].migrated = true
 	case *att:
 		attr.dataType = checkDataType(attr.dataType, dataMap)
 		if databaseTable.dataType != attr.dataType {
@@ -278,8 +319,7 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 			//fmt.Println(nullableColumn(attr.pk.table, attr.attributeName, attr.nullable))
 		}
 		attrAny.migrated = true
-	case *manyToOne:
-		attrAny.migrated = true
+		tables[attr.pk.table].migrated = true
 	}
 }
 
