@@ -39,6 +39,7 @@ type Habitat struct {
 	Name     string
 	Weathers []Weather
 	Animals  []Animal `goe:"table:AnimalHabitat"`
+	Foods    []Food   `goe:"table:FoodHabitat"`
 }
 
 type Status struct {
@@ -49,10 +50,11 @@ type Status struct {
 }
 
 type Food struct {
-	Id      string `goe:"type:uuid"`
-	Name    string
-	Animals []Animal `goe:"table:AnimalFood"`
-	Emoji   string
+	Id       string `goe:"type:uuid"`
+	Name     string
+	Animals  []Animal  `goe:"table:AnimalFood"`
+	Habitats []Habitat `goe:"table:FoodHabitat"`
+	Emoji    string
 }
 
 type Weather struct {
@@ -64,7 +66,7 @@ type Weather struct {
 }
 
 type Season struct {
-	Id       string
+	Id       int
 	Name     string
 	Emoji    *string
 	Weathers []Weather

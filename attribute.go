@@ -1,10 +1,40 @@
 package goe
 
-import "strings"
+import (
+	"fmt"
+	"reflect"
+	"strings"
+)
 
 type manyToMany struct {
 	table string
 	ids   map[string]attributeStrings
+}
+
+func createManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type) *manyToMany {
+	table := getTagValue(tag, "table:")
+	if table == "" {
+		return nil
+	}
+	nameTargetTypeOf := strings.ToLower(targetTypeOf.Name())
+	nameTypeOf := strings.ToLower(typeOf.Name())
+
+	mtm := new(manyToMany)
+	mtm.table = table
+	mtm.ids = make(map[string]attributeStrings)
+	pk := primaryKeys(typeOf)[0]
+
+	id := pk.Name
+	id += nameTypeOf
+	mtm.ids[nameTypeOf] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id, getType(pk))
+
+	// target id
+	pkTarget := primaryKeys(targetTypeOf)[0]
+	id = pkTarget.Name
+	id += nameTargetTypeOf
+
+	mtm.ids[nameTargetTypeOf] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id, getType(pkTarget))
+	return mtm
 }
 
 type manyToOne struct {
@@ -12,6 +42,15 @@ type manyToOne struct {
 	nullable    bool
 	id          string
 	hasMany     bool
+}
+
+func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool) *manyToOne {
+	mto := new(manyToOne)
+	mto.targetTable = strings.ToLower(typeOf.Name())
+	mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
+	mto.hasMany = hasMany
+	mto.nullable = nullable
+	return mto
 }
 
 type attributeStrings struct {

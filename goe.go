@@ -65,6 +65,19 @@ func initField(valueOf reflect.Value, db *DB) {
 					key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
 					p.fks[key] = mto
 				}
+			} else {
+				field = valueOf.Type().Field(i)
+				if field.Name != fieldName {
+					at := createAtt(
+						fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
+						valueOf.Type().Field(i).Name,
+						p,
+						getType(field),
+						field.Type.String()[0] == '*',
+						getIndex(field),
+					)
+					db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
+				}
 			}
 		default:
 			field = valueOf.Type().Field(i)
@@ -105,11 +118,14 @@ func isAutoIncrement(id reflect.StructField) bool {
 }
 
 func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db *DB) any {
+	nameTargetTypeOf := strings.ToLower(targetTypeOf.Name())
+	nameTypeOf := strings.ToLower(typeOf.Name())
+
 	for _, v := range db.addrMap {
 		switch value := v.(type) {
 		case *pk:
-			if value.table == targetTypeOf.Name() {
-				switch fk := value.fks[typeOf.Name()].(type) {
+			if value.table == nameTargetTypeOf {
+				switch fk := value.fks[nameTypeOf].(type) {
 				case *manyToMany:
 					return fk
 				}
@@ -121,43 +137,15 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 		switch targetTypeOf.Field(i).Type.Kind() {
 		case reflect.Slice:
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				table := getTagValue(tag, "table:")
-				if table == "" {
-					return nil
-				}
-				var mtm manyToMany
-				mtm.table = table
-				mtm.ids = make(map[string]attributeStrings)
-
-				pk := primaryKeys(typeOf)[0]
-				id := pk.Name
-				id += typeOf.Name()
-				mtm.ids[typeOf.Name()] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id, getType(pk))
-
-				// target id
-				pkTarget := primaryKeys(targetTypeOf)[0]
-				id = pkTarget.Name
-				id += targetTypeOf.Name()
-
-				mtm.ids[targetTypeOf.Name()] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id, getType(pkTarget))
-
-				return &mtm
+				return createManyToMany(tag, typeOf, targetTypeOf)
 			}
 		case reflect.Struct:
 			if targetTypeOf.Field(i).Type.Name() == typeOf.Name() {
-				var mto manyToOne
-				mto.targetTable = strings.ToLower(typeOf.Name())
-				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
-				mto.hasMany = true
-				return &mto
+				return createManyToOne(typeOf, targetTypeOf, true, false)
 			}
 		case reflect.Ptr:
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				var mto manyToOne
-				mto.targetTable = strings.ToLower(typeOf.Name())
-				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
-				mto.hasMany = true
-				return &mto
+				return createManyToOne(typeOf, targetTypeOf, true, false)
 			}
 		}
 	}
@@ -170,12 +158,7 @@ func isManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type, nullable bool) 
 		switch targetTypeOf.Field(i).Type.Kind() {
 		case reflect.Slice:
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				var mto manyToOne
-				mto.targetTable = strings.ToLower(targetTypeOf.Name())
-				mto.id = fmt.Sprintf("%v.%v", strings.ToLower(typeOf.Name()), strings.ToLower(primaryKeys(targetTypeOf)[0].Name+targetTypeOf.Name()))
-				mto.hasMany = false
-				mto.nullable = nullable
-				return &mto
+				return createManyToOne(targetTypeOf, typeOf, false, nullable)
 			}
 		}
 	}
@@ -210,7 +193,7 @@ func getTagValue(fieldTag string, subTag string) string {
 	values := strings.Split(fieldTag, ";")
 	for _, v := range values {
 		if _, after, found := strings.Cut(v, subTag); found {
-			return after
+			return strings.ToLower(after)
 		}
 	}
 	return ""

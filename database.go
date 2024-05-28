@@ -43,14 +43,7 @@ type migrateTable struct {
 
 func (db *DB) Migrate() {
 	tables := make(map[string]*migrateTable, 0)
-	for _, v := range db.addrMap {
-		switch atr := v.(type) {
-		case *pk:
-			if tables[atr.table] == nil {
-				tables[atr.table] = newMigrateTable(db, atr.table)
-			}
-		}
-	}
+	tablesManyToMany := make(map[string]*manyToMany, 0)
 
 	dataMap := map[string]string{
 		"string":  "text",
@@ -61,9 +54,26 @@ func (db *DB) Migrate() {
 		"float64": "double precision",
 	}
 
+	for _, v := range db.addrMap {
+		switch atr := v.(type) {
+		case *pk:
+			if tables[atr.table] == nil {
+				tables[atr.table] = newMigrateTable(db, atr.table)
+			}
+			for _, fkAny := range atr.fks {
+				switch fk := fkAny.(type) {
+				case *manyToMany:
+					if tablesManyToMany[fk.table] == nil {
+						tablesManyToMany[fk.table] = fk
+					}
+				}
+			}
+		}
+	}
+
 	// check for changes
 	for _, t := range tables {
-		generateSql(db, t, tables, dataMap)
+		checkTable(db, t, tables, dataMap)
 		generateIndex(db, t.atts, t.pk.table, dataMap)
 	}
 
@@ -74,9 +84,94 @@ func (db *DB) Migrate() {
 			tablesCreate = createTable(t, tables, dataMap, tablesCreate)
 		}
 	}
+	//TODO: Add sql builder
 	for _, t := range tablesCreate {
-		fmt.Println(t.createPk)
+		fmt.Println(t.createPk, t.createAttrs)
 	}
+
+	//TODO: Add sql builder
+	for _, t := range tablesManyToMany {
+		createManyToManyTable(db, t, dataMap)
+	}
+
+	dropTables(db, tables, tablesManyToMany)
+}
+
+func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[string]*manyToMany) {
+	databaseTables := make([]string, 0)
+	sql := `SELECT ic.table_name FROM information_schema.columns ic where ic.table_schema = 'public' group by ic.table_name;`
+	rows, err := db.conn.Query(sql)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	var table string
+
+	for rows.Next() {
+		err = rows.Scan(&table)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		databaseTables = append(databaseTables, table)
+	}
+
+	for _, table = range databaseTables {
+		ok := false
+		for key := range tables {
+			if table == key {
+				ok = true
+				break
+			}
+		}
+		for key := range tablesManyToMany {
+			if table == key {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			fmt.Println("drop table", table)
+		}
+	}
+
+}
+
+type tableManytoMany struct {
+	name string
+	ids  []string
+}
+
+func createManyToManyTable(db *DB, mtm *manyToMany, dataMap map[string]string) {
+	sql := `SELECT
+	table_name
+	FROM information_schema.columns WHERE table_name = $1;`
+
+	rows, err := db.conn.Query(sql, mtm.table)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		return
+	}
+	//TODO: add sql builder
+	fmt.Println(newMigrateTableManyToMany(mtm, dataMap))
+}
+
+func newMigrateTableManyToMany(fk *manyToMany, dataMap map[string]string) *tableManytoMany {
+	table := new(tableManytoMany)
+	table.name = fmt.Sprintf("CREATE TABLE %v", fk.table)
+	table.ids = make([]string, len(fk.ids))
+	for _, attr := range fk.ids {
+		attr.dataType = checkDataType(attr.dataType, dataMap)
+		table.ids = append(table.ids, fmt.Sprintf("%v %v NOT NULL", attr.attributeName, attr.dataType))
+	}
+	return table
 }
 
 func newMigrateTable(db *DB, tableName string) *migrateTable {
@@ -122,7 +217,7 @@ type databaseTable struct {
 	nullable     bool
 }
 
-func generateSql(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string) {
+func checkTable(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string) {
 	sqlTableInfos := `SELECT
 	column_name, CASE 
 	WHEN data_type = 'character varying' 
@@ -177,10 +272,14 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 		switch attr := attrAny.attribute.(type) {
 		case *pk:
 			attr.dataType = checkDataType(attr.dataType, dataMap)
-			t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, attr.dataType)
+			if attr.autoIncrement {
+				t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, checkTypeAutoIncrement(attr.dataType))
+			} else {
+				t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, attr.dataType)
+			}
 		case *att:
 			attr.dataType = checkDataType(attr.dataType, dataMap)
-			t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v\n", attr.attributeName, attr.dataType, func(n bool) string {
+			t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v", attr.attributeName, attr.dataType, func(n bool) string {
 				if n {
 					return "NULL"
 				} else {
@@ -193,12 +292,11 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 				fmt.Printf("goe: table '%v' not mapped\n", attr.targetTable)
 				return nil
 			}
-			//TODO: Check if table exists
 			if tableFk.migrated {
 				pk := tableFk.pk
 				pk.dataType = checkDataType(pk.dataType, dataMap)
 				t.createAttrs = append(t.createAttrs,
-					fmt.Sprintf("%v %v %v REFERENCES %v\n", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
+					fmt.Sprintf("%v %v %v REFERENCES %v", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
 						if n {
 							return "NULL"
 						} else {
@@ -211,7 +309,7 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 				pk := tableFk.pk
 				pk.dataType = checkDataType(pk.dataType, dataMap)
 				t.createAttrs = append(t.createAttrs,
-					fmt.Sprintf("%v %v %v REFERENCES %v\n", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
+					fmt.Sprintf("%v %v %v REFERENCES %v", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
 						if n {
 							return "NULL"
 						} else {
@@ -354,6 +452,14 @@ func checkDataType(structDataType string, dataMap map[string]string) string {
 		structDataType = dataMap[structDataType]
 	}
 	return structDataType
+}
+
+func checkTypeAutoIncrement(structDataType string) string {
+	dataMap := map[string]string{
+		"integer": "serial",
+		"bigint":  "bigserial",
+	}
+	return dataMap[structDataType]
 }
 
 func alterColumn(table, column, dataType string, dataMap map[string]string) string {
