@@ -84,17 +84,26 @@ func (db *DB) Migrate() {
 			tablesCreate = createTable(t, tables, dataMap, tablesCreate)
 		}
 	}
+	sql := new(strings.Builder)
 	//TODO: Add sql builder
 	for _, t := range tablesCreate {
-		fmt.Println(t.createPk, t.createAttrs)
+		createTableSql(t.name, t.createPk, t.createAttrs, sql)
 	}
 
 	//TODO: Add sql builder
 	for _, t := range tablesManyToMany {
-		createManyToManyTable(db, t, dataMap)
+		if table := createManyToManyTable(db, t, dataMap); table != nil {
+			createTableSql(table.tableName, table.createPks, table.ids, sql)
+		}
 	}
 
 	dropTables(db, tables, tablesManyToMany)
+
+	if sql.Len() != 0 {
+		if _, err := db.conn.Exec(sql.String()); err != nil {
+			fmt.Println(err)
+		}
+	}
 }
 
 func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[string]*manyToMany) {
@@ -140,11 +149,21 @@ func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[st
 }
 
 type tableManytoMany struct {
-	name string
-	ids  []string
+	tableName string
+	ids       []string
+	createPks string
 }
 
-func createManyToManyTable(db *DB, mtm *manyToMany, dataMap map[string]string) {
+func createTableSql(create, pks string, attributes []string, sql *strings.Builder) {
+	sql.WriteString(create)
+	for _, a := range attributes {
+		sql.WriteString(a)
+	}
+	sql.WriteString(pks)
+	sql.WriteString(");")
+}
+
+func createManyToManyTable(db *DB, mtm *manyToMany, dataMap map[string]string) *tableManytoMany {
 	sql := `SELECT
 	table_name
 	FROM information_schema.columns WHERE table_name = $1;`
@@ -152,24 +171,26 @@ func createManyToManyTable(db *DB, mtm *manyToMany, dataMap map[string]string) {
 	rows, err := db.conn.Query(sql, mtm.table)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return nil
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		return
+		return nil
 	}
 	//TODO: add sql builder
-	fmt.Println(newMigrateTableManyToMany(mtm, dataMap))
+	return newMigrateTableManyToMany(mtm, dataMap)
 }
 
 func newMigrateTableManyToMany(fk *manyToMany, dataMap map[string]string) *tableManytoMany {
 	table := new(tableManytoMany)
-	table.name = fmt.Sprintf("CREATE TABLE %v", fk.table)
-	table.ids = make([]string, len(fk.ids))
+	table.tableName = fmt.Sprintf("CREATE TABLE %v (", fk.table)
+	table.ids = make([]string, 0, len(fk.ids))
+	table.createPks = "primary key (id_flag, id_flag)"
 	for _, attr := range fk.ids {
 		attr.dataType = checkDataType(attr.dataType, dataMap)
-		table.ids = append(table.ids, fmt.Sprintf("%v %v NOT NULL", attr.attributeName, attr.dataType))
+		table.ids = append(table.ids, fmt.Sprintf("%v %v NOT NULL,", attr.attributeName, attr.dataType))
+		table.createPks = strings.Replace(table.createPks, "id_flag", attr.attributeName, 1)
 	}
 	return table
 }
@@ -267,19 +288,20 @@ func checkTable(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataM
 func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, tablesCreate []table) []table {
 	t := table{}
 	mt.migrated = true
-	t.name = mt.pk.table
+	t.name = fmt.Sprintf("CREATE TABLE %v (", mt.pk.table)
 	for _, attrAny := range mt.atts {
 		switch attr := attrAny.attribute.(type) {
 		case *pk:
 			attr.dataType = checkDataType(attr.dataType, dataMap)
 			if attr.autoIncrement {
-				t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, checkTypeAutoIncrement(attr.dataType))
+				t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v NOT NULL,", attr.attributeName, checkTypeAutoIncrement(attr.dataType)))
 			} else {
-				t.createPk = fmt.Sprintf("%v %v PRIMARY KEY", attr.attributeName, attr.dataType)
+				t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v NOT NULL,", attr.attributeName, attr.dataType))
 			}
+			t.createPk = fmt.Sprintf("primary key (%v)", attr.attributeName)
 		case *att:
 			attr.dataType = checkDataType(attr.dataType, dataMap)
-			t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v", attr.attributeName, attr.dataType, func(n bool) string {
+			t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v,", attr.attributeName, attr.dataType, func(n bool) string {
 				if n {
 					return "NULL"
 				} else {
@@ -293,35 +315,26 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 				return nil
 			}
 			if tableFk.migrated {
-				pk := tableFk.pk
-				pk.dataType = checkDataType(pk.dataType, dataMap)
-				t.createAttrs = append(t.createAttrs,
-					fmt.Sprintf("%v %v %v REFERENCES %v", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
-						if n {
-							return "NULL"
-						} else {
-							return "NOT NULL"
-						}
-					}(attr.nullable), pk.table),
-				)
+				t.createAttrs = append(t.createAttrs, foreingManyToOne(attr, tableFk.pk, dataMap))
 			} else {
 				tablesCreate = append(tablesCreate, createTable(tableFk, tables, dataMap, tablesCreate)...)
-				pk := tableFk.pk
-				pk.dataType = checkDataType(pk.dataType, dataMap)
-				t.createAttrs = append(t.createAttrs,
-					fmt.Sprintf("%v %v %v REFERENCES %v", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
-						if n {
-							return "NULL"
-						} else {
-							return "NOT NULL"
-						}
-					}(attr.nullable), pk.table),
-				)
+				t.createAttrs = append(t.createAttrs, foreingManyToOne(attr, tableFk.pk, dataMap))
 			}
 		}
 	}
 	tablesCreate = append(tablesCreate, t)
 	return tablesCreate
+}
+
+func foreingManyToOne(attr *manyToOne, pk *pk, dataMap map[string]string) string {
+	pk.dataType = checkDataType(pk.dataType, dataMap)
+	return fmt.Sprintf("%v %v %v REFERENCES %v,", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
+		if n {
+			return "NULL"
+		} else {
+			return "NOT NULL"
+		}
+	}(attr.nullable), pk.table)
 }
 
 type table struct {
