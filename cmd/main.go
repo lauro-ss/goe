@@ -25,7 +25,7 @@ import (
 // }
 
 type Animal struct {
-	Id       string  `goe:"pk;type:varchar(16)"`
+	Id       string  `goe:"pk;type:uuid"`
 	Emoji    *string `goe:"index:unique"`
 	Name     string  `goe:"type:varchar(30)"`
 	Tail     string

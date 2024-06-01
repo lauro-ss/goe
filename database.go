@@ -71,9 +71,11 @@ func (db *DB) Migrate() {
 		}
 	}
 
-	// check for changes
+	sql := new(strings.Builder)
 	for _, t := range tables {
-		checkTable(db, t, tables, dataMap)
+		// check for changes
+		checkTableChanges(db, t, tables, dataMap, sql)
+		// check for new index
 		generateIndex(db, t.atts, t.pk.table, dataMap)
 	}
 
@@ -84,8 +86,7 @@ func (db *DB) Migrate() {
 			tablesCreate = createTable(t, tables, dataMap, tablesCreate)
 		}
 	}
-	sql := new(strings.Builder)
-	//TODO: Add sql builder
+
 	for _, t := range tablesCreate {
 		createTableSql(t.name, t.createPk, t.createAttrs, sql)
 	}
@@ -238,20 +239,17 @@ type databaseTable struct {
 	nullable     bool
 }
 
-func checkTable(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string) {
+func checkTableChanges(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, sql *strings.Builder) {
 	sqlTableInfos := `SELECT
 	column_name, CASE 
 	WHEN data_type = 'character varying' 
 	THEN CONCAT('varchar','(',character_maximum_length,')')
 	WHEN data_type = 'text' THEN 'string'
 	WHEN data_type = 'boolean' THEN 'bool'
-	WHEN data_type = 'smallint' THEN 'int16'
-	WHEN data_type = 'integer' THEN 'int32'
-	WHEN data_type = 'bigint' THEN 'int64'
-	WHEN data_type = 'real' THEN 'float32'
-	WHEN data_type = 'double precision' THEN 'float64'
+	when data_type = 'integer' then case WHEN column_default like 'nextval%' THEN 'serial' ELSE data_type end
+	when data_type = 'bigint' then case WHEN column_default like 'nextval%' THEN 'bigserial' ELSE data_type end
 	ELSE data_type END, 
-	column_default, 
+	CASE WHEN column_default like 'nextval%' THEN True ELSE False end as auto_increment,
 	CASE
 	WHEN is_nullable = 'YES'
 	THEN True
@@ -271,6 +269,7 @@ func checkTable(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataM
 	for rows.Next() {
 		err = rows.Scan(&dt.columnName, &dt.dataType, &dt.defaultValue, &dt.nullable)
 		if err != nil {
+			//TODO: add error return
 			fmt.Println(err)
 			return
 		}
@@ -279,9 +278,9 @@ func checkTable(db *DB, mt *migrateTable, tables map[string]*migrateTable, dataM
 	if len(dts) > 0 {
 		//check fileds
 		for i := range dts {
-			checkFields(dts[i], mt, tables, dataMap)
+			checkFields(dts[i], mt, tables, dataMap, sql)
 		}
-		checkNewFields(mt, dataMap)
+		checkNewFields(mt, dataMap, sql)
 	}
 }
 
@@ -380,6 +379,7 @@ func generateIndex(db *DB, attrs map[string]*migrateAttribute, table string, dat
 		if attrAny != nil {
 			switch attr := attrAny.attribute.(type) {
 			case *att:
+				//TODO: Changes atr index
 				fmt.Println("check changes", attr)
 			}
 		} else {
@@ -405,9 +405,10 @@ func createUniqueIndex(table, attribute string) string {
 	return fmt.Sprintf("CREATE UNIQUE INDEX ON %v (%v);", table, attribute)
 }
 
-func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string) {
+func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, sql *strings.Builder) {
 	attrAny := mt.atts[databaseTable.columnName]
 	if attrAny == nil {
+		//TODO: Add prompt to drop or rename column
 		//fmt.Printf("goe:field '%v'exists on database table but is missed on struct %v\n", databaseTable.columnName, mt.pk.table)
 		//prompt a question to drop or set as a rename field
 		//attrAny = mt.atts[databaseTable.columnName]
@@ -416,41 +417,42 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 	switch attr := attrAny.attribute.(type) {
 	case *pk:
 		attr.dataType = checkDataType(attr.dataType, dataMap)
+		if attr.autoIncrement {
+			attr.dataType = checkTypeAutoIncrement(attr.dataType)
+		}
 		if databaseTable.dataType != attr.dataType {
-			//fmt.Println(alterColumn(attr.table, databaseTable.columnName, attr.dataType, dataMap))
+			//TODO: change dataType of fks
+			sql.WriteString(alterColumn(attr.table, databaseTable.columnName, attr.dataType, dataMap))
 		}
 		attrAny.migrated = true
 		tables[attr.table].migrated = true
 	case *att:
 		attr.dataType = checkDataType(attr.dataType, dataMap)
 		if databaseTable.dataType != attr.dataType {
-			//fmt.Println(alterColumn(attr.pk.table, databaseTable.columnName, attr.dataType, dataMap))
+			sql.WriteString(alterColumn(attr.pk.table, databaseTable.columnName, attr.dataType, dataMap))
 		}
 		if databaseTable.nullable != attr.nullable {
-			//fmt.Println(nullableColumn(attr.pk.table, attr.attributeName, attr.nullable))
+			sql.WriteString(nullableColumn(attr.pk.table, attr.attributeName, attr.nullable))
 		}
 		attrAny.migrated = true
 		tables[attr.pk.table].migrated = true
 	}
 }
 
-func checkNewFields(mt *migrateTable, dataMap map[string]string) {
+func checkNewFields(mt *migrateTable, dataMap map[string]string, sql *strings.Builder) {
 	for _, v := range mt.atts {
 		if !v.migrated {
 			switch attr := v.attribute.(type) {
 			case *att:
 				attr.dataType = checkDataType(attr.dataType, dataMap)
-				//fmt.Println(addColumn(mt.pk.table, attr.attributeName, attr.dataType, attr.nullable))
+				sql.WriteString(addColumn(mt.pk.table, attr.attributeName, attr.dataType))
 			}
 		}
 	}
 }
 
-func addColumn(table, column, dataType string, nullable bool) string {
-	if nullable {
-		return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v NULL", table, column, dataType)
-	}
-	return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v NOT NULL", table, column, dataType)
+func addColumn(table, column, dataType string) string {
+	return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v;", table, column, dataType)
 }
 
 func checkDataType(structDataType string, dataMap map[string]string) string {
@@ -477,16 +479,16 @@ func checkTypeAutoIncrement(structDataType string) string {
 
 func alterColumn(table, column, dataType string, dataMap map[string]string) string {
 	if dataMap[dataType] == "" {
-		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v", table, column, dataType)
+		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v;", table, column, dataType)
 	}
-	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v", table, column, dataMap[dataType])
+	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v;", table, column, dataMap[dataType])
 }
 
 func nullableColumn(table, columnName string, nullable bool) string {
 	if nullable {
-		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v DROP NOT NULL", table, columnName)
+		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v DROP NOT NULL;", table, columnName)
 	}
-	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v SET NOT NULL", table, columnName)
+	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v SET NOT NULL;", table, columnName)
 }
 
 func renameColumn(table, oldColumnName, newColumnName string) string {
