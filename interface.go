@@ -58,3 +58,7 @@ type Delete interface {
 type operator interface {
 	operation() string
 }
+
+type DeleteIn interface {
+	Where(...any)
+}

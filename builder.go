@@ -456,3 +456,46 @@ func (b *builder) buildDelete(addrMap map[string]any) {
 	}
 
 }
+
+func (b *builder) buildDeleteIn(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementDELETE)
+	b.queue.add(statementFROM)
+
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.pks.add(atr.pk)
+			b.tables.add(createStatement(atr.pk.table, writeTABLE))
+		case *pk:
+			b.pks.add(atr)
+			b.tables.add(createStatement(atr.table, writeTABLE))
+		}
+	}
+
+}
+
+func (b *builder) buildSqlDeleteIn() {
+	if b.tables.size != 2 {
+		return
+	}
+	stTable := b.tables.get()
+
+	pk1 := b.pks.get()
+	pk2 := b.pks.get()
+
+	mtm := pk2.fks[stTable.keyword]
+	if mtm == nil {
+		return
+	}
+
+	mtmValue := mtm.(*manyToMany)
+	b.queue.add(createStatement(mtmValue.table, writeDML))
+	b.queue.add(createStatement(fmt.Sprintf("WHERE %v = $1", mtmValue.ids[pk1.table].attributeName), writeATT))
+	if len(b.argsAny) == 2 {
+		b.queue.add(createStatement(fmt.Sprintf(" AND %v = $2", mtmValue.ids[pk2.table].attributeName), writeATT))
+	}
+
+	writeDelete(b.sql, b.queue)
+}

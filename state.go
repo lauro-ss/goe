@@ -202,6 +202,30 @@ func (s *stateDelete) Where(brs ...operator) {
 	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
 }
 
+type stateDeleteIn struct {
+	conn    conn
+	builder *builder
+}
+
+func createDeleteInState(conn conn, qt int8) *stateDeleteIn {
+	return &stateDeleteIn{conn: conn, builder: createBuilder(qt)}
+}
+
+func (s *stateDeleteIn) queryDeleteIn(args []string, addrMap map[string]any) DeleteIn {
+	s.builder.args = args
+	s.builder.buildDeleteIn(addrMap)
+	return s
+}
+
+func (s *stateDeleteIn) Where(values ...any) {
+	s.builder.argsAny = append(s.builder.argsAny, values...)
+
+	s.builder.buildSqlDeleteIn()
+
+	fmt.Println(s.builder.sql)
+	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
+}
+
 func where(builder *builder, brs ...operator) {
 	builder.brs = brs
 	for _, br := range builder.brs {

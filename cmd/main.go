@@ -28,7 +28,7 @@ type Animal struct {
 	Id       string  `goe:"pk;type:uuid"`
 	Emoji    *string `goe:"index:unique"`
 	Name     string  `goe:"type:varchar(30)"`
-	Tail     string
+	Tail     *string
 	Foods    []Food `goe:"table:AnimalFood"`
 	Status   []Status
 	Habitats []Habitat `goe:"table:AnimalHabitat"`
@@ -122,7 +122,9 @@ func main() {
 		"pgx",
 		"user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable",
 		goe.Config{MigrationsPath: "/"})
-	db.Migrate()
+	//db.Migrate()
+	//db.DeleteIn(db.Animal, db.Food).Where("00e030f3-4ac9-4354-92c1-e9bf1b7f4184")
+	//db.Delete(db.Animal).Where(db.Equals(&db.Animal.Emoji, "Emoji"))
 	//goe.Map(db.Animal, &Animal{})
 	//goe.Connect(db)
 	// goe.Map(db, Status{})
