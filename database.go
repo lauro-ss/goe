@@ -73,10 +73,9 @@ func (db *DB) Migrate() {
 
 	sql := new(strings.Builder)
 	for _, t := range tables {
-		// check for changes
 		checkTableChanges(db, t, tables, dataMap, sql)
 		// check for new index
-		generateIndex(db, t.atts, t.pk.table, dataMap)
+		checkIndex(db, t.atts, t.pk.table, sql)
 	}
 
 	var tablesCreate []table
@@ -244,7 +243,6 @@ func checkTableChanges(db *DB, mt *migrateTable, tables map[string]*migrateTable
 	column_name, CASE 
 	WHEN data_type = 'character varying' 
 	THEN CONCAT('varchar','(',character_maximum_length,')')
-	WHEN data_type = 'text' THEN 'string'
 	WHEN data_type = 'boolean' THEN 'bool'
 	when data_type = 'integer' then case WHEN column_default like 'nextval%' THEN 'serial' ELSE data_type end
 	when data_type = 'bigint' then case WHEN column_default like 'nextval%' THEN 'bigserial' ELSE data_type end
@@ -348,15 +346,15 @@ type databaseIndex struct {
 	primaryKey    bool
 }
 
-func generateIndex(db *DB, attrs map[string]*migrateAttribute, table string, dataMap map[string]string) {
-	sql := `SELECT a.attname as attribute, i.indisunique as is_unique, i.indisprimary as is_primary FROM pg_index i
+func checkIndex(db *DB, attrs map[string]*migrateAttribute, table string, sql *strings.Builder) {
+	sqlQuery := `SELECT a.attname as attribute, i.indisunique as is_unique, i.indisprimary as is_primary FROM pg_index i
 	JOIN pg_attribute a ON i.indexrelid = a.attrelid
 	JOIN pg_class ci ON ci.oid = i.indexrelid
 	JOIN pg_class c ON c.oid = i.indrelid
 	WHERE c.relname = $1;
 	`
 
-	rows, err := db.conn.Query(sql, table)
+	rows, err := db.conn.Query(sqlQuery, table)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -386,16 +384,16 @@ func generateIndex(db *DB, attrs map[string]*migrateAttribute, table string, dat
 			fmt.Println(attrAny)
 		}
 	}
-	checkNewIndexs(attrs)
+	checkNewIndexs(attrs, sql)
 
 }
 
-func checkNewIndexs(attrs map[string]*migrateAttribute) {
+func checkNewIndexs(attrs map[string]*migrateAttribute, sql *strings.Builder) {
 	for _, v := range attrs {
 		if v.index && !v.migratedIndex {
 			switch attr := v.attribute.(type) {
 			case *att:
-				fmt.Println(createUniqueIndex(attr.pk.table, attr.attributeName))
+				sql.WriteString(createUniqueIndex(attr.pk.table, attr.attributeName))
 			}
 		}
 	}
@@ -544,9 +542,17 @@ func (db *DB) Delete(table any) Delete {
 	return state.queryDelete(stringArgs, db.addrMap)
 }
 
+func (db *DB) DeleteIn(table1 any, table2 any) DeleteIn {
+	stringArgs := getArgs(table1, table2)
+
+	state := createDeleteInState(db.conn, queryUPDATE)
+
+	return state.queryDeleteIn(stringArgs, db.addrMap)
+}
+
 func (db *DB) Equals(arg any, value any) operator {
 	addr := fmt.Sprintf("%p", arg)
-
+	//TODO: add pointer validate
 	switch atr := db.addrMap[addr].(type) {
 	case *att:
 		return createComplexOperator(atr.selectName, "=", value, atr.pk)
