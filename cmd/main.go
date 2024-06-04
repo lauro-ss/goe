@@ -27,7 +27,7 @@ import (
 type Animal struct {
 	Id       string  `goe:"pk;type:uuid"`
 	Emoji    *string `goe:"index(n:idx_emoji unique)"`
-	Name     string  `goe:"type:varchar(30);index(n:idx_name_low f:lower)"`
+	Name     string  `goe:"type:varchar(30);index(n:idx_name_low f:lower, n:idx_name unique)"`
 	Tail     *string `goe:""`
 	Foods    []Food  `goe:"table:AnimalFood"`
 	Status   []Status
@@ -54,7 +54,7 @@ type Food struct {
 	Name     string
 	Animals  []Animal  `goe:"table:AnimalFood"`
 	Habitats []Habitat `goe:"table:FoodHabitat"`
-	Emoji    string    `goe:"index(n:idx_emoji unique)"`
+	Emoji    string
 }
 
 type Weather struct {
