@@ -31,7 +31,7 @@ func (db *DB) open(name string, uri string) error {
 type migrateAttribute struct {
 	attribute     any
 	migrated      bool
-	index         bool
+	index         string
 	migratedIndex bool
 }
 
@@ -100,9 +100,10 @@ func (db *DB) Migrate() {
 	dropTables(db, tables, tablesManyToMany)
 
 	if sql.Len() != 0 {
-		if _, err := db.conn.Exec(sql.String()); err != nil {
-			fmt.Println(err)
-		}
+		// if _, err := db.conn.Exec(sql.String()); err != nil {
+		// 	fmt.Println(err)
+		// }
+		fmt.Println(sql)
 	}
 }
 
@@ -221,8 +222,7 @@ func newMigrateTable(db *DB, tableName string) *migrateTable {
 			if atr.pk.table == tableName {
 				ma := new(migrateAttribute)
 				ma.attribute = atr
-				//TODO: Add more index
-				ma.index = atr.unique
+				ma.index = atr.index
 				table.atts[atr.attributeName] = ma
 			}
 		}
@@ -342,16 +342,16 @@ type table struct {
 
 type databaseIndex struct {
 	attributeName string
+	indexName     string
 	unique        bool
-	primaryKey    bool
 }
 
 func checkIndex(db *DB, attrs map[string]*migrateAttribute, table string, sql *strings.Builder) {
-	sqlQuery := `SELECT a.attname as attribute, i.indisunique as is_unique, i.indisprimary as is_primary FROM pg_index i
+	sqlQuery := `SELECT a.attname as attribute, ci.relname, i.indisunique as is_unique FROM pg_index i
 	JOIN pg_attribute a ON i.indexrelid = a.attrelid
 	JOIN pg_class ci ON ci.oid = i.indexrelid
 	JOIN pg_class c ON c.oid = i.indrelid
-	WHERE c.relname = $1;
+	where i.indisprimary = false AND c.relname = $1;
 	`
 
 	rows, err := db.conn.Query(sqlQuery, table)
@@ -364,21 +364,37 @@ func checkIndex(db *DB, attrs map[string]*migrateAttribute, table string, sql *s
 	dis := make([]databaseIndex, 0)
 	di := databaseIndex{}
 	for rows.Next() {
-		err = rows.Scan(&di.attributeName, &di.unique, &di.primaryKey)
+		err = rows.Scan(&di.attributeName, &di.indexName, &di.unique)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		dis = append(dis, di)
 	}
-	//check fileds
+	//check normal index
 	for _, di = range dis {
 		attrAny := attrs[di.attributeName]
 		if attrAny != nil {
 			switch attr := attrAny.attribute.(type) {
 			case *att:
+				// if di.unique {
+				// 	if di.unique != attr.unique {
+				// 		fmt.Println("check changes", attr.attributeName, di.attributeName, attr.unique)
+				// 		attrAny.migratedIndex = true
+				// 	}
+				// }
+				if attr.index != "" {
+					indexs := strings.Split(attr.index, ",")
+					for _, index := range indexs {
+						if !strings.Contains(index, ":") {
+							if index == di.indexName {
+								fmt.Println(attr, "index exists")
+								attrAny.migratedIndex = true
+							}
+						}
+					}
+				}
 				//TODO: Changes atr index
-				fmt.Println("check changes", attr)
 			}
 		} else {
 			fmt.Println(attrAny)
@@ -390,17 +406,78 @@ func checkIndex(db *DB, attrs map[string]*migrateAttribute, table string, sql *s
 
 func checkNewIndexs(attrs map[string]*migrateAttribute, sql *strings.Builder) {
 	for _, v := range attrs {
-		if v.index && !v.migratedIndex {
+		if v.index != "" && !v.migratedIndex {
 			switch attr := v.attribute.(type) {
 			case *att:
-				sql.WriteString(createUniqueIndex(attr.pk.table, attr.attributeName))
+				indexs := strings.Split(attr.index, ",")
+				for _, index := range indexs {
+					n := getIndexValue(index, "n:")
+					if n == "" {
+						fmt.Printf(`error: index "%v" without declared name on struct "%v" attribute "%v". to fix add tag "n:"%v`, index, attr.pk.table, attr.attributeName, "\n")
+						continue
+					}
+					unique := strings.Contains(index, "unique")
+					if f := getIndexValue(index, "f:"); f != "" {
+						f := fmt.Sprintf("%v(%v)", f, attr.attributeName)
+						sql.WriteString(createIndex(attr.pk.table, n, f, unique))
+						continue
+					}
+					if c := checkColumnIndex(index, attr.attributeName, attrs); c != "" {
+						sql.WriteString(createIndexColumns(attr.pk.table, attr.attributeName, c, n, unique))
+						continue
+					}
+					sql.WriteString(createIndex(attr.pk.table, n, attr.attributeName, unique))
+				}
 			}
 		}
 	}
 }
 
-func createUniqueIndex(table, attribute string) string {
-	return fmt.Sprintf("CREATE UNIQUE INDEX ON %v (%v);", table, attribute)
+func checkColumnIndex(index, attrName string, attrs map[string]*migrateAttribute) string {
+	for _, v := range attrs {
+		if v.index != "" && !v.migratedIndex {
+			switch attr := v.attribute.(type) {
+			case *att:
+				indexs := strings.Split(attr.index, ",")
+				for _, i := range indexs {
+					if attr.attributeName != attrName && index == i {
+						return attr.attributeName
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func getIndexValue(valueTag string, tag string) string {
+	values := strings.Split(valueTag, " ")
+	for _, v := range values {
+		if _, value, ok := strings.Cut(v, tag); ok {
+			return value
+		}
+	}
+	return ""
+}
+
+func createIndex(table, name, attribute string, unique bool) string {
+	return fmt.Sprintf("CREATE %v INDEX IF NOT EXISTS %v_%v ON %v (%v);", func(u bool) string {
+		if unique {
+			return "UNIQUE"
+		} else {
+			return ""
+		}
+	}(unique), table, name, table, attribute)
+}
+
+func createIndexColumns(table, attribute1, attribute2, name string, unique bool) string {
+	return fmt.Sprintf("CREATE %v INDEX IF NOT EXISTS %v_%v ON %v (%v, %v);", func(u bool) string {
+		if unique {
+			return "UNIQUE"
+		} else {
+			return ""
+		}
+	}(unique), table, name, table, attribute1, attribute2)
 }
 
 func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, sql *strings.Builder) {

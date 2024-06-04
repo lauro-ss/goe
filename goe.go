@@ -68,32 +68,28 @@ func initField(valueOf reflect.Value, db *DB) {
 			} else {
 				field = valueOf.Type().Field(i)
 				if field.Name != fieldName {
-					at := createAtt(
-						fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
-						valueOf.Type().Field(i).Name,
-						p,
-						getType(field),
-						field.Type.String()[0] == '*',
-						getIndex(field),
-					)
-					db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
+					newAttr(valueOf, field, i, p, db)
 				}
 			}
 		default:
 			field = valueOf.Type().Field(i)
 			if field.Name != fieldName {
-				at := createAtt(
-					fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
-					valueOf.Type().Field(i).Name,
-					p,
-					getType(field),
-					field.Type.String()[0] == '*',
-					getIndex(field),
-				)
-				db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
+				newAttr(valueOf, field, i, p, db)
 			}
 		}
 	}
+}
+
+func newAttr(valueOf reflect.Value, field reflect.StructField, i int, p *pk, db *DB) {
+	at := createAtt(
+		fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
+		valueOf.Type().Field(i).Name,
+		p,
+		getType(field),
+		field.Type.String()[0] == '*',
+		getIndex(field),
+	)
+	db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
 }
 
 func getPk(typeOf reflect.Type) (*pk, string) {
@@ -211,7 +207,10 @@ func getType(field reflect.StructField) string {
 	return dataType
 }
 
-func getIndex(field reflect.StructField) bool {
-	value := getTagValue(field.Tag.Get("goe"), "index:")
-	return value == "unique"
+func getIndex(field reflect.StructField) string {
+	value := getTagValue(field.Tag.Get("goe"), "index(")
+	if value != "" {
+		return value[0 : len(value)-1]
+	}
+	return ""
 }
