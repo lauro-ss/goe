@@ -26,9 +26,9 @@ import (
 
 type Animal struct {
 	Id       string  `goe:"pk;type:uuid"`
-	Emoji    *string `goe:"index(n:idx_emoji unique)"`
-	Name     string  `goe:"type:varchar(30);index(n:idx_name_low f:lower, n:idx_name unique)"`
-	Tail     *string `goe:""`
+	Emoji    *string `goe:"index(n:idx_emoji)"`
+	Name     string  `goe:"type:varchar(30);index(n:idx_name_low f:lower, n:idx_name_tail unique f:upper)"`
+	Tail     *string `goe:"index(n:idx_name_tail unique f:lower)"`
 	Foods    []Food  `goe:"table:AnimalFood"`
 	Status   []Status
 	Habitats []Habitat `goe:"table:AnimalHabitat"`
