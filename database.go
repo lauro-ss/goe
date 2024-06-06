@@ -524,7 +524,6 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 			attr.dataType = checkTypeAutoIncrement(attr.dataType)
 		}
 		if databaseTable.dataType != attr.dataType {
-			//TODO: change dataType of fks
 			sql.WriteString(alterColumn(attr.table, databaseTable.columnName, attr.dataType, dataMap))
 		}
 		attrAny.migrated = true
