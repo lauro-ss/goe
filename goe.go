@@ -188,7 +188,7 @@ func fieldsByTags(tag string, str reflect.Type) (f []reflect.StructField) {
 func getTagValue(fieldTag string, subTag string) string {
 	values := strings.Split(fieldTag, ";")
 	for _, v := range values {
-		if _, after, found := strings.Cut(v, subTag); found {
+		if after, found := strings.CutPrefix(v, subTag); found {
 			return strings.ToLower(after)
 		}
 	}
