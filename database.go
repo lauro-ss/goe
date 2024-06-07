@@ -98,7 +98,7 @@ func (db *DB) Migrate() {
 		}
 	}
 
-	dropTables(db, tables, tablesManyToMany)
+	dropTables(db, tables, tablesManyToMany, sql)
 
 	if sql.Len() != 0 {
 		if _, err := db.conn.Exec(sql.String()); err != nil {
@@ -107,10 +107,10 @@ func (db *DB) Migrate() {
 	}
 }
 
-func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[string]*manyToMany) {
+func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[string]*manyToMany, sql *strings.Builder) {
 	databaseTables := make([]string, 0)
-	sql := `SELECT ic.table_name FROM information_schema.columns ic where ic.table_schema = 'public' group by ic.table_name;`
-	rows, err := db.conn.Query(sql)
+	sqlQuery := `SELECT ic.table_name FROM information_schema.columns ic where ic.table_schema = 'public' group by ic.table_name;`
+	rows, err := db.conn.Query(sqlQuery)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -143,7 +143,12 @@ func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[st
 			}
 		}
 		if !ok {
-			fmt.Println("drop table", table)
+			var c string
+			fmt.Printf(`goe:do you want to remove table "%v" from database? (y/n):`, table)
+			fmt.Scanln(&c)
+			if c == "y" {
+				sql.WriteString(fmt.Sprintf("DROP TABLE %v;", table))
+			}
 		}
 	}
 
@@ -278,7 +283,7 @@ func checkTableChanges(db *DB, mt *migrateTable, tables map[string]*migrateTable
 		for i := range dts {
 			checkFields(dts[i], mt, tables, dataMap, sql)
 		}
-		checkNewFields(mt, dataMap, sql)
+		checkNewFields(mt, dataMap, tables, sql)
 	}
 }
 
@@ -511,10 +516,22 @@ func createIndexColumns(table, attribute1, attribute2, name string, unique bool,
 func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, sql *strings.Builder) {
 	attrAny := mt.atts[databaseTable.columnName]
 	if attrAny == nil {
-		//TODO: Add prompt to drop or rename column
-		//fmt.Printf("goe:field '%v'exists on database table but is missed on struct %v\n", databaseTable.columnName, mt.pk.table)
-		//prompt a question to drop or set as a rename field
-		//attrAny = mt.atts[databaseTable.columnName]
+		fmt.Printf(`goe:field "%v" exists on database table but is missed on struct "%v"%v`, databaseTable.columnName, mt.pk.table, "\n")
+		fmt.Printf(`goe:do you renamed the field "%v" on "%v"? (leave empty if not):`, databaseTable.columnName, mt.pk.table)
+		var c string
+		fmt.Scanln(&c)
+		if c == "" {
+			fmt.Printf(`goe:do you want to remove the field "%v" on table "%v"? (y/n):`, databaseTable.columnName, mt.pk.table)
+			fmt.Scanln(&c)
+			if c == "y" {
+				sql.WriteString(dropColumn(mt.pk.table, databaseTable.columnName))
+			}
+			return
+		}
+		if mt.atts[c] != nil {
+			sql.WriteString(renameColumn(mt.pk.table, databaseTable.columnName, mt.atts[c].attribute.(*att).attributeName))
+			mt.atts[c].migrated = true
+		}
 		return
 	}
 	switch attr := attrAny.attribute.(type) {
@@ -538,23 +555,39 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 		}
 		attrAny.migrated = true
 		tables[attr.pk.table].migrated = true
+	case *manyToOne:
+		attrAny.migrated = true
 	}
 }
 
-func checkNewFields(mt *migrateTable, dataMap map[string]string, sql *strings.Builder) {
+func checkNewFields(mt *migrateTable, dataMap map[string]string, tables map[string]*migrateTable, sql *strings.Builder) {
 	for _, v := range mt.atts {
 		if !v.migrated {
 			switch attr := v.attribute.(type) {
 			case *att:
 				attr.dataType = checkDataType(attr.dataType, dataMap)
-				sql.WriteString(addColumn(mt.pk.table, attr.attributeName, attr.dataType))
+				sql.WriteString(addColumn(mt.pk.table, attr.attributeName, attr.dataType, attr.nullable))
+			case *manyToOne:
+				table, column, _ := strings.Cut(attr.id, ".")
+				sql.WriteString(addColumn(table, column, tables[attr.targetTable].pk.dataType, attr.nullable))
+				sql.WriteString(addFkColumn(table, column, attr.targetTable))
 			}
 		}
 	}
 }
 
-func addColumn(table, column, dataType string) string {
-	return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v;", table, column, dataType)
+func addColumn(table, column, dataType string, nullable bool) string {
+	return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v %v;", table, column, dataType,
+		func(n bool) string {
+			if n {
+				return "NULL"
+			}
+			return "NOT NULL"
+		}(nullable))
+}
+
+func addFkColumn(table, column, targetTable string) string {
+	return fmt.Sprintf("ALTER TABLE %v ADD CONSTRAINT %v FOREIGN KEY (%v) REFERENCES %v;", table, fmt.Sprintf("fk_%v_%v", targetTable, column), column, targetTable)
 }
 
 func checkDataType(structDataType string, dataMap map[string]string) string {
@@ -594,7 +627,11 @@ func nullableColumn(table, columnName string, nullable bool) string {
 }
 
 func renameColumn(table, oldColumnName, newColumnName string) string {
-	return fmt.Sprintf("ALTER TABLE %v RENAME COLUMN %v TO %v", table, oldColumnName, newColumnName)
+	return fmt.Sprintf("ALTER TABLE %v RENAME COLUMN %v TO %v;", table, oldColumnName, newColumnName)
+}
+
+func dropColumn(table, columnName string) string {
+	return fmt.Sprintf("ALTER TABLE %v DROP COLUMN %v;", table, columnName)
 }
 
 func (db *DB) Select(args ...any) Select {
