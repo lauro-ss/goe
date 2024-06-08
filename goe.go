@@ -110,7 +110,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 }
 
 func isAutoIncrement(id reflect.StructField) bool {
-	return id.Type.Kind() == reflect.Int
+	return strings.Contains(id.Type.Kind().String(), "int")
 }
 
 func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db *DB) any {

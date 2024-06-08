@@ -73,10 +73,11 @@ func (db *DB) Migrate() {
 	}
 
 	sql := new(strings.Builder)
+	sqlColumns := new(strings.Builder)
 	for _, t := range tables {
-		checkTableChanges(db, t, tables, dataMap, sql)
+		checkTableChanges(db, t, tables, dataMap, sqlColumns)
 		// check for new index
-		checkIndex(db, t.atts, t.pk.table, sql)
+		checkIndex(db, t.atts, t.pk.table, sqlColumns)
 	}
 
 	var tablesCreate []table
@@ -91,7 +92,6 @@ func (db *DB) Migrate() {
 		createTableSql(t.name, t.createPk, t.createAttrs, sql)
 	}
 
-	//TODO: Add sql builder
 	for _, t := range tablesManyToMany {
 		if table := createManyToManyTable(db, t, dataMap); table != nil {
 			createTableSql(table.tableName, table.createPks, table.ids, sql)
@@ -99,6 +99,8 @@ func (db *DB) Migrate() {
 	}
 
 	dropTables(db, tables, tablesManyToMany, sql)
+
+	sql.WriteString(sqlColumns.String())
 
 	if sql.Len() != 0 {
 		if _, err := db.conn.Exec(sql.String()); err != nil {
@@ -184,7 +186,6 @@ func createManyToManyTable(db *DB, mtm *manyToMany, dataMap map[string]string) *
 	for rows.Next() {
 		return nil
 	}
-	//TODO: add sql builder
 	return newMigrateTableManyToMany(mtm, dataMap)
 }
 
@@ -536,19 +537,19 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 	}
 	switch attr := attrAny.attribute.(type) {
 	case *pk:
-		attr.dataType = checkDataType(attr.dataType, dataMap)
+		dataType := checkDataType(attr.dataType, dataMap)
 		if attr.autoIncrement {
-			attr.dataType = checkTypeAutoIncrement(attr.dataType)
+			dataType = checkTypeAutoIncrement(dataType)
 		}
-		if databaseTable.dataType != attr.dataType {
-			sql.WriteString(alterColumn(attr.table, databaseTable.columnName, attr.dataType, dataMap))
+		if databaseTable.dataType != dataType {
+			sql.WriteString(alterColumn(attr.table, databaseTable.columnName, dataType, dataMap))
 		}
 		attrAny.migrated = true
 		tables[attr.table].migrated = true
 	case *att:
-		attr.dataType = checkDataType(attr.dataType, dataMap)
-		if databaseTable.dataType != attr.dataType {
-			sql.WriteString(alterColumn(attr.pk.table, databaseTable.columnName, attr.dataType, dataMap))
+		dataType := checkDataType(attr.dataType, dataMap)
+		if databaseTable.dataType != dataType {
+			sql.WriteString(alterColumn(attr.pk.table, databaseTable.columnName, dataType, dataMap))
 		}
 		if databaseTable.nullable != attr.nullable {
 			sql.WriteString(nullableColumn(attr.pk.table, attr.attributeName, attr.nullable))
@@ -556,6 +557,9 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 		attrAny.migrated = true
 		tables[attr.pk.table].migrated = true
 	case *manyToOne:
+		if databaseTable.nullable != attr.nullable {
+			sql.WriteString(nullableColumn(mt.pk.table, databaseTable.columnName, attr.nullable))
+		}
 		attrAny.migrated = true
 	}
 }
@@ -565,11 +569,15 @@ func checkNewFields(mt *migrateTable, dataMap map[string]string, tables map[stri
 		if !v.migrated {
 			switch attr := v.attribute.(type) {
 			case *att:
-				attr.dataType = checkDataType(attr.dataType, dataMap)
-				sql.WriteString(addColumn(mt.pk.table, attr.attributeName, attr.dataType, attr.nullable))
+				sql.WriteString(addColumn(mt.pk.table, attr.attributeName, checkDataType(attr.dataType, dataMap), attr.nullable))
 			case *manyToOne:
+				targetTable := tables[attr.targetTable]
+				if targetTable == nil {
+					fmt.Printf(`goe:target struct "%v" it's not mapped on Database struct%v`, attr.targetTable, "\n")
+					continue
+				}
 				table, column, _ := strings.Cut(attr.id, ".")
-				sql.WriteString(addColumn(table, column, tables[attr.targetTable].pk.dataType, attr.nullable))
+				sql.WriteString(addColumn(table, column, checkDataType(targetTable.pk.dataType, dataMap), attr.nullable))
 				sql.WriteString(addFkColumn(table, column, attr.targetTable))
 			}
 		}
