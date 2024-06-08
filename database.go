@@ -194,9 +194,9 @@ func newMigrateTableManyToMany(fk *manyToMany, dataMap map[string]string) *table
 	table.tableName = fmt.Sprintf("CREATE TABLE %v (", fk.table)
 	table.ids = make([]string, 0, len(fk.ids))
 	table.createPks = "primary key (id_flag, id_flag)"
-	for _, attr := range fk.ids {
+	for key, attr := range fk.ids {
 		attr.dataType = checkDataType(attr.dataType, dataMap)
-		table.ids = append(table.ids, fmt.Sprintf("%v %v NOT NULL,", attr.attributeName, attr.dataType))
+		table.ids = append(table.ids, fmt.Sprintf("%v %v NOT NULL REFERENCES %v,", attr.attributeName, attr.dataType, key))
 		table.createPks = strings.Replace(table.createPks, "id_flag", attr.attributeName, 1)
 	}
 	return table
