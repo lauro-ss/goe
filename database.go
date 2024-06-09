@@ -37,14 +37,14 @@ type migrateAttribute struct {
 }
 
 type migrateTable struct {
-	pk       *pk
+	pk       *MigratePk
 	atts     map[string]*migrateAttribute
 	migrated bool
 }
 
-func (db *DB) Migrate() {
+func (db *DB) Migrate(migrator *Migrator) {
 	tables := make(map[string]*migrateTable, 0)
-	tablesManyToMany := make(map[string]*manyToMany, 0)
+	tablesManyToMany := make(map[string]*MigrateManyToMany, 0)
 
 	dataMap := map[string]string{
 		"string":  "text",
@@ -55,15 +55,15 @@ func (db *DB) Migrate() {
 		"float64": "double precision",
 	}
 
-	for _, v := range db.addrMap {
+	for _, v := range migrator.Tables {
 		switch atr := v.(type) {
-		case *pk:
+		case *MigratePk:
 			if tables[atr.table] == nil {
-				tables[atr.table] = newMigrateTable(db, atr.table)
+				tables[atr.table] = newMigrateTable(migrator.Tables, atr.table)
 			}
 			for _, fkAny := range atr.fks {
 				switch fk := fkAny.(type) {
-				case *manyToMany:
+				case *MigrateManyToMany:
 					if tablesManyToMany[fk.table] == nil {
 						tablesManyToMany[fk.table] = fk
 					}
@@ -109,7 +109,7 @@ func (db *DB) Migrate() {
 	}
 }
 
-func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[string]*manyToMany, sql *strings.Builder) {
+func dropTables(db *DB, tables map[string]*migrateTable, tablesManyToMany map[string]*MigrateManyToMany, sql *strings.Builder) {
 	databaseTables := make([]string, 0)
 	sqlQuery := `SELECT ic.table_name FROM information_schema.columns ic where ic.table_schema = 'public' group by ic.table_name;`
 	rows, err := db.conn.Query(sqlQuery)
@@ -171,7 +171,7 @@ func createTableSql(create, pks string, attributes []string, sql *strings.Builde
 	sql.WriteString(");")
 }
 
-func createManyToManyTable(db *DB, mtm *manyToMany, dataMap map[string]string) *tableManytoMany {
+func createManyToManyTable(db *DB, mtm *MigrateManyToMany, dataMap map[string]string) *tableManytoMany {
 	sql := `SELECT
 	table_name
 	FROM information_schema.columns WHERE table_name = $1;`
@@ -189,7 +189,7 @@ func createManyToManyTable(db *DB, mtm *manyToMany, dataMap map[string]string) *
 	return newMigrateTableManyToMany(mtm, dataMap)
 }
 
-func newMigrateTableManyToMany(fk *manyToMany, dataMap map[string]string) *tableManytoMany {
+func newMigrateTableManyToMany(fk *MigrateManyToMany, dataMap map[string]string) *tableManytoMany {
 	table := new(tableManytoMany)
 	table.tableName = fmt.Sprintf("CREATE TABLE %v (", fk.table)
 	table.ids = make([]string, 0, len(fk.ids))
@@ -202,12 +202,12 @@ func newMigrateTableManyToMany(fk *manyToMany, dataMap map[string]string) *table
 	return table
 }
 
-func newMigrateTable(db *DB, tableName string) *migrateTable {
+func newMigrateTable(tables []any, tableName string) *migrateTable {
 	table := new(migrateTable)
 	table.atts = make(map[string]*migrateAttribute)
-	for _, v := range db.addrMap {
+	for _, v := range tables {
 		switch atr := v.(type) {
-		case *pk:
+		case *MigratePk:
 			if atr.table == tableName {
 				table.pk = atr
 				ma := new(migrateAttribute)
@@ -215,7 +215,7 @@ func newMigrateTable(db *DB, tableName string) *migrateTable {
 				table.atts[atr.attributeName] = ma
 				for _, fkAny := range atr.fks {
 					switch fk := fkAny.(type) {
-					case *manyToOne:
+					case *MigrateManyToOne:
 						if !fk.hasMany {
 							ma := new(migrateAttribute)
 							ma.attribute = fk
@@ -224,7 +224,7 @@ func newMigrateTable(db *DB, tableName string) *migrateTable {
 					}
 				}
 			}
-		case *att:
+		case *MigrateAtt:
 			if atr.pk.table == tableName {
 				ma := new(migrateAttribute)
 				ma.attribute = atr
@@ -294,7 +294,7 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 	t.name = fmt.Sprintf("CREATE TABLE %v (", mt.pk.table)
 	for _, attrAny := range mt.atts {
 		switch attr := attrAny.attribute.(type) {
-		case *pk:
+		case *MigratePk:
 			attr.dataType = checkDataType(attr.dataType, dataMap)
 			if attr.autoIncrement {
 				t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v NOT NULL,", attr.attributeName, checkTypeAutoIncrement(attr.dataType)))
@@ -302,7 +302,7 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 				t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v NOT NULL,", attr.attributeName, attr.dataType))
 			}
 			t.createPk = fmt.Sprintf("primary key (%v)", attr.attributeName)
-		case *att:
+		case *MigrateAtt:
 			attr.dataType = checkDataType(attr.dataType, dataMap)
 			t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v,", attr.attributeName, attr.dataType, func(n bool) string {
 				if n {
@@ -311,7 +311,7 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 					return "NOT NULL"
 				}
 			}(attr.nullable)))
-		case *manyToOne:
+		case *MigrateManyToOne:
 			tableFk := tables[attr.targetTable]
 			if tableFk == nil {
 				fmt.Printf("goe: table '%v' not mapped\n", attr.targetTable)
@@ -329,7 +329,7 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 	return tablesCreate
 }
 
-func foreingManyToOne(attr *manyToOne, pk *pk, dataMap map[string]string) string {
+func foreingManyToOne(attr *MigrateManyToOne, pk *MigratePk, dataMap map[string]string) string {
 	pk.dataType = checkDataType(pk.dataType, dataMap)
 	return fmt.Sprintf("%v %v %v REFERENCES %v,", strings.Split(attr.id, ".")[1], pk.dataType, func(n bool) string {
 		if n {
@@ -382,7 +382,7 @@ func checkIndex(db *DB, attrs map[string]*migrateAttribute, table string, sql *s
 	for _, di = range dis {
 		for _, v := range attrs {
 			switch attr := v.attribute.(type) {
-			case *att:
+			case *MigrateAtt:
 				if attr.index != "" {
 					indexs := strings.Split(attr.index, ",")
 					for _, index := range indexs {
@@ -417,7 +417,7 @@ func checkNewIndexs(attrs map[string]*migrateAttribute, sql *strings.Builder) {
 	for _, v := range attrs {
 		if v.index != "" {
 			switch attr := v.attribute.(type) {
-			case *att:
+			case *MigrateAtt:
 				indexs := strings.Split(attr.index, ",")
 				for _, index := range indexs {
 					n := getIndexValue(index, "n:")
@@ -452,7 +452,7 @@ func checkColumnIndex(indexName, attrName, table string, attrs map[string]*migra
 	for _, v := range attrs {
 		if v.index != "" {
 			switch attr := v.attribute.(type) {
-			case *att:
+			case *MigrateAtt:
 				indexs := strings.Split(attr.index, ",")
 				for _, i := range indexs {
 					if attr.attributeName != attrName && strings.Contains(i, "unique") == unique && indexName == fmt.Sprintf("%v_%v", table, getIndexValue(i, "n:")) {
@@ -517,26 +517,26 @@ func createIndexColumns(table, attribute1, attribute2, name string, unique bool,
 func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, sql *strings.Builder) {
 	attrAny := mt.atts[databaseTable.columnName]
 	if attrAny == nil {
-		fmt.Printf(`goe:field "%v" exists on database table but is missed on struct "%v"%v`, databaseTable.columnName, mt.pk.table, "\n")
-		fmt.Printf(`goe:do you renamed the field "%v" on "%v"? (leave empty if not):`, databaseTable.columnName, mt.pk.table)
-		var c string
-		fmt.Scanln(&c)
-		if c == "" {
-			fmt.Printf(`goe:do you want to remove the field "%v" on table "%v"? (y/n):`, databaseTable.columnName, mt.pk.table)
-			fmt.Scanln(&c)
-			if c == "y" {
-				sql.WriteString(dropColumn(mt.pk.table, databaseTable.columnName))
-			}
-			return
-		}
-		if mt.atts[c] != nil {
-			sql.WriteString(renameColumn(mt.pk.table, databaseTable.columnName, mt.atts[c].attribute.(*att).attributeName))
-			mt.atts[c].migrated = true
-		}
+		// fmt.Printf(`goe:field "%v" exists on database table but is missed on struct "%v"%v`, databaseTable.columnName, mt.pk.table, "\n")
+		// fmt.Printf(`goe:do you renamed the field "%v" on "%v"? (leave empty if not):`, databaseTable.columnName, mt.pk.table)
+		// var c string
+		// fmt.Scanln(&c)
+		// if c == "" {
+		// 	fmt.Printf(`goe:do you want to remove the field "%v" on table "%v"? (y/n):`, databaseTable.columnName, mt.pk.table)
+		// 	fmt.Scanln(&c)
+		// 	if c == "y" {
+		// 		sql.WriteString(dropColumn(mt.pk.table, databaseTable.columnName))
+		// 	}
+		// 	return
+		// }
+		// if mt.atts[c] != nil {
+		// 	sql.WriteString(renameColumn(mt.pk.table, databaseTable.columnName, mt.atts[c].attribute.(*MigrateAtt).attributeName))
+		// 	mt.atts[c].migrated = true
+		// }
 		return
 	}
 	switch attr := attrAny.attribute.(type) {
-	case *pk:
+	case *MigratePk:
 		dataType := checkDataType(attr.dataType, dataMap)
 		if attr.autoIncrement {
 			dataType = checkTypeAutoIncrement(dataType)
@@ -546,7 +546,7 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 		}
 		attrAny.migrated = true
 		tables[attr.table].migrated = true
-	case *att:
+	case *MigrateAtt:
 		dataType := checkDataType(attr.dataType, dataMap)
 		if databaseTable.dataType != dataType {
 			sql.WriteString(alterColumn(attr.pk.table, databaseTable.columnName, dataType, dataMap))
@@ -556,7 +556,7 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 		}
 		attrAny.migrated = true
 		tables[attr.pk.table].migrated = true
-	case *manyToOne:
+	case *MigrateManyToOne:
 		if databaseTable.nullable != attr.nullable {
 			sql.WriteString(nullableColumn(mt.pk.table, databaseTable.columnName, attr.nullable))
 		}
@@ -568,9 +568,9 @@ func checkNewFields(mt *migrateTable, dataMap map[string]string, tables map[stri
 	for _, v := range mt.atts {
 		if !v.migrated {
 			switch attr := v.attribute.(type) {
-			case *att:
+			case *MigrateAtt:
 				sql.WriteString(addColumn(mt.pk.table, attr.attributeName, checkDataType(attr.dataType, dataMap), attr.nullable))
-			case *manyToOne:
+			case *MigrateManyToOne:
 				targetTable := tables[attr.targetTable]
 				if targetTable == nil {
 					fmt.Printf(`goe:target struct "%v" it's not mapped on Database struct%v`, attr.targetTable, "\n")

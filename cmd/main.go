@@ -28,7 +28,7 @@ type Animal struct {
 	Id       string  `goe:"pk;type:uuid"`
 	Emoji    *string `goe:"index(n:idx_emoji)"`
 	Name     string  `goe:"type:varchar(30);index(n:idx_name_low f:lower, n:idx_name_tail unique f:upper)"`
-	Tail     *string `goe:"index(n:idx_name_tail unique f:lower)"`
+	Tails    *string `goe:"index(n:idx_name_tail unique f:lower)"`
 	Foods    []Food  `goe:"table:AnimalFood"`
 	Status   []Status
 	Habitats []Habitat `goe:"table:AnimalHabitat"`
@@ -47,6 +47,13 @@ type Status struct {
 	Name  string
 	Alive bool
 	Animal
+	*Category
+}
+
+type Category struct {
+	Id     uint
+	Name   string
+	Status []Status
 }
 
 type Food struct {
@@ -96,12 +103,13 @@ type Season struct {
 
 // TODO: Check if field exists
 type Database struct {
-	Animal  *Animal
-	Food    *Food
-	Status  *Status
-	Habitat *Habitat
-	Weather *Weather
-	Season  *Season
+	Animal   *Animal
+	Food     *Food
+	Status   *Status
+	Habitat  *Habitat
+	Weather  *Weather
+	Season   *Season
+	Category *Category
 	*goe.DB
 }
 
@@ -122,7 +130,7 @@ func main() {
 		"pgx",
 		"user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable",
 		goe.Config{MigrationsPath: "/"})
-	db.Migrate()
+	db.Migrate(goe.Migrate(db))
 	//db.DeleteIn(db.Animal, db.Food).Where("00e030f3-4ac9-4354-92c1-e9bf1b7f4184")
 	//db.Delete(db.Animal).Where(db.Equals(&db.Animal.Emoji, "Emoji"))
 	//goe.Map(db.Animal, &Animal{})

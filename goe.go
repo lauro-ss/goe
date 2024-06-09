@@ -55,39 +55,36 @@ func initField(valueOf reflect.Value, db *DB) {
 				p.fks[key] = mtm
 			}
 		case reflect.Struct:
-			if mto := isManyToOne(valueOf.Field(i).Type(), valueOf.Type(), false); mto != nil {
+			if mto := isManyToOne(valueOf.Field(i).Type(), valueOf.Type()); mto != nil {
 				key := strings.ToLower(valueOf.Field(i).Type().Name())
 				p.fks[key] = mto
 			}
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
-				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type(), true); mto != nil {
+				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type()); mto != nil {
 					key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
 					p.fks[key] = mto
 				}
 			} else {
 				field = valueOf.Type().Field(i)
 				if field.Name != fieldName {
-					newAttr(valueOf, field, i, p, db)
+					newAttr(valueOf, i, p, db)
 				}
 			}
 		default:
 			field = valueOf.Type().Field(i)
 			if field.Name != fieldName {
-				newAttr(valueOf, field, i, p, db)
+				newAttr(valueOf, i, p, db)
 			}
 		}
 	}
 }
 
-func newAttr(valueOf reflect.Value, field reflect.StructField, i int, p *pk, db *DB) {
+func newAttr(valueOf reflect.Value, i int, p *pk, db *DB) {
 	at := createAtt(
 		fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
 		valueOf.Type().Field(i).Name,
 		p,
-		getType(field),
-		field.Type.String()[0] == '*',
-		getIndex(field),
 	)
 	db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
 }
@@ -96,7 +93,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 	var p *pk
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
-		p = createPk(typeOf.Name(), typeOf.Name()+"."+id.Name, id.Name, isAutoIncrement(id), getType(id))
+		p = createPk(typeOf.Name(), typeOf.Name()+"."+id.Name, id.Name, isAutoIncrement(id))
 		return p, id.Name
 	}
 
@@ -105,7 +102,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 		//Set anonymous pk
 		return nil, ""
 	}
-	p = createPk(typeOf.Name(), typeOf.Name()+"."+fields[0].Name, fields[0].Name, isAutoIncrement(fields[0]), getType(fields[0]))
+	p = createPk(typeOf.Name(), typeOf.Name()+"."+fields[0].Name, fields[0].Name, isAutoIncrement(fields[0]))
 	return p, fields[0].Name
 }
 
@@ -137,11 +134,11 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 			}
 		case reflect.Struct:
 			if targetTypeOf.Field(i).Type.Name() == typeOf.Name() {
-				return createManyToOne(typeOf, targetTypeOf, true, false)
+				return createManyToOne(typeOf, targetTypeOf, true)
 			}
 		case reflect.Ptr:
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				return createManyToOne(typeOf, targetTypeOf, true, false)
+				return createManyToOne(typeOf, targetTypeOf, true)
 			}
 		}
 	}
@@ -149,12 +146,12 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 	return nil
 }
 
-func isManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type, nullable bool) *manyToOne {
+func isManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type) *manyToOne {
 	for i := 0; i < targetTypeOf.NumField(); i++ {
 		switch targetTypeOf.Field(i).Type.Kind() {
 		case reflect.Slice:
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				return createManyToOne(targetTypeOf, typeOf, false, nullable)
+				return createManyToOne(targetTypeOf, typeOf, false)
 			}
 		}
 	}
@@ -191,26 +188,6 @@ func getTagValue(fieldTag string, subTag string) string {
 		if after, found := strings.CutPrefix(v, subTag); found {
 			return strings.ToLower(after)
 		}
-	}
-	return ""
-}
-
-func getType(field reflect.StructField) string {
-	value := getTagValue(field.Tag.Get("goe"), "type:")
-	if value != "" {
-		return value
-	}
-	dataType := field.Type.String()
-	if dataType[0] == '*' {
-		return dataType[1:]
-	}
-	return dataType
-}
-
-func getIndex(field reflect.StructField) string {
-	value := getTagValue(field.Tag.Get("goe"), "index(")
-	if value != "" {
-		return value[0 : len(value)-1]
 	}
 	return ""
 }
