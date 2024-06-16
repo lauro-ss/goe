@@ -10,7 +10,7 @@ type Migrator struct {
 	Tables []any
 }
 
-func Migrate(db any) *Migrator {
+func MigrateFrom(db any) *Migrator {
 	valueOf := reflect.ValueOf(db).Elem()
 
 	migrator := new(Migrator)
@@ -35,18 +35,18 @@ func typeField(valueOf reflect.Value, migrator *Migrator) {
 		case reflect.Slice:
 			if mtm := isMigrateManytoMany(valueOf.Field(i).Type().Elem(), valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
 				key := strings.ToLower(valueOf.Field(i).Type().Elem().Name()) //TODO: add to lower only method
-				p.fks[key] = mtm
+				p.Fks[key] = mtm
 			}
 		case reflect.Struct:
 			if mto := isMigrateManyToOne(valueOf.Field(i).Type(), valueOf.Type(), false); mto != nil {
 				key := strings.ToLower(valueOf.Field(i).Type().Name()) //TODO: add to lower only method
-				p.fks[key] = mto
+				p.Fks[key] = mto
 			}
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isMigrateManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type(), true); mto != nil {
 					key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
-					p.fks[key] = mto
+					p.Fks[key] = mto
 				}
 			} else {
 				field = valueOf.Type().Field(i)
@@ -83,8 +83,8 @@ func isMigrateManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag str
 	for _, v := range m.Tables {
 		switch value := v.(type) {
 		case *MigratePk:
-			if value.table == nameTargetTypeOf {
-				switch fk := value.fks[nameTypeOf].(type) {
+			if value.Table == nameTargetTypeOf {
+				switch fk := value.Fks[nameTypeOf].(type) {
 				case *MigrateManyToMany:
 					return fk
 				}
@@ -121,69 +121,69 @@ func createMigrateManyToMany(tag string, typeOf reflect.Type, targetTypeOf refle
 	nameTypeOf := strings.ToLower(typeOf.Name())
 
 	mtm := new(MigrateManyToMany)
-	mtm.table = table
-	mtm.ids = make(map[string]AttributeStrings)
+	mtm.Table = table
+	mtm.Ids = make(map[string]AttributeStrings)
 	pk := primaryKeys(typeOf)[0]
 
 	id := pk.Name
 	id += nameTypeOf
-	mtm.ids[nameTypeOf] = setAttributeStrings(id, getType(pk))
+	mtm.Ids[nameTypeOf] = setAttributeStrings(id, getType(pk))
 
 	// target id
 	pkTarget := primaryKeys(targetTypeOf)[0]
 	id = pkTarget.Name
 	id += nameTargetTypeOf
 
-	mtm.ids[nameTargetTypeOf] = setAttributeStrings(id, getType(pkTarget))
+	mtm.Ids[nameTargetTypeOf] = setAttributeStrings(id, getType(pkTarget))
 	return mtm
 }
 
 func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool) *MigrateManyToOne {
 	mto := new(MigrateManyToOne)
-	mto.targetTable = strings.ToLower(typeOf.Name())
-	mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
-	mto.hasMany = hasMany
-	mto.nullable = nullable
+	mto.TargetTable = strings.ToLower(typeOf.Name())
+	mto.Id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
+	mto.HasMany = hasMany
+	mto.Nullable = nullable
 	return mto
 }
 
 type MigratePk struct {
-	table         string
-	autoIncrement bool
-	fks           map[string]any
-	attributeName string
-	dataType      string
+	Table         string
+	AutoIncrement bool
+	Fks           map[string]any
+	AttributeName string
+	DataType      string
 }
 
 type MigrateAtt struct {
-	nullable      bool
-	index         string
-	pk            *MigratePk
-	attributeName string
-	dataType      string
+	Nullable      bool
+	Index         string
+	Pk            *MigratePk
+	AttributeName string
+	DataType      string
 }
 
 type MigrateManyToOne struct {
-	targetTable string
-	nullable    bool
-	id          string
-	hasMany     bool
+	TargetTable string
+	Nullable    bool
+	Id          string
+	HasMany     bool
 }
 
 type MigrateManyToMany struct {
-	table string
-	ids   map[string]AttributeStrings
+	Table string
+	Ids   map[string]AttributeStrings
 }
 
 type AttributeStrings struct {
-	attributeName string
-	dataType      string
+	AttributeName string
+	DataType      string
 }
 
 func setAttributeStrings(attributeName string, dataType string) AttributeStrings {
 	return AttributeStrings{
-		attributeName: strings.ToLower(attributeName),
-		dataType:      strings.ToLower(dataType)}
+		AttributeName: strings.ToLower(attributeName),
+		DataType:      strings.ToLower(dataType)}
 }
 
 func migratePk(typeOf reflect.Type) (*MigratePk, string) {
@@ -212,7 +212,6 @@ func migrateAtt(valueOf reflect.Value, field reflect.StructField, i int, pk *Mig
 		getIndex(field),
 	)
 	m.Tables = append(m.Tables, at)
-	//db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at TODO::
 }
 
 func getType(field reflect.StructField) string {
@@ -237,19 +236,19 @@ func getIndex(field reflect.StructField) string {
 
 func createMigratePk(table string, attributeName string, autoIncrement bool, dataType string) *MigratePk {
 	return &MigratePk{
-		table:         strings.ToLower(table),
-		attributeName: strings.ToLower(attributeName),
-		dataType:      dataType,
-		autoIncrement: autoIncrement,
-		fks:           make(map[string]any)}
+		Table:         strings.ToLower(table),
+		AttributeName: strings.ToLower(attributeName),
+		DataType:      dataType,
+		AutoIncrement: autoIncrement,
+		Fks:           make(map[string]any)}
 }
 
 func createMigrateAtt(attributeName string, pk *MigratePk, dataType string, nullable bool, index string) *MigrateAtt {
 	return &MigrateAtt{
-		attributeName: strings.ToLower(attributeName),
-		dataType:      dataType,
-		pk:            pk,
-		nullable:      nullable,
-		index:         index,
+		AttributeName: strings.ToLower(attributeName),
+		DataType:      dataType,
+		Pk:            pk,
+		Nullable:      nullable,
+		Index:         index,
 	}
 }

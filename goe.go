@@ -6,11 +6,7 @@ import (
 	"strings"
 )
 
-type Config struct {
-	MigrationsPath string
-}
-
-func Open(db any, driverName string, uri string, config Config) error {
+func Open(db any, driver Driver) error {
 	valueOf := reflect.ValueOf(db)
 	if valueOf.Kind() != reflect.Ptr {
 		return fmt.Errorf("%v: the target value needs to be pass as a pointer", pkg)
@@ -32,11 +28,8 @@ func Open(db any, driverName string, uri string, config Config) error {
 		}
 	}
 
-	err := dbTarget.open(driverName, uri)
-	if err != nil {
-		return err
-	}
-	dbTarget.config = config
+	dbTarget.driver = driver
+	dbTarget.driver.Init(dbTarget)
 	valueOf.FieldByName("DB").Set(reflect.ValueOf(dbTarget))
 	return nil
 }

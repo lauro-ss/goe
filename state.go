@@ -6,12 +6,12 @@ import (
 )
 
 type stateSelect struct {
-	conn    conn
+	conn    Connection
 	addrMap map[string]any
 	builder *builder
 }
 
-func createSelectState(conn conn, qt int8) *stateSelect {
+func createSelectState(conn Connection, qt int8) *stateSelect {
 	return &stateSelect{conn: conn, builder: createBuilder(qt)}
 }
 
@@ -51,11 +51,11 @@ func (s *stateSelect) Result(target any) {
 State Insert
 */
 type stateInsert struct {
-	conn    conn
+	conn    Connection
 	builder *builder
 }
 
-func createInsertState(conn conn, qt int8) *stateInsert {
+func createInsertState(conn Connection, qt int8) *stateInsert {
 	return &stateInsert{conn: conn, builder: createBuilder(qt)}
 }
 
@@ -106,11 +106,11 @@ func (s *stateInsert) Values(v1 any, v2 any) {
 State Update
 */
 type stateUpdate struct {
-	conn    conn
+	conn    Connection
 	builder *builder
 }
 
-func createUpdateState(conn conn, qt int8) *stateUpdate {
+func createUpdateState(conn Connection, qt int8) *stateUpdate {
 	return &stateUpdate{conn: conn, builder: createBuilder(qt)}
 }
 
@@ -148,11 +148,11 @@ func (s *stateUpdate) Value(target any) {
 }
 
 type stateUpdateBetwent struct {
-	conn    conn
+	conn    Connection
 	builder *builder
 }
 
-func createUpdateBetwentState(conn conn, qt int8) *stateUpdateBetwent {
+func createUpdateBetwentState(conn Connection, qt int8) *stateUpdateBetwent {
 	return &stateUpdateBetwent{conn: conn, builder: createBuilder(qt)}
 }
 
@@ -179,11 +179,11 @@ func (s *stateUpdateBetwent) Value(value any) {
 }
 
 type stateDelete struct {
-	conn    conn
+	conn    Connection
 	builder *builder
 }
 
-func createDeleteState(conn conn, qt int8) *stateDelete {
+func createDeleteState(conn Connection, qt int8) *stateDelete {
 	return &stateDelete{conn: conn, builder: createBuilder(qt)}
 }
 
@@ -203,11 +203,11 @@ func (s *stateDelete) Where(brs ...operator) {
 }
 
 type stateDeleteIn struct {
-	conn    conn
+	conn    Connection
 	builder *builder
 }
 
-func createDeleteInState(conn conn, qt int8) *stateDeleteIn {
+func createDeleteInState(conn Connection, qt int8) *stateDeleteIn {
 	return &stateDeleteIn{conn: conn, builder: createBuilder(qt)}
 }
 

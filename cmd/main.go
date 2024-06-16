@@ -3,6 +3,7 @@ package main
 import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
+	"github.com/lauro-ss/goe/postgres"
 )
 
 // type Produto struct {
@@ -126,11 +127,9 @@ func main() {
 	// }
 
 	db := &Database{DB: &goe.DB{}}
-	goe.Open(db,
-		"pgx",
-		"user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable",
-		goe.Config{MigrationsPath: "/"})
-	db.Migrate(goe.Migrate(db))
+	goe.Open(db, postgres.Open("user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable"))
+	db.Migrate(goe.MigrateFrom(db))
+
 	//db.DeleteIn(db.Animal, db.Food).Where("00e030f3-4ac9-4354-92c1-e9bf1b7f4184")
 	//db.Delete(db.Animal).Where(db.Equals(&db.Animal.Emoji, "Emoji"))
 	//goe.Map(db.Animal, &Animal{})

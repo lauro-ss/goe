@@ -7,7 +7,7 @@ import (
 	"reflect"
 )
 
-func handlerValues(conn conn, sqlQuery string, args []any) {
+func handlerValues(conn Connection, sqlQuery string, args []any) {
 	_, err := conn.ExecContext(context.Background(), sqlQuery, args...)
 	if err != nil {
 		fmt.Println(err)
@@ -15,7 +15,7 @@ func handlerValues(conn conn, sqlQuery string, args []any) {
 	}
 }
 
-func handlerValuesReturning(conn conn, sqlQuery string, value reflect.Value, args []any, idName string) {
+func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) {
 	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
 
 	targetId := value.FieldByName(idName)
@@ -58,7 +58,7 @@ func returnTarget(targetId reflect.Value) any {
 	}
 }
 
-func handlerResult(conn conn, sqlQuery string, value reflect.Value, args []any) {
+func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any) {
 	switch value.Kind() {
 	case reflect.Slice:
 		handlerQuery(conn, sqlQuery, value, args)
@@ -70,7 +70,7 @@ func handlerResult(conn conn, sqlQuery string, value reflect.Value, args []any) 
 	}
 }
 
-func handlerQuery(conn conn, sqlQuery string, value reflect.Value, args []any) {
+func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any) {
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
 	//TODO: Better error
