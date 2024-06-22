@@ -4,13 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 )
-
-type ConnectionConfig struct {
-	ConnMaxIdleTime time.Duration
-	ConnMaxLifetime time.Duration
-}
 
 type DB struct {
 	ConnPool ConnectionPool
@@ -28,7 +22,7 @@ func (db *DB) Migrate(m *Migrator) {
 	db.driver.Migrate(m, c)
 }
 
-func (db *DB) Select(args ...any) Select {
+func (db *DB) Select(args ...any) *stateSelect {
 
 	stringArgs := getArgs(args...)
 
@@ -38,7 +32,7 @@ func (db *DB) Select(args ...any) Select {
 	return state.querySelect(stringArgs)
 }
 
-func (db *DB) Insert(table any) Insert {
+func (db *DB) Insert(table any) *stateInsert {
 	stringArgs := getArgs(table)
 
 	//TODO: Add a single connection to state
@@ -47,7 +41,7 @@ func (db *DB) Insert(table any) Insert {
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
-func (db *DB) InsertBetwent(table1 any, table2 any) InsertBetwent {
+func (db *DB) InsertBetwent(table1 any, table2 any) *stateInsert {
 	stringArgs := getArgs(table1, table2)
 
 	//TODO: Add a single connection to state
@@ -56,7 +50,7 @@ func (db *DB) InsertBetwent(table1 any, table2 any) InsertBetwent {
 	return state.queryInsertBetwent(stringArgs, db.addrMap)
 }
 
-func (db *DB) Update(tables ...any) Update {
+func (db *DB) Update(tables ...any) *stateUpdate {
 	stringArgs := getArgs(tables...)
 
 	state := createUpdateState(db.ConnPool, queryUPDATE)
@@ -64,7 +58,7 @@ func (db *DB) Update(tables ...any) Update {
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
 
-func (db *DB) UpdateBetwent(table1 any, table2 any) Update {
+func (db *DB) UpdateBetwent(table1 any, table2 any) *stateUpdateBetwent {
 	stringArgs := getArgs(table1, table2)
 
 	state := createUpdateBetwentState(db.ConnPool, queryUPDATE)
@@ -72,7 +66,7 @@ func (db *DB) UpdateBetwent(table1 any, table2 any) Update {
 	return state.queryUpdateBetwent(stringArgs, db.addrMap)
 }
 
-func (db *DB) Delete(table any) Delete {
+func (db *DB) Delete(table any) *stateDelete {
 	stringArgs := getArgs(table)
 
 	state := createDeleteState(db.ConnPool, queryUPDATE)
@@ -80,7 +74,7 @@ func (db *DB) Delete(table any) Delete {
 	return state.queryDelete(stringArgs, db.addrMap)
 }
 
-func (db *DB) DeleteIn(table1 any, table2 any) DeleteIn {
+func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
 	stringArgs := getArgs(table1, table2)
 
 	state := createDeleteInState(db.ConnPool, queryUPDATE)
@@ -113,12 +107,13 @@ func getArgs(args ...any) []string {
 	stringArgs := make([]string, 0)
 	for _, v := range args {
 		if reflect.ValueOf(v).Kind() == reflect.Ptr {
-			if reflect.ValueOf(v).Elem().Kind() == reflect.Struct {
+			valueOf := reflect.ValueOf(v).Elem()
+			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
 				for i := 0; i < reflect.ValueOf(v).Elem().NumField(); i++ {
-					stringArgs = append(stringArgs, fmt.Sprintf("%v", reflect.ValueOf(v).Elem().Field(i).Addr()))
+					stringArgs = append(stringArgs, fmt.Sprintf("%p", reflect.ValueOf(v).Elem().Field(i).Addr().Interface()))
 				}
 			} else {
-				stringArgs = append(stringArgs, fmt.Sprintf("%v", v))
+				stringArgs = append(stringArgs, fmt.Sprintf("%p", v))
 			}
 		} else {
 			//TODO: Add ptr error

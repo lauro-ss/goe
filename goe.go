@@ -36,22 +36,24 @@ func Open(db any, driver Driver) error {
 
 func initField(valueOf reflect.Value, db *DB) {
 	p, fieldName := getPk(valueOf.Type())
-
-	db.addrMap[fmt.Sprint(valueOf.FieldByName(fieldName).Addr())] = p
+	db.addrMap[fmt.Sprintf("%p", valueOf.FieldByName(fieldName).Addr().Interface())] = p
 	var field reflect.StructField
 
 	for i := 0; i < valueOf.NumField(); i++ {
+		field = valueOf.Type().Field(i)
+		//skip primary key
+		if field.Name == fieldName {
+			continue
+		}
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
-			if mtm := isManytoMany(valueOf.Field(i).Type().Elem(), valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db); mtm != nil {
-				key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
-				p.fks[key] = mtm
-			}
+			handlerSlice(valueOf.Field(i).Type().Elem(), valueOf, i, p, db)
 		case reflect.Struct:
-			if mto := isManyToOne(valueOf.Field(i).Type(), valueOf.Type()); mto != nil {
-				key := strings.ToLower(valueOf.Field(i).Type().Name())
-				p.fks[key] = mto
-			}
+			handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db)
+			// if mto := isManyToOne(valueOf.Field(i).Type(), valueOf.Type()); mto != nil {
+			// 	key := strings.ToLower(valueOf.Field(i).Type().Name())
+			// 	p.fks[key] = mto
+			// }
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type()); mto != nil {
@@ -59,27 +61,47 @@ func initField(valueOf reflect.Value, db *DB) {
 					p.fks[key] = mto
 				}
 			} else {
-				field = valueOf.Type().Field(i)
-				if field.Name != fieldName {
-					newAttr(valueOf, i, p, db)
-				}
+				newAttr(valueOf, i, p, fmt.Sprint(valueOf.Field(i).Addr()), db)
 			}
 		default:
-			field = valueOf.Type().Field(i)
-			if field.Name != fieldName {
-				newAttr(valueOf, i, p, db)
-			}
+			newAttr(valueOf, i, p, fmt.Sprint(valueOf.Field(i).Addr()), db)
 		}
 	}
 }
 
-func newAttr(valueOf reflect.Value, i int, p *pk, db *DB) {
+func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB) {
+	switch targetTypeOf.Name() {
+	case "Time":
+		newAttr(valueOf, i, p, fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface()), db)
+	default:
+		if mto := isManyToOne(targetTypeOf, valueOf.Type()); mto != nil {
+			key := strings.ToLower(targetTypeOf.Name())
+			p.fks[key] = mto
+		}
+	}
+}
+
+func handlerSlice(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB) {
+	switch targetTypeOf.Kind() {
+	case reflect.Uint8:
+		valueOf.Field(i).SetBytes([]byte{})
+		newAttr(valueOf, i, p, fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface()), db)
+	default:
+		if mtm := isManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db); mtm != nil {
+			key := strings.ToLower(targetTypeOf.Name())
+			p.fks[key] = mtm
+		}
+	}
+
+}
+
+func newAttr(valueOf reflect.Value, i int, p *pk, addr string, db *DB) {
 	at := createAtt(
 		fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
 		valueOf.Type().Field(i).Name,
 		p,
 	)
-	db.addrMap[fmt.Sprint(valueOf.Field(i).Addr())] = at
+	db.addrMap[addr] = at
 }
 
 func getPk(typeOf reflect.Type) (*pk, string) {

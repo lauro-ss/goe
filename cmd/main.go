@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"time"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lauro-ss/goe"
 	"github.com/lauro-ss/goe/postgres"
@@ -25,6 +28,14 @@ import (
 // 	Categorias []Categoria
 // }
 
+type Flag struct {
+	Id       []byte
+	Value32  float32
+	Value    float64
+	CreateAt time.Time
+	Ative    bool
+}
+
 type Animal struct {
 	Id       string  `goe:"pk;type:uuid"`
 	Emoji    *string `goe:"index(n:idx_emoji)"`
@@ -38,6 +49,7 @@ type Animal struct {
 type Habitat struct {
 	Id       int
 	Name     string
+	Bits     []byte
 	Weathers []Weather
 	Animals  []Animal `goe:"table:AnimalHabitat"`
 	Foods    []Food   `goe:"table:FoodHabitat"`
@@ -111,6 +123,7 @@ type Database struct {
 	Weather  *Weather
 	Season   *Season
 	Category *Category
+	Flag     *Flag
 	*goe.DB
 }
 
@@ -129,9 +142,8 @@ func main() {
 	db := &Database{DB: &goe.DB{}}
 	goe.Open(db, postgres.Open("user=app password=123456 host=localhost port=5432 database=appanimal sslmode=disable"))
 	db.Migrate(goe.MigrateFrom(db))
-
 	//db.DeleteIn(db.Animal, db.Food).Where("00e030f3-4ac9-4354-92c1-e9bf1b7f4184")
-	//db.Delete(db.Animal).Where(db.Equals(&db.Animal.Emoji, "Emoji"))
+	// db.Delete(db.Animal).Where(db.Equals(&db.Animal.Emoji, "Emoji"))
 	//goe.Map(db.Animal, &Animal{})
 	//goe.Connect(db)
 	// goe.Map(db, Status{})
@@ -206,14 +218,42 @@ func main() {
 	// db.Select(db.Animal).
 	// 	Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
 	//db.Select(db.Animal, db.Status, db.Habitat).Where(db.Equals(&db.Food.Id, "ae5bf981-788c-46c0-aa4d-66dc632fbe47")).Result(&a)
-	// animal := Animal{
-	// 	Id:    "8583db14-7ea7-4912-9b0c-ba33700c1e09",
-	// 	Name:  "Cow",
-	// 	Emoji: "Emoji",
+	// h := Habitat{
+	// 	Name: "Cow",
+	// 	Bits: []byte{0, 1, 4, 4, 3},
 	// }
-	// db.Insert(db.Animal).Value(&animal)
+	// var h []Habitat
+	// db.Select(&db.Habitat.Bits, &db.Habitat.Id).Result(&h)
+	// fmt.Println(h[0].Bits)
+	// db.Insert(db.Habitat).Value(&h)
+	// fmt.Println(h)
+	// a := Animal{
+	// 	Id:   "teste",
+	// 	Name: "teste",
+	// }
+	// db.Insert(db.Animal).Value(&a)
 	// fmt.Println(animal)
 
+	//TODO: Add insert for fk many to one
+	// ss := Status{
+	// 	Id:    "teste32323",
+	// 	Name:  "teste",
+	// 	Alive: true,
+	// }
+	// db.Insert(db.Status).Value(&ss)
+
+	// ff := Flag{
+	// 	Id:       []byte{0, 1, 2, 4},
+	// 	Value32:  1.44,
+	// 	Value:    2.44,
+	// 	CreateAt: time.Now(),
+	// 	Ative:    false,
+	// }
+	// db.Insert(db.Flag).Value(&ff)
+
+	var f []Flag
+	db.Select(&db.Flag.CreateAt, &db.Flag.Ative, &db.Flag.Value, &db.Flag.Value32, &db.Flag.Id).Result(&f)
+	fmt.Println(f)
 	// h := make([]Habitat, 0)
 	// db.Select(db.Habitat).Result(&h)
 	// fmt.Println(h)
@@ -269,6 +309,8 @@ func main() {
 	// "db.Get(&users).Join('Categoria')"
 	// "db.Select(&user)"
 	// "db.Select('Id','Name', '')"
+
+	// testes := teste(2)
 }
 
 // func CheckManyToOne(db *Database) {
@@ -305,4 +347,8 @@ func main() {
 // 		fmt.Println("Fail pointer " + ap + " on " + a)
 // 		fmt.Println("Fail pointer " + fp + " on " + f)
 // 	}
+// }
+
+// func teste[E any](aa E) E {
+// 	return aa
 // }

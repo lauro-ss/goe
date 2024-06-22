@@ -6,21 +6,22 @@ import (
 )
 
 type stateSelect struct {
-	conn    Connection
-	addrMap map[string]any
-	builder *builder
+	conn          Connection
+	addrMap       map[string]any
+	builder       *builder
+	structColumns []string
 }
 
 func createSelectState(conn Connection, qt int8) *stateSelect {
 	return &stateSelect{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateSelect) Where(brs ...operator) SelectWhere {
+func (s *stateSelect) Where(brs ...operator) *stateSelect {
 	where(s.builder, brs...)
 	return s
 }
 
-func (s *stateSelect) Join(tables ...any) Select {
+func (s *stateSelect) Join(tables ...any) *stateSelect {
 	s.builder.args = append(s.builder.args, getArgs(tables...)...)
 	s.builder.buildSelectJoins(s.addrMap)
 	return s
@@ -28,7 +29,7 @@ func (s *stateSelect) Join(tables ...any) Select {
 
 func (s *stateSelect) querySelect(args []string) *stateSelect {
 	s.builder.args = args
-	s.builder.buildSelect(s.addrMap)
+	s.structColumns = s.builder.buildSelect(s.addrMap)
 	return s
 }
 
@@ -44,7 +45,7 @@ func (s *stateSelect) Result(target any) {
 	s.builder.buildSql()
 
 	fmt.Println(s.builder.sql)
-	handlerResult(s.conn, s.builder.sql.String(), value.Elem(), s.builder.argsAny)
+	handlerResult(s.conn, s.builder.sql.String(), value.Elem(), s.builder.argsAny, s.structColumns)
 }
 
 /*
@@ -59,7 +60,7 @@ func createInsertState(conn Connection, qt int8) *stateInsert {
 	return &stateInsert{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateInsert) queryInsert(args []string, addrMap map[string]any) Insert {
+func (s *stateInsert) queryInsert(args []string, addrMap map[string]any) *stateInsert {
 	s.builder.args = args
 	s.builder.buildInsert(addrMap)
 	return s
@@ -84,7 +85,7 @@ func (s *stateInsert) Value(target any) {
 	handlerValuesReturning(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
 }
 
-func (s *stateInsert) queryInsertBetwent(args []string, addrMap map[string]any) InsertBetwent {
+func (s *stateInsert) queryInsertBetwent(args []string, addrMap map[string]any) *stateInsert {
 	s.builder.args = args
 	s.builder.buildInsertManyToMany(addrMap)
 	return s
@@ -114,12 +115,12 @@ func createUpdateState(conn Connection, qt int8) *stateUpdate {
 	return &stateUpdate{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateUpdate) Where(brs ...operator) UpdateWhere {
+func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
 	where(s.builder, brs...)
 	return s
 }
 
-func (s *stateUpdate) queryUpdate(args []string, addrMap map[string]any) Update {
+func (s *stateUpdate) queryUpdate(args []string, addrMap map[string]any) *stateUpdate {
 	s.builder.args = args
 	s.builder.buildUpdate(addrMap)
 	return s
@@ -156,12 +157,12 @@ func createUpdateBetwentState(conn Connection, qt int8) *stateUpdateBetwent {
 	return &stateUpdateBetwent{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateUpdateBetwent) Where(brs ...operator) UpdateWhere {
+func (s *stateUpdateBetwent) Where(brs ...operator) *stateUpdateBetwent {
 	where(s.builder, brs...)
 	return s
 }
 
-func (s *stateUpdateBetwent) queryUpdateBetwent(args []string, addrMap map[string]any) Update {
+func (s *stateUpdateBetwent) queryUpdateBetwent(args []string, addrMap map[string]any) *stateUpdateBetwent {
 	s.builder.args = args
 	s.builder.buildUpdateBetwent(addrMap)
 	return s
@@ -187,7 +188,7 @@ func createDeleteState(conn Connection, qt int8) *stateDelete {
 	return &stateDelete{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateDelete) queryDelete(args []string, addrMap map[string]any) Delete {
+func (s *stateDelete) queryDelete(args []string, addrMap map[string]any) *stateDelete {
 	s.builder.args = args
 	s.builder.buildDelete(addrMap)
 	return s
@@ -211,7 +212,7 @@ func createDeleteInState(conn Connection, qt int8) *stateDeleteIn {
 	return &stateDeleteIn{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateDeleteIn) queryDeleteIn(args []string, addrMap map[string]any) DeleteIn {
+func (s *stateDeleteIn) queryDeleteIn(args []string, addrMap map[string]any) *stateDeleteIn {
 	s.builder.args = args
 	s.builder.buildDeleteIn(addrMap)
 	return s

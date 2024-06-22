@@ -3,8 +3,12 @@ package goe
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
+	"time"
 )
 
 func handlerValues(conn Connection, sqlQuery string, args []any) {
@@ -18,6 +22,7 @@ func handlerValues(conn Connection, sqlQuery string, args []any) {
 func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) {
 	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
 
+	//TODO: Better returning handler
 	targetId := value.FieldByName(idName)
 	id := returnTarget(targetId)
 	err := row.Scan(id)
@@ -53,15 +58,17 @@ func returnTarget(targetId reflect.Value) any {
 		return new(int64)
 	case reflect.String:
 		return new(string)
+	case reflect.Slice:
+		return new([]byte)
 	default:
 		return new(any)
 	}
 }
 
-func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any) {
+func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
 	switch value.Kind() {
 	case reflect.Slice:
-		handlerQuery(conn, sqlQuery, value, args)
+		handlerQuery(conn, sqlQuery, value, args, structColumns)
 	case reflect.Struct:
 		//handlerQueryRow(conn, sqlQuery, value, args)
 		fmt.Println("struct")
@@ -70,7 +77,7 @@ func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args [
 	}
 }
 
-func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any) {
+func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
 	//TODO: Better error
@@ -96,7 +103,7 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 	//Check the result target
 	switch value.Type().Elem().Kind() {
 	case reflect.Struct:
-		err = mapStructQuery(rows, dest, value)
+		err = mapStructQuery(rows, dest, value, structColumns)
 
 		//TODO: Better error
 		if err != nil {
@@ -114,7 +121,7 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 	}
 }
 
-func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
+func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value, columns []string) (err error) {
 	//TODO: add count for slices
 	value.Set(reflect.MakeSlice(value.Type(), 0, 0))
 	for i := 0; rows.Next(); i++ {
@@ -125,7 +132,7 @@ func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error)
 		s := reflect.New(value.Type().Elem()).Elem()
 		//Fills the target
 		for i, a := range dest {
-			setValue(s.Field(i), a)
+			setValue(s.FieldByName(columns[i]), a)
 		}
 		value.Set(reflect.Append(value, s))
 	}
@@ -158,6 +165,17 @@ func setValue(v reflect.Value, a any) {
 		v.SetInt(parseInt(*(a.(*sql.RawBytes))))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		v.SetUint(parseUint(*(a.(*sql.RawBytes))))
+	case reflect.Bool:
+		v.SetBool((*(a.(*sql.RawBytes)))[0] == 116)
+	case reflect.Slice:
+		v.SetBytes((*(a.(*sql.RawBytes))))
+	case reflect.Struct:
+		var tm time.Time
+		tm.UnmarshalText(*a.(*sql.RawBytes))
+		v.Set(reflect.ValueOf((tm)))
+	case reflect.Float64, reflect.Float32:
+		f, _ := strconv.ParseFloat(string((*(a.(*sql.RawBytes)))), 32)
+		v.SetFloat(f)
 	}
 }
 
@@ -189,4 +207,16 @@ func parseUint(bts []byte) uint64 {
 		n = n1
 	}
 	return n
+}
+
+func Float32frombytes(bytes []byte) float32 {
+	bits := binary.LittleEndian.Uint32(bytes)
+	float := math.Float32frombits(bits)
+	return float
+}
+
+func Float64frombytes(bytes []byte) float64 {
+	bits := binary.LittleEndian.Uint64(bytes)
+	float := math.Float64frombits(bits)
+	return float
 }

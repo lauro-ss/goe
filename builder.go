@@ -93,7 +93,7 @@ func createStatement(k string, t int8) *statement {
 	return &statement{keyword: k, tip: t}
 }
 
-func (b *builder) buildSelect(addrMap map[string]any) {
+func (b *builder) buildSelect(addrMap map[string]any) (structColumns []string) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementSELECT)
 
@@ -103,19 +103,20 @@ func (b *builder) buildSelect(addrMap map[string]any) {
 		case *att:
 			b.queue.add(createStatement(atr.selectName, writeATT))
 			b.tables.add(createStatement(atr.pk.table, writeTABLE))
-
+			structColumns = append(structColumns, atr.structAttributeName)
 			//TODO: Add a list pk?
 			b.pks.add(atr.pk)
 		case *pk:
 			b.queue.add(createStatement(atr.selectName, writeATT))
 			b.tables.add(createStatement(atr.table, writeTABLE))
-
+			structColumns = append(structColumns, atr.structAttributeName)
 			//TODO: Add a list pk?
 			b.pks.add(atr)
 		}
 	}
 
 	b.queue.add(statementFROM)
+	return structColumns
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]any) {
@@ -331,13 +332,13 @@ func (b *builder) buildInsert(addrMap map[string]any) {
 		case *att:
 			b.queue.add(createStatement(atr.pk.table, writeDML))
 			b.queue.add(createStatement(atr.attributeName, writeATT))
-			attrNames = append(attrNames, atr.attributeName)
+			attrNames = append(attrNames, atr.structAttributeName)
 
 		case *pk:
 			if !atr.autoIncrement {
 				b.queue.add(createStatement(atr.table, writeDML))
 				b.queue.add(createStatement(atr.attributeName, writeATT))
-				attrNames = append(attrNames, atr.attributeName)
+				attrNames = append(attrNames, atr.structAttributeName)
 			}
 			b.pks.add(atr)
 		}
@@ -411,7 +412,7 @@ func (b *builder) buildValues(value reflect.Value) string {
 	st := createStatement(pk.attributeName, 0)
 	st.allowCopies = true
 	b.queue.add(st)
-	return pk.attributeName
+	return pk.structAttributeName
 
 }
 

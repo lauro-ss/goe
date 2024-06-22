@@ -31,17 +31,16 @@ func typeField(valueOf reflect.Value, migrator *Migrator) {
 	var field reflect.StructField
 
 	for i := 0; i < valueOf.NumField(); i++ {
+		field = valueOf.Type().Field(i)
+		//skip primary key
+		if field.Name == fieldName {
+			continue
+		}
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
-			if mtm := isMigrateManytoMany(valueOf.Field(i).Type().Elem(), valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
-				key := strings.ToLower(valueOf.Field(i).Type().Elem().Name()) //TODO: add to lower only method
-				p.Fks[key] = mtm
-			}
+			handlerSliceMigrate(field, valueOf.Field(i).Type().Elem(), valueOf, i, p, migrator)
 		case reflect.Struct:
-			if mto := isMigrateManyToOne(valueOf.Field(i).Type(), valueOf.Type(), false); mto != nil {
-				key := strings.ToLower(valueOf.Field(i).Type().Name()) //TODO: add to lower only method
-				p.Fks[key] = mto
-			}
+			handlerStructMigrate(field, valueOf.Field(i).Type(), valueOf, i, p, migrator)
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isMigrateManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type(), true); mto != nil {
@@ -49,18 +48,37 @@ func typeField(valueOf reflect.Value, migrator *Migrator) {
 					p.Fks[key] = mto
 				}
 			} else {
-				field = valueOf.Type().Field(i)
-				if field.Name != fieldName {
-					migrateAtt(valueOf, field, i, p, migrator)
-				}
-			}
-		default:
-			field = valueOf.Type().Field(i)
-			if field.Name != fieldName {
 				migrateAtt(valueOf, field, i, p, migrator)
 			}
+		default:
+			migrateAtt(valueOf, field, i, p, migrator)
 		}
 	}
+}
+
+func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) {
+	switch targetTypeOf.Name() {
+	case "Time":
+		migrateAtt(valueOf, field, i, p, migrator)
+	default:
+		if mto := isMigrateManyToOne(valueOf.Field(i).Type(), valueOf.Type(), false); mto != nil {
+			key := strings.ToLower(valueOf.Field(i).Type().Name()) //TODO: add to lower only method
+			p.Fks[key] = mto
+		}
+	}
+}
+
+func handlerSliceMigrate(field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) {
+	switch targetTypeOf.Kind() {
+	case reflect.Uint8:
+		migrateAtt(valueOf, field, i, p, migrator)
+	default:
+		if mtm := isMigrateManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
+			key := strings.ToLower(targetTypeOf.Name()) //TODO: add to lower only method
+			p.Fks[key] = mtm
+		}
+	}
+
 }
 
 func isMigrateManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type, nullable bool) *MigrateManyToOne {

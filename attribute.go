@@ -52,14 +52,16 @@ func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany boo
 }
 
 type attributeStrings struct {
-	selectName    string
-	attributeName string
+	selectName          string
+	attributeName       string
+	structAttributeName string
 }
 
 func createAttributeStrings(selectName string, attributeName string) attributeStrings {
 	return attributeStrings{
-		selectName:    strings.ToLower(selectName),
-		attributeName: strings.ToLower(attributeName),
+		selectName:          strings.ToLower(selectName),
+		attributeName:       strings.ToLower(attributeName),
+		structAttributeName: attributeName,
 	}
 }
 
