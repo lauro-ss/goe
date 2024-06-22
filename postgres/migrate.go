@@ -29,12 +29,15 @@ func (db *Driver) Migrate(migrator *goe.Migrator, conn goe.Connection) {
 	tablesManyToMany := make(map[string]*goe.MigrateManyToMany, 0)
 
 	dataMap := map[string]string{
-		"string":  "text",
-		"int16":   "smallint",
-		"int32":   "integer",
-		"int64":   "bigint",
-		"float32": "real",
-		"float64": "double precision",
+		"string":    "text",
+		"int16":     "smallint",
+		"int32":     "integer",
+		"int64":     "bigint",
+		"float32":   "real",
+		"float64":   "double precision",
+		"[]uint8":   "bytea",
+		"time.Time": "timestamp",
+		"bool":      "boolean",
 	}
 
 	for _, v := range migrator.Tables {
@@ -231,7 +234,6 @@ func checkTableChanges(mt *migrateTable, tables map[string]*migrateTable, dataMa
 	column_name, CASE 
 	WHEN data_type = 'character varying' 
 	THEN CONCAT('varchar','(',character_maximum_length,')')
-	WHEN data_type = 'boolean' THEN 'bool'
 	when data_type = 'integer' then case WHEN column_default like 'nextval%' THEN 'serial' ELSE data_type end
 	when data_type = 'bigint' then case WHEN column_default like 'nextval%' THEN 'bigserial' ELSE data_type end
 	ELSE data_type END, 
