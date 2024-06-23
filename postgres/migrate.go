@@ -91,6 +91,7 @@ func (db *Driver) Migrate(migrator *goe.Migrator, conn goe.Connection) {
 		if _, err := conn.ExecContext(context.Background(), sql.String()); err != nil {
 			fmt.Println(err)
 		}
+		fmt.Println(sql)
 	}
 }
 
@@ -236,6 +237,7 @@ func checkTableChanges(mt *migrateTable, tables map[string]*migrateTable, dataMa
 	THEN CONCAT('varchar','(',character_maximum_length,')')
 	when data_type = 'integer' then case WHEN column_default like 'nextval%' THEN 'serial' ELSE data_type end
 	when data_type = 'bigint' then case WHEN column_default like 'nextval%' THEN 'bigserial' ELSE data_type end
+	when data_type like 'timestamp%' then 'timestamp'
 	ELSE data_type END, 
 	CASE WHEN column_default like 'nextval%' THEN True ELSE False end as auto_increment,
 	CASE
