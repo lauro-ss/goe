@@ -52,8 +52,9 @@ func (s *stateSelect) Result(target any) {
 State Insert
 */
 type stateInsert struct {
-	conn    Connection
-	builder *builder
+	conn           Connection
+	targetFksNames map[string]string
+	builder        *builder
 }
 
 func createInsertState(conn Connection, qt int8) *stateInsert {
@@ -62,13 +63,14 @@ func createInsertState(conn Connection, qt int8) *stateInsert {
 
 func (s *stateInsert) queryInsert(args []string, addrMap map[string]any) *stateInsert {
 	s.builder.args = args
-	s.builder.buildInsert(addrMap)
+	s.targetFksNames = s.builder.buildInsert(addrMap)
 	return s
 }
 
 func (s *stateInsert) Value(target any) {
 	value := reflect.ValueOf(target)
 
+	//TODO: Handler value as struct or ptr
 	if value.Kind() != reflect.Ptr {
 		fmt.Printf("%v: target result needs to be a pointer try &animals\n", pkg)
 		return
@@ -76,7 +78,7 @@ func (s *stateInsert) Value(target any) {
 
 	value = value.Elem()
 
-	idName := s.builder.buildValues(value)
+	idName := s.builder.buildValues(value, s.targetFksNames)
 
 	//generate query
 	s.builder.buildSql()
@@ -107,8 +109,10 @@ func (s *stateInsert) Values(v1 any, v2 any) {
 State Update
 */
 type stateUpdate struct {
-	conn    Connection
-	builder *builder
+	conn           Connection
+	targetFksNames map[string]string
+	strNames       []string
+	builder        *builder
 }
 
 func createUpdateState(conn Connection, qt int8) *stateUpdate {
@@ -122,7 +126,7 @@ func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
 
 func (s *stateUpdate) queryUpdate(args []string, addrMap map[string]any) *stateUpdate {
 	s.builder.args = args
-	s.builder.buildUpdate(addrMap)
+	s.targetFksNames, s.strNames = s.builder.buildUpdate(addrMap)
 	return s
 }
 
@@ -138,7 +142,7 @@ func (s *stateUpdate) Value(target any) {
 		return
 	}
 
-	s.builder.buildSet(value)
+	s.builder.buildSet(value, s.targetFksNames, s.strNames)
 
 	//generate query
 	s.builder.buildSql()

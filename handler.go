@@ -3,15 +3,13 @@ package goe
 import (
 	"context"
 	"database/sql"
-	"encoding/binary"
 	"fmt"
-	"math"
 	"reflect"
-	"strconv"
-	"time"
 )
 
 func handlerValues(conn Connection, sqlQuery string, args []any) {
+	defer conn.Close()
+
 	_, err := conn.ExecContext(context.Background(), sqlQuery, args...)
 	if err != nil {
 		fmt.Println(err)
@@ -20,6 +18,8 @@ func handlerValues(conn Connection, sqlQuery string, args []any) {
 }
 
 func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) {
+	defer conn.Close()
+
 	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
 
 	//TODO: Better returning handler
@@ -66,14 +66,45 @@ func returnTarget(targetId reflect.Value) any {
 }
 
 func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
+	defer conn.Close()
+
 	switch value.Kind() {
 	case reflect.Slice:
 		handlerQuery(conn, sqlQuery, value, args, structColumns)
 	case reflect.Struct:
-		//handlerQueryRow(conn, sqlQuery, value, args)
-		fmt.Println("struct")
+		handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
 	default:
-		fmt.Println("default")
+		handlerQueryRow(conn, sqlQuery, value, args, structColumns)
+	}
+}
+
+func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string) {
+	dest := make([]any, len(columns))
+	for i := range dest {
+		dest[i] = new(any)
+	}
+	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	setValue(value, dest[0])
+}
+
+func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string) {
+	dest := make([]any, len(columns))
+	for i := range dest {
+		dest[i] = new(any)
+	}
+	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for i, a := range dest {
+		setValue(value.FieldByName(columns[i]), a)
 	}
 }
 
@@ -87,17 +118,9 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 	}
 	defer rows.Close()
 
-	//Prepare dest for query
-	c, err := rows.Columns()
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	dest := make([]any, len(c))
+	dest := make([]any, len(structColumns))
 	for i := range dest {
-		dest[i] = new(sql.RawBytes)
+		dest[i] = new(any)
 	}
 
 	//Check the result target
@@ -158,65 +181,15 @@ func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
 }
 
 func setValue(v reflect.Value, a any) {
+	//TODO: Change sql.RawBytes to *any
 	switch v.Type().Kind() {
-	case reflect.String:
-		v.SetString(string(*(a.(*sql.RawBytes))))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		v.SetInt(parseInt(*(a.(*sql.RawBytes))))
+		v.SetInt((*(a).(*any)).(int64))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		v.SetUint(parseUint(*(a.(*sql.RawBytes))))
-	case reflect.Bool:
-		v.SetBool((*(a.(*sql.RawBytes)))[0] == 116)
-	case reflect.Slice:
-		v.SetBytes((*(a.(*sql.RawBytes))))
-	case reflect.Struct:
-		var tm time.Time
-		tm.UnmarshalText(*a.(*sql.RawBytes))
-		v.Set(reflect.ValueOf((tm)))
+		v.SetUint((*(a).(*any)).(uint64))
 	case reflect.Float64, reflect.Float32:
-		f, _ := strconv.ParseFloat(string((*(a.(*sql.RawBytes)))), 32)
-		v.SetFloat(f)
+		v.SetFloat((*(a).(*any)).(float64))
+	default:
+		v.Set(reflect.ValueOf(*(a).(*any)))
 	}
-}
-
-func parseInt(bts []byte) int64 {
-	var n int64
-	var neg bool
-	if bts[0] == '-' {
-		neg = true
-		bts = bts[1:]
-	}
-	for _, b := range bts {
-		d := b - '0' //reduces the byte by the rune 0, if the byte is digit 0 will be: 48 - 48
-		n *= int64(10)
-		n1 := n + int64(d)
-		n = n1
-	}
-	if neg {
-		n = -n
-	}
-	return n
-}
-
-func parseUint(bts []byte) uint64 {
-	var n uint64
-	for _, b := range bts {
-		d := b - '0' //reduces the byte by the rune 0, if the byte is digit 0 will be: 48 - 48
-		n *= uint64(10)
-		n1 := n + uint64(d)
-		n = n1
-	}
-	return n
-}
-
-func Float32frombytes(bytes []byte) float32 {
-	bits := binary.LittleEndian.Uint32(bytes)
-	float := math.Float32frombits(bits)
-	return float
-}
-
-func Float64frombytes(bytes []byte) float64 {
-	bits := binary.LittleEndian.Uint64(bytes)
-	float := math.Float64frombits(bits)
-	return float
 }

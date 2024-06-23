@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -251,12 +250,49 @@ func main() {
 	// }
 	// db.Insert(db.Flag).Value(&ff)
 
-	var f []Flag
-	db.Select(&db.Flag.CreateAt, &db.Flag.Ative, &db.Flag.Value, &db.Flag.Value32, &db.Flag.Id).Result(&f)
-	fmt.Println(f)
-	// h := make([]Habitat, 0)
+	// var f []Flag
+	// db.Select(&db.Flag.CreateAt, &db.Flag.Ative, &db.Flag.Value, &db.Flag.Value32, &db.Flag.Id).Result(&f)
+	// fmt.Println(f)
+
+	// a := Animal{
+	// 	Id:   "b5babef8-c66a-4435-a900-c32290ae8782",
+	// 	Name: "Lion",
+	// }
+	// db.Insert(db.Animal).Value(&a)
+
+	// c := Category{
+	// 	Id: 2,
+	// }
+
+	// s := Status{Id: "81d0779e-f662-4299-ae8a-163762fc7ba4", Name: "Eating", Animal: a, Category: &c}
+	// db.Insert(db.Status).Value(&s)
+
+	// var s Status
+	// db.Select(db.Status).Where(db.Equals(&db.Status.Id, "81d0779e-f662-4299-ae8a-163762fc7ba4")).Result(&s)
+	// fmt.Println(s)
+	// s.Animal = Animal{Id: "017b6292-c1d3-494c-a573-36a84e9d3464"}
+	// s.Category = &Category{Id: 4}
+	// c := &Category{
+	// 	Name: "Sleep",
+	// }
+	// db.Insert(db.Category).Value(c)
+	// s.Category = c
+	// s.Alive = false
+	// db.Update(db.Status).Where(db.Equals(&db.Status.Id, s.Id)).Value(s)
+	// var f Flag
+	// db.Select(db.Flag).Result(&f)
+	// fmt.Println(f)
+
+	// var h Habitat
 	// db.Select(db.Habitat).Result(&h)
 	// fmt.Println(h)
+	// hh := make([]Habitat, 0)
+	// db.Select(db.Habitat).Result(&hh)
+	// fmt.Println(hh)
+
+	// var i int
+	// db.Select(&db.Habitat.Id).Result(&i)
+	// fmt.Println(i)
 	// h := &Habitat{Name: "Floresta"}
 	// db.Insert(db.Habitat).Value(h)
 	// fmt.Println(h)

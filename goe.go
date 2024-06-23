@@ -50,14 +50,12 @@ func initField(valueOf reflect.Value, db *DB) {
 			handlerSlice(valueOf.Field(i).Type().Elem(), valueOf, i, p, db)
 		case reflect.Struct:
 			handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db)
-			// if mto := isManyToOne(valueOf.Field(i).Type(), valueOf.Type()); mto != nil {
-			// 	key := strings.ToLower(valueOf.Field(i).Type().Name())
-			// 	p.fks[key] = mto
-			// }
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type()); mto != nil {
 					key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
+					db.addrMap[fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface())] = mto
+					mto.pk = p
 					p.fks[key] = mto
 				}
 			} else {
@@ -76,6 +74,8 @@ func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *p
 	default:
 		if mto := isManyToOne(targetTypeOf, valueOf.Type()); mto != nil {
 			key := strings.ToLower(targetTypeOf.Name())
+			db.addrMap[fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface())] = mto
+			mto.pk = p
 			p.fks[key] = mto
 		}
 	}

@@ -26,8 +26,10 @@ func (db *DB) Select(args ...any) *stateSelect {
 
 	stringArgs := getArgs(args...)
 
-	//TODO: Add a single connection to state
-	state := createSelectState(db.ConnPool, querySELECT)
+	//TODO: add ctx
+	conn, _ := db.ConnPool.Conn(context.Background())
+	state := createSelectState(conn, querySELECT)
+
 	state.addrMap = db.addrMap
 	return state.querySelect(stringArgs)
 }
@@ -35,8 +37,9 @@ func (db *DB) Select(args ...any) *stateSelect {
 func (db *DB) Insert(table any) *stateInsert {
 	stringArgs := getArgs(table)
 
-	//TODO: Add a single connection to state
-	state := createInsertState(db.ConnPool, queryINSERT)
+	//TODO: add ctx
+	conn, _ := db.ConnPool.Conn(context.Background())
+	state := createInsertState(conn, queryINSERT)
 
 	return state.queryInsert(stringArgs, db.addrMap)
 }
@@ -44,8 +47,9 @@ func (db *DB) Insert(table any) *stateInsert {
 func (db *DB) InsertBetwent(table1 any, table2 any) *stateInsert {
 	stringArgs := getArgs(table1, table2)
 
-	//TODO: Add a single connection to state
-	state := createInsertState(db.ConnPool, queryINSERT)
+	//TODO: add ctx
+	conn, _ := db.ConnPool.Conn(context.Background())
+	state := createInsertState(conn, queryINSERT)
 
 	return state.queryInsertBetwent(stringArgs, db.addrMap)
 }
@@ -53,7 +57,9 @@ func (db *DB) InsertBetwent(table1 any, table2 any) *stateInsert {
 func (db *DB) Update(tables ...any) *stateUpdate {
 	stringArgs := getArgs(tables...)
 
-	state := createUpdateState(db.ConnPool, queryUPDATE)
+	//TODO: add ctx
+	conn, _ := db.ConnPool.Conn(context.Background())
+	state := createUpdateState(conn, queryUPDATE)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
@@ -61,7 +67,9 @@ func (db *DB) Update(tables ...any) *stateUpdate {
 func (db *DB) UpdateBetwent(table1 any, table2 any) *stateUpdateBetwent {
 	stringArgs := getArgs(table1, table2)
 
-	state := createUpdateBetwentState(db.ConnPool, queryUPDATE)
+	//TODO: add ctx
+	conn, _ := db.ConnPool.Conn(context.Background())
+	state := createUpdateBetwentState(conn, queryUPDATE)
 
 	return state.queryUpdateBetwent(stringArgs, db.addrMap)
 }
@@ -69,7 +77,9 @@ func (db *DB) UpdateBetwent(table1 any, table2 any) *stateUpdateBetwent {
 func (db *DB) Delete(table any) *stateDelete {
 	stringArgs := getArgs(table)
 
-	state := createDeleteState(db.ConnPool, queryUPDATE)
+	//TODO: add ctx
+	conn, _ := db.ConnPool.Conn(context.Background())
+	state := createDeleteState(conn, queryUPDATE)
 
 	return state.queryDelete(stringArgs, db.addrMap)
 }
@@ -77,7 +87,9 @@ func (db *DB) Delete(table any) *stateDelete {
 func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
 	stringArgs := getArgs(table1, table2)
 
-	state := createDeleteInState(db.ConnPool, queryUPDATE)
+	//TODO: add ctx
+	conn, _ := db.ConnPool.Conn(context.Background())
+	state := createDeleteInState(conn, queryUPDATE)
 
 	return state.queryDeleteIn(stringArgs, db.addrMap)
 }

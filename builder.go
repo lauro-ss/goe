@@ -273,10 +273,12 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 	}
 }
 
-func (b *builder) buildUpdate(addrMap map[string]any) {
+func (b *builder) buildUpdate(addrMap map[string]any) (targetFksNames map[string]string, strNames []string) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementUPDATE)
 
+	targetFksNames = make(map[string]string)
+	strNames = make([]string, 0, len(b.args))
 	attrNames := make([]string, 0, len(b.args))
 	//TODO Better Query
 	for _, v := range b.args {
@@ -286,18 +288,26 @@ func (b *builder) buildUpdate(addrMap map[string]any) {
 			b.queue.add(statementSET)
 			//b.queue.add(createStatement(fmt.Sprintf("%v = %v", atr.attributeName, "$1"), writeATT))
 			attrNames = append(attrNames, atr.attributeName)
-
+			strNames = append(strNames, atr.structAttributeName)
 		case *pk:
 			if !atr.autoIncrement {
 				b.queue.add(createStatement(atr.table, writeDML))
 				b.queue.add(statementSET)
 				//b.queue.add(createStatement(fmt.Sprintf("%v = %v", atr.attributeName, "$1"), writeATT))
 				attrNames = append(attrNames, atr.attributeName)
+				strNames = append(strNames, atr.structAttributeName)
 			}
 			b.pks.add(atr)
+		case *manyToOne:
+			b.queue.add(createStatement(atr.pk.table, writeDML))
+			b.queue.add(statementSET)
+			attrNames = append(attrNames, atr.attributeName)
+			strNames = append(strNames, atr.structAttributeName)
+			targetFksNames[atr.structAttributeName] = atr.targetPkName
 		}
 	}
 	b.attrNames = attrNames
+	return targetFksNames, strNames
 }
 
 func (b *builder) buildUpdateBetwent(addrMap map[string]any) {
@@ -319,12 +329,13 @@ func (b *builder) buildUpdateBetwent(addrMap map[string]any) {
 	b.attrNames = attrNames
 }
 
-func (b *builder) buildInsert(addrMap map[string]any) {
+func (b *builder) buildInsert(addrMap map[string]any) map[string]string {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementINSERT)
 
 	b.queue.add(statementINTO)
 
+	targetFksNames := make(map[string]string)
 	attrNames := make([]string, 0, len(b.args))
 	//TODO Better Query
 	for _, v := range b.args {
@@ -341,12 +352,19 @@ func (b *builder) buildInsert(addrMap map[string]any) {
 				attrNames = append(attrNames, atr.structAttributeName)
 			}
 			b.pks.add(atr)
+		case *manyToOne:
+			b.queue.add(createStatement(atr.pk.table, writeDML))
+			b.queue.add(createStatement(atr.attributeName, writeATT))
+			attrNames = append(attrNames, atr.structAttributeName)
+			targetFksNames[atr.structAttributeName] = atr.targetPkName
 		}
 	}
 
 	b.attrNames = attrNames
 
 	b.queue.add(statementVALUES)
+
+	return targetFksNames
 }
 
 func (b *builder) buildInsertManyToMany(addrMap map[string]any) {
@@ -371,11 +389,31 @@ func (b *builder) buildInsertManyToMany(addrMap map[string]any) {
 	b.attrNames = attrNames
 }
 
-func (b *builder) buildSet(value reflect.Value) {
+func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string, strNames []string) {
+	var valueField reflect.Value
 	b.argsAny = make([]any, 0, len(b.attrNames))
+	c := 1
 	for i, attr := range b.attrNames {
-		b.argsAny = append(b.argsAny, value.FieldByName(attr).Interface())
-		b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, i+1), writeATT))
+		valueField = value.FieldByName(strNames[i])
+		switch valueField.Kind() {
+		case reflect.Struct:
+			if !valueField.FieldByName(targetFksNames[strNames[i]]).IsZero() {
+				b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
+				b.argsAny = append(b.argsAny, valueField.FieldByName(targetFksNames[strNames[i]]).Interface())
+				c++
+			}
+			continue
+		case reflect.Pointer:
+			if !valueField.IsNil() {
+				b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
+				b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(targetFksNames[strNames[i]]).Interface())
+				c++
+				continue
+			}
+		}
+		b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
+		b.argsAny = append(b.argsAny, valueField.Interface())
+		c++
 	}
 }
 
@@ -401,11 +439,23 @@ func (b *builder) buildSetBetwent() {
 	b.queue.add(createStatement(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName), writeATT))
 }
 
-func (b *builder) buildValues(value reflect.Value) string {
+func (b *builder) buildValues(value reflect.Value, targetFksNames map[string]string) string {
+	var valueField reflect.Value
 	b.argsAny = make([]any, 0, len(b.attrNames))
 	for i, attr := range b.attrNames {
-		b.argsAny = append(b.argsAny, value.FieldByName(attr).Interface())
 		b.queue.add(createStatement(fmt.Sprintf("$%v", i+1), writeATT))
+		valueField = value.FieldByName(attr)
+		switch valueField.Kind() {
+		case reflect.Struct:
+			b.argsAny = append(b.argsAny, valueField.FieldByName(targetFksNames[attr]).Interface())
+			continue
+		case reflect.Pointer:
+			if !valueField.IsNil() {
+				b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(targetFksNames[attr]).Interface())
+				continue
+			}
+		}
+		b.argsAny = append(b.argsAny, valueField.Interface())
 	}
 	pk := b.pks.get()
 	b.queue.add(statementRETURNING)
