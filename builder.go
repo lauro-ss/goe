@@ -397,6 +397,12 @@ func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string
 		valueField = value.FieldByName(strNames[i])
 		switch valueField.Kind() {
 		case reflect.Struct:
+			if valueField.Type().Name() == "Time" {
+				b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
+				b.argsAny = append(b.argsAny, valueField.Interface())
+				c++
+				continue
+			}
 			if !valueField.FieldByName(targetFksNames[strNames[i]]).IsZero() {
 				b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
 				b.argsAny = append(b.argsAny, valueField.FieldByName(targetFksNames[strNames[i]]).Interface())
@@ -447,8 +453,10 @@ func (b *builder) buildValues(value reflect.Value, targetFksNames map[string]str
 		valueField = value.FieldByName(attr)
 		switch valueField.Kind() {
 		case reflect.Struct:
-			b.argsAny = append(b.argsAny, valueField.FieldByName(targetFksNames[attr]).Interface())
-			continue
+			if valueField.Type().Name() != "Time" {
+				b.argsAny = append(b.argsAny, valueField.FieldByName(targetFksNames[attr]).Interface())
+				continue
+			}
 		case reflect.Pointer:
 			if !valueField.IsNil() {
 				b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(targetFksNames[attr]).Interface())
