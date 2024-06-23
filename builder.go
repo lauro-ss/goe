@@ -551,9 +551,11 @@ func (b *builder) buildSqlDeleteIn() {
 
 	mtmValue := mtm.(*manyToMany)
 	b.queue.add(createStatement(mtmValue.table, writeDML))
-	b.queue.add(createStatement(fmt.Sprintf("WHERE %v = $1", mtmValue.ids[pk1.table].attributeName), writeATT))
-	if len(b.argsAny) == 2 {
-		b.queue.add(createStatement(fmt.Sprintf(" AND %v = $2", mtmValue.ids[pk2.table].attributeName), writeATT))
+	if len(b.argsAny) != 0 {
+		b.queue.add(createStatement(fmt.Sprintf("WHERE %v = $1", mtmValue.ids[pk1.table].attributeName), writeATT))
+		if len(b.argsAny) == 2 {
+			b.queue.add(createStatement(fmt.Sprintf(" AND %v = $2", mtmValue.ids[pk2.table].attributeName), writeATT))
+		}
 	}
 
 	writeDelete(b.sql, b.queue)
