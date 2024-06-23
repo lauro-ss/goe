@@ -526,7 +526,13 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 			dataType = checkTypeAutoIncrement(dataType)
 		}
 		if databaseTable.dataType != dataType {
-			sql.WriteString(alterColumn(attr.Table, databaseTable.columnName, dataType, dataMap))
+			if attr.AutoIncrement {
+				sql.WriteString(alterColumn(attr.Table, databaseTable.columnName, fmt.Sprintf("%v USING %v::%v", checkTypeAutoIncrement(dataType), attr.AttributeName, checkTypeAutoIncrement(dataType)), dataMap))
+				sql.WriteString(fmt.Sprintf("CREATE SEQUENCE %v_%v_seq OWNED BY %v.%v;", attr.Table, attr.AttributeName, attr.Table, attr.AttributeName))
+				sql.WriteString(alterColumnDefault(attr.Table, attr.AttributeName, fmt.Sprintf("nextval('%v_%v_seq'::regclass)", attr.Table, attr.AttributeName)))
+			} else {
+				sql.WriteString(alterColumn(attr.Table, databaseTable.columnName, dataType, dataMap))
+			}
 		}
 		attrAny.migrated = true
 		tables[attr.Table].migrated = true
@@ -598,9 +604,12 @@ func checkDataType(structDataType string, dataMap map[string]string) string {
 
 func checkTypeAutoIncrement(structDataType string) string {
 	dataMap := map[string]string{
-		"smallint": "smallserial",
-		"integer":  "serial",
-		"bigint":   "bigserial",
+		"smallint":    "smallserial",
+		"integer":     "serial",
+		"bigint":      "bigserial",
+		"smallserial": "smallint",
+		"serial":      "integer",
+		"bigserial":   "bigint",
 	}
 	return dataMap[structDataType]
 }
@@ -610,6 +619,10 @@ func alterColumn(table, column, dataType string, dataMap map[string]string) stri
 		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v;", table, column, dataType)
 	}
 	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v;", table, column, dataMap[dataType])
+}
+
+func alterColumnDefault(table, column, defa string) string {
+	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v SET DEFAULT %v;", table, column, defa)
 }
 
 func nullableColumn(table, columnName string, nullable bool) string {
