@@ -70,32 +70,36 @@ func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args [
 
 	switch value.Kind() {
 	case reflect.Slice:
-		handlerQuery(conn, sqlQuery, value, args, structColumns)
+		if value.Type().Elem().Kind() == reflect.Struct {
+			handlerStructQuery(conn, sqlQuery, value, args, structColumns)
+			return
+		}
+		handlerQuery(conn, sqlQuery, value, args)
 	case reflect.Struct:
 		handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
 	default:
-		handlerQueryRow(conn, sqlQuery, value, args, structColumns)
+		handlerQueryRow(conn, sqlQuery, value, args)
 	}
 }
 
-func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string) {
-	dest := make([]any, len(columns))
+func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any) {
+	dest := make([]any, 1)
 	for i := range dest {
-		dest[i] = new(any)
+		dest[i] = value.Addr().Interface()
 	}
 	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
-	setValue(value, dest[0])
+	value.Set(reflect.ValueOf(dest[0]).Elem())
 }
 
 func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string) {
 	dest := make([]any, len(columns))
 	for i := range dest {
-		dest[i] = new(any)
+		t, _ := value.Type().FieldByName(columns[i])
+		dest[i] = reflect.New(t.Type).Interface()
 	}
 	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
 	if err != nil {
@@ -104,11 +108,53 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 	}
 
 	for i, a := range dest {
-		setValue(value.FieldByName(columns[i]), a)
+		value.FieldByName(columns[i]).Set(reflect.ValueOf(a).Elem())
 	}
 }
 
-func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
+func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any) {
+	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
+
+	//TODO: Better error
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	dest := make([]any, 1)
+	for i := range dest {
+		dest[i] = reflect.New(value.Type().Elem()).Interface()
+	}
+
+	err = mapQuery(rows, dest, value)
+
+	//TODO: Better error
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
+	//TODO: Len of slice be the size of the query
+	value.Set(reflect.MakeSlice(value.Type(), 0, 0))
+
+	for i := 0; rows.Next(); i++ {
+		err = rows.Scan(dest...)
+		if err != nil {
+			return err
+		}
+		s := reflect.New(value.Type().Elem()).Elem()
+		for _, a := range dest {
+			s.Set(reflect.ValueOf(a).Elem())
+		}
+		value.Set(reflect.Append(value, s))
+	}
+	return err
+}
+
+func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
 	//TODO: Better error
@@ -120,27 +166,16 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 
 	dest := make([]any, len(structColumns))
 	for i := range dest {
-		dest[i] = new(any)
+		t, _ := value.Type().Elem().FieldByName(structColumns[i])
+		dest[i] = reflect.New(t.Type).Interface()
 	}
 
-	//Check the result target
-	switch value.Type().Elem().Kind() {
-	case reflect.Struct:
-		err = mapStructQuery(rows, dest, value, structColumns)
+	err = mapStructQuery(rows, dest, value, structColumns)
 
-		//TODO: Better error
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	default:
-		err = mapQuery(rows, dest, value)
-
-		//TODO: Better error
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+	//TODO: Better error
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 }
 
@@ -155,41 +190,9 @@ func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value, columns []s
 		s := reflect.New(value.Type().Elem()).Elem()
 		//Fills the target
 		for i, a := range dest {
-			setValue(s.FieldByName(columns[i]), a)
+			s.FieldByName(columns[i]).Set(reflect.ValueOf(a).Elem())
 		}
 		value.Set(reflect.Append(value, s))
 	}
 	return err
-}
-
-func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
-	//TODO: Len of slice be the size of the query
-	value.Set(reflect.MakeSlice(value.Type(), 0, 0))
-
-	for i := 0; rows.Next(); i++ {
-		err = rows.Scan(dest...)
-		if err != nil {
-			return err
-		}
-		s := reflect.New(value.Type().Elem()).Elem()
-		for _, a := range dest {
-			setValue(s, a)
-		}
-		value.Set(reflect.Append(value, s))
-	}
-	return err
-}
-
-func setValue(v reflect.Value, a any) {
-	//TODO: Change sql.RawBytes to *any
-	switch v.Type().Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		v.SetInt((*(a).(*any)).(int64))
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		v.SetUint((*(a).(*any)).(uint64))
-	case reflect.Float64, reflect.Float32:
-		v.SetFloat((*(a).(*any)).(float64))
-	default:
-		v.Set(reflect.ValueOf(*(a).(*any)))
-	}
 }
