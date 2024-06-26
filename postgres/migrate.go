@@ -83,15 +83,15 @@ func (db *Driver) Migrate(migrator *goe.Migrator, conn goe.Connection) {
 		}
 	}
 
-	dropTables(tables, tablesManyToMany, sql, conn)
-
 	sql.WriteString(sqlColumns.String())
 
+	dropTables(tables, tablesManyToMany, sql, conn)
+
 	if sql.Len() != 0 {
+		fmt.Println(sql)
 		if _, err := conn.ExecContext(context.Background(), sql.String()); err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println(sql)
 	}
 }
 
