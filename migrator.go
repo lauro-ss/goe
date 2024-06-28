@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/lauro-ss/goe/utils"
 )
 
 type Migrator struct {
@@ -44,7 +46,7 @@ func typeField(valueOf reflect.Value, migrator *Migrator) {
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isMigrateManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type(), true); mto != nil {
-					key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
+					key := utils.TableNamePattern(valueOf.Field(i).Type().Elem().Name())
 					p.Fks[key] = mto
 				}
 			} else {
@@ -62,7 +64,7 @@ func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, 
 		migrateAtt(valueOf, field, i, p, migrator)
 	default:
 		if mto := isMigrateManyToOne(valueOf.Field(i).Type(), valueOf.Type(), false); mto != nil {
-			key := strings.ToLower(valueOf.Field(i).Type().Name()) //TODO: add to lower only method
+			key := utils.TableNamePattern(valueOf.Field(i).Type().Name())
 			p.Fks[key] = mto
 		}
 	}
@@ -74,7 +76,7 @@ func handlerSliceMigrate(field reflect.StructField, targetTypeOf reflect.Type, v
 		migrateAtt(valueOf, field, i, p, migrator)
 	default:
 		if mtm := isMigrateManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
-			key := strings.ToLower(targetTypeOf.Name()) //TODO: add to lower only method
+			key := utils.TableNamePattern(targetTypeOf.Name())
 			p.Fks[key] = mtm
 		}
 	}
@@ -95,8 +97,8 @@ func isMigrateManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type, nullable
 }
 
 func isMigrateManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, m *Migrator) any {
-	nameTargetTypeOf := strings.ToLower(targetTypeOf.Name())
-	nameTypeOf := strings.ToLower(typeOf.Name())
+	nameTargetTypeOf := utils.TableNamePattern(targetTypeOf.Name())
+	nameTypeOf := utils.TableNamePattern(typeOf.Name())
 
 	for _, v := range m.Tables {
 		switch value := v.(type) {
@@ -135,31 +137,29 @@ func createMigrateManyToMany(tag string, typeOf reflect.Type, targetTypeOf refle
 	if table == "" {
 		return nil
 	}
-	nameTargetTypeOf := strings.ToLower(targetTypeOf.Name())
-	nameTypeOf := strings.ToLower(typeOf.Name())
+	nameTargetTypeOf := targetTypeOf.Name()
+	nameTypeOf := typeOf.Name()
 
 	mtm := new(MigrateManyToMany)
-	mtm.Table = table
+	mtm.Table = utils.TableNamePattern(table)
 	mtm.Ids = make(map[string]AttributeStrings)
 	pk := primaryKeys(typeOf)[0]
 
-	id := pk.Name
-	id += nameTypeOf
-	mtm.Ids[nameTypeOf] = setAttributeStrings(id, getType(pk))
+	id := utils.ManyToManyNamePattern(pk.Name, nameTypeOf)
+	mtm.Ids[utils.TableNamePattern(nameTypeOf)] = setAttributeStrings(id, getType(pk))
 
 	// target id
 	pkTarget := primaryKeys(targetTypeOf)[0]
-	id = pkTarget.Name
-	id += nameTargetTypeOf
+	id = utils.ManyToManyNamePattern(pkTarget.Name, nameTargetTypeOf)
 
-	mtm.Ids[nameTargetTypeOf] = setAttributeStrings(id, getType(pkTarget))
+	mtm.Ids[utils.TableNamePattern(nameTargetTypeOf)] = setAttributeStrings(id, getType(pkTarget))
 	return mtm
 }
 
 func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool) *MigrateManyToOne {
 	mto := new(MigrateManyToOne)
-	mto.TargetTable = strings.ToLower(typeOf.Name())
-	mto.Id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(primaryKeys(typeOf)[0].Name+typeOf.Name()))
+	mto.TargetTable = utils.TableNamePattern(typeOf.Name())
+	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(primaryKeys(typeOf)[0].Name, typeOf.Name())) //TODO: Add a pattern for fk id
 	mto.HasMany = hasMany
 	mto.Nullable = nullable
 	return mto
@@ -200,7 +200,7 @@ type AttributeStrings struct {
 
 func setAttributeStrings(attributeName string, dataType string) AttributeStrings {
 	return AttributeStrings{
-		AttributeName: strings.ToLower(attributeName),
+		AttributeName: attributeName,
 		DataType:      strings.ToLower(dataType)}
 }
 
@@ -254,8 +254,8 @@ func getIndex(field reflect.StructField) string {
 
 func createMigratePk(table string, attributeName string, autoIncrement bool, dataType string) *MigratePk {
 	return &MigratePk{
-		Table:         strings.ToLower(table),
-		AttributeName: strings.ToLower(attributeName),
+		Table:         utils.TableNamePattern(table),
+		AttributeName: utils.ColumnNamePattern(attributeName),
 		DataType:      dataType,
 		AutoIncrement: autoIncrement,
 		Fks:           make(map[string]any)}
@@ -263,7 +263,7 @@ func createMigratePk(table string, attributeName string, autoIncrement bool, dat
 
 func createMigrateAtt(attributeName string, pk *MigratePk, dataType string, nullable bool, index string) *MigrateAtt {
 	return &MigrateAtt{
-		AttributeName: strings.ToLower(attributeName),
+		AttributeName: utils.ColumnNamePattern(attributeName),
 		DataType:      dataType,
 		Pk:            pk,
 		Nullable:      nullable,

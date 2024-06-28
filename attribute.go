@@ -3,7 +3,8 @@ package goe
 import (
 	"fmt"
 	"reflect"
-	"strings"
+
+	"github.com/lauro-ss/goe/utils"
 )
 
 type manyToMany struct {
@@ -16,24 +17,22 @@ func createManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type
 	if table == "" {
 		return nil
 	}
-	nameTargetTypeOf := strings.ToLower(targetTypeOf.Name())
-	nameTypeOf := strings.ToLower(typeOf.Name())
+	nameTargetTypeOf := targetTypeOf.Name()
+	nameTypeOf := typeOf.Name()
 
 	mtm := new(manyToMany)
-	mtm.table = table
+	mtm.table = utils.TableNamePattern(table)
 	mtm.ids = make(map[string]attributeStrings)
 	pk := primaryKeys(typeOf)[0]
 
-	id := pk.Name
-	id += nameTypeOf
-	mtm.ids[nameTypeOf] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id)
+	id := utils.ManyToManyNamePattern(pk.Name, nameTypeOf)
+	mtm.ids[utils.TableNamePattern(nameTypeOf)] = createAttributeStrings(table, id)
 
 	// target id
 	pkTarget := primaryKeys(targetTypeOf)[0]
-	id = pkTarget.Name
-	id += nameTargetTypeOf
+	id = utils.ManyToManyNamePattern(pkTarget.Name, nameTargetTypeOf)
 
-	mtm.ids[nameTargetTypeOf] = createAttributeStrings(fmt.Sprintf("%v.%v", table, id), id)
+	mtm.ids[utils.TableNamePattern(nameTargetTypeOf)] = createAttributeStrings(table, id)
 	return mtm
 }
 
@@ -50,10 +49,10 @@ type manyToOne struct {
 func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool) *manyToOne {
 	mto := new(manyToOne)
 	targetPkName := primaryKeys(typeOf)[0].Name
-	mto.targetTable = strings.ToLower(typeOf.Name())
-	mto.id = fmt.Sprintf("%v.%v", strings.ToLower(targetTypeOf.Name()), strings.ToLower(targetPkName+typeOf.Name()))
+	mto.targetTable = utils.TableNamePattern(typeOf.Name())
+	mto.id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(targetPkName, typeOf.Name()))
 	mto.hasMany = hasMany
-	mto.attributeName = strings.ToLower(primaryKeys(typeOf)[0].Name + typeOf.Name())
+	mto.attributeName = utils.ColumnNamePattern(primaryKeys(typeOf)[0].Name + typeOf.Name())
 	mto.structAttributeName = typeOf.Name()
 	mto.targetPkName = targetPkName
 	return mto
@@ -65,10 +64,10 @@ type attributeStrings struct {
 	structAttributeName string
 }
 
-func createAttributeStrings(selectName string, attributeName string) attributeStrings {
+func createAttributeStrings(table string, attributeName string) attributeStrings {
 	return attributeStrings{
-		selectName:          strings.ToLower(selectName),
-		attributeName:       strings.ToLower(attributeName),
+		selectName:          fmt.Sprintf("%v.%v", table, utils.ColumnNamePattern(attributeName)),
+		attributeName:       utils.ColumnNamePattern(attributeName),
 		structAttributeName: attributeName,
 	}
 }
@@ -80,10 +79,11 @@ type pk struct {
 	attributeStrings
 }
 
-func createPk(table string, selectName string, attributeName string, autoIncrement bool) *pk {
+func createPk(table string, attributeName string, autoIncrement bool) *pk {
+	table = utils.TableNamePattern(table)
 	return &pk{
-		table:            strings.ToLower(table),
-		attributeStrings: createAttributeStrings(selectName, attributeName),
+		table:            table,
+		attributeStrings: createAttributeStrings(table, attributeName),
 		autoIncrement:    autoIncrement,
 		fks:              make(map[string]any)}
 }
@@ -93,7 +93,7 @@ type att struct {
 	pk *pk
 }
 
-func createAtt(selectName string, attributeName string, pk *pk) *att {
+func createAtt(attributeName string, pk *pk) *att {
 	return &att{
-		attributeStrings: createAttributeStrings(selectName, attributeName), pk: pk}
+		attributeStrings: createAttributeStrings(pk.table, attributeName), pk: pk}
 }

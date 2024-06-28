@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/lauro-ss/goe/utils"
 )
 
 func Open(db any, driver Driver) error {
@@ -53,7 +55,7 @@ func initField(valueOf reflect.Value, db *DB) {
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type()); mto != nil {
-					key := strings.ToLower(valueOf.Field(i).Type().Elem().Name())
+					key := utils.TableNamePattern(valueOf.Field(i).Type().Elem().Name())
 					db.addrMap[fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface())] = mto
 					mto.pk = p
 					p.fks[key] = mto
@@ -73,7 +75,7 @@ func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *p
 		newAttr(valueOf, i, p, fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface()), db)
 	default:
 		if mto := isManyToOne(targetTypeOf, valueOf.Type()); mto != nil {
-			key := strings.ToLower(targetTypeOf.Name())
+			key := utils.TableNamePattern(targetTypeOf.Name())
 			db.addrMap[fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface())] = mto
 			mto.pk = p
 			p.fks[key] = mto
@@ -88,7 +90,7 @@ func handlerSlice(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk
 		newAttr(valueOf, i, p, fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface()), db)
 	default:
 		if mtm := isManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db); mtm != nil {
-			key := strings.ToLower(targetTypeOf.Name())
+			key := utils.TableNamePattern(targetTypeOf.Name())
 			p.fks[key] = mtm
 		}
 	}
@@ -97,7 +99,6 @@ func handlerSlice(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk
 
 func newAttr(valueOf reflect.Value, i int, p *pk, addr string, db *DB) {
 	at := createAtt(
-		fmt.Sprintf("%v.%v", valueOf.Type().Name(), valueOf.Type().Field(i).Name),
 		valueOf.Type().Field(i).Name,
 		p,
 	)
@@ -108,7 +109,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 	var p *pk
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
-		p = createPk(typeOf.Name(), typeOf.Name()+"."+id.Name, id.Name, isAutoIncrement(id))
+		p = createPk(typeOf.Name(), id.Name, isAutoIncrement(id))
 		return p, id.Name
 	}
 
@@ -117,7 +118,7 @@ func getPk(typeOf reflect.Type) (*pk, string) {
 		//Set anonymous pk
 		return nil, ""
 	}
-	p = createPk(typeOf.Name(), typeOf.Name()+"."+fields[0].Name, fields[0].Name, isAutoIncrement(fields[0]))
+	p = createPk(typeOf.Name(), fields[0].Name, isAutoIncrement(fields[0]))
 	return p, fields[0].Name
 }
 
@@ -126,8 +127,8 @@ func isAutoIncrement(id reflect.StructField) bool {
 }
 
 func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db *DB) any {
-	nameTargetTypeOf := strings.ToLower(targetTypeOf.Name())
-	nameTypeOf := strings.ToLower(typeOf.Name())
+	nameTargetTypeOf := utils.TableNamePattern(targetTypeOf.Name())
+	nameTypeOf := utils.TableNamePattern(typeOf.Name())
 
 	for _, v := range db.addrMap {
 		switch value := v.(type) {
@@ -201,7 +202,7 @@ func getTagValue(fieldTag string, subTag string) string {
 	values := strings.Split(fieldTag, ";")
 	for _, v := range values {
 		if after, found := strings.CutPrefix(v, subTag); found {
-			return strings.ToLower(after)
+			return after
 		}
 	}
 	return ""
