@@ -20,8 +20,9 @@ func createManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type
 	nameTargetTypeOf := targetTypeOf.Name()
 	nameTypeOf := typeOf.Name()
 
+	table = utils.TableNamePattern(table)
 	mtm := new(manyToMany)
-	mtm.table = utils.TableNamePattern(table)
+	mtm.table = table
 	mtm.ids = make(map[string]attributeStrings)
 	pk := primaryKeys(typeOf)[0]
 
