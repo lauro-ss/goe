@@ -302,7 +302,7 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 			if tableFk.migrated {
 				t.createAttrs = append(t.createAttrs, foreingManyToOne(attr, tableFk.pk, dataMap))
 			} else {
-				//tablesCreate = append(tablesCreate, createTable(tableFk, tables, dataMap, tablesCreate)...)
+				createTable(tableFk, tables, dataMap, sql)
 				t.createAttrs = append(t.createAttrs, foreingManyToOne(attr, tableFk.pk, dataMap))
 			}
 		}
@@ -369,6 +369,10 @@ func checkIndex(attrs map[string]*migrateAttribute, table string, sql *strings.B
 					for _, index := range indexs {
 						n := fmt.Sprintf("%v_%v", di.table, getIndexValue(index, "n:"))
 						if di.indexName == n {
+							if slices.Contains(migrateIndexs, di.indexName) {
+								v.indexNames = append(v.indexNames, di.indexName)
+								continue
+							}
 							migrateIndexs = append(migrateIndexs, di.indexName)
 							//drop index if uniquenes changes
 							if di.unique != strings.Contains(index, "unique") {
