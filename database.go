@@ -44,14 +44,14 @@ func (db *DB) Insert(table any) *stateInsert {
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
-func (db *DB) InsertBetwent(table1 any, table2 any) *stateInsert {
+func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
 	stringArgs := getArgs(table1, table2)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createInsertState(conn, queryINSERT)
+	state := createInsertStateIn(conn, queryINSERT)
 
-	return state.queryInsertBetwent(stringArgs, db.addrMap)
+	return state.queryInsertIn(stringArgs, db.addrMap)
 }
 
 func (db *DB) Update(tables ...any) *stateUpdate {

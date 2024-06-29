@@ -87,13 +87,23 @@ func (s *stateInsert) Value(target any) {
 	handlerValuesReturning(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
 }
 
-func (s *stateInsert) queryInsertBetwent(args []string, addrMap map[string]any) *stateInsert {
+type stateInsertIn struct {
+	conn           Connection
+	targetFksNames map[string]string
+	builder        *builder
+}
+
+func createInsertStateIn(conn Connection, qt int8) *stateInsertIn {
+	return &stateInsertIn{conn: conn, builder: createBuilder(qt)}
+}
+
+func (s *stateInsertIn) queryInsertIn(args []string, addrMap map[string]any) *stateInsertIn {
 	s.builder.args = args
 	s.builder.buildInsertManyToMany(addrMap)
 	return s
 }
 
-func (s *stateInsert) Values(v1 any, v2 any) {
+func (s *stateInsertIn) Values(v1 any, v2 any) {
 	s.builder.argsAny = append(s.builder.argsAny, v1)
 	s.builder.argsAny = append(s.builder.argsAny, v2)
 
