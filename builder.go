@@ -164,8 +164,8 @@ func (b *builder) buildSqlDelete() {
 	writeDelete(b.sql, b.queue)
 }
 
-func (b *builder) buildeSqlUpdateBetwent() {
-	b.buildWhereBetwent()
+func (b *builder) buildeSqlUpdateIn() {
+	b.buildWhereIn()
 	writeUpdate(b.sql, b.queue)
 }
 
@@ -188,7 +188,7 @@ func (b *builder) buildWhere() {
 	}
 }
 
-func (b *builder) buildWhereBetwent() {
+func (b *builder) buildWhereIn() {
 	if len(b.brs) == 0 {
 		return
 	}
@@ -198,7 +198,7 @@ func (b *builder) buildWhereBetwent() {
 	for _, op := range b.brs {
 		switch v := op.(type) {
 		case complexOperator:
-			st := buildWhereBetwent(b.pks, v.pk, argsCount)
+			st := buildWhereIn(b.pks, v.pk, argsCount)
 			if st != nil {
 				b.queue.add(st)
 				b.argsAny = append(b.argsAny, v.value)
@@ -210,7 +210,7 @@ func (b *builder) buildWhereBetwent() {
 	}
 }
 
-func buildWhereBetwent(pkQueue *pkQueue, brPk *pk, argsCount int) *statement {
+func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int) *statement {
 	pk2 := pkQueue.get()
 	if pk2 == nil {
 		pk2 = pkQueue.get()
@@ -310,7 +310,7 @@ func (b *builder) buildUpdate(addrMap map[string]any) (targetFksNames map[string
 	return targetFksNames, strNames
 }
 
-func (b *builder) buildUpdateBetwent(addrMap map[string]any) {
+func (b *builder) buildUpdateIn(addrMap map[string]any) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementUPDATE)
 
@@ -367,7 +367,7 @@ func (b *builder) buildInsert(addrMap map[string]any) map[string]string {
 	return targetFksNames
 }
 
-func (b *builder) buildInsertManyToMany(addrMap map[string]any) {
+func (b *builder) buildInsertIn(addrMap map[string]any) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementINSERT)
 
@@ -423,7 +423,7 @@ func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string
 	}
 }
 
-func (b *builder) buildSetBetwent() {
+func (b *builder) buildSetIn() {
 	if b.tables.size != 2 {
 		return
 	}
@@ -474,7 +474,7 @@ func (b *builder) buildValues(value reflect.Value, targetFksNames map[string]str
 
 }
 
-func (b *builder) buildValuesManyToMany() {
+func (b *builder) buildValuesIn() {
 	if b.tables.size != 2 {
 		return
 	}

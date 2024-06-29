@@ -99,7 +99,7 @@ func createInsertStateIn(conn Connection, qt int8) *stateInsertIn {
 
 func (s *stateInsertIn) queryInsertIn(args []string, addrMap map[string]any) *stateInsertIn {
 	s.builder.args = args
-	s.builder.buildInsertManyToMany(addrMap)
+	s.builder.buildInsertIn(addrMap)
 	return s
 }
 
@@ -107,7 +107,7 @@ func (s *stateInsertIn) Values(v1 any, v2 any) {
 	s.builder.argsAny = append(s.builder.argsAny, v1)
 	s.builder.argsAny = append(s.builder.argsAny, v2)
 
-	s.builder.buildValuesManyToMany()
+	s.builder.buildValuesIn()
 
 	s.builder.buildSql()
 
@@ -162,32 +162,32 @@ func (s *stateUpdate) Value(target any) {
 
 }
 
-type stateUpdateBetwent struct {
+type stateUpdateIn struct {
 	conn    Connection
 	builder *builder
 }
 
-func createUpdateBetwentState(conn Connection, qt int8) *stateUpdateBetwent {
-	return &stateUpdateBetwent{conn: conn, builder: createBuilder(qt)}
+func createUpdateInState(conn Connection, qt int8) *stateUpdateIn {
+	return &stateUpdateIn{conn: conn, builder: createBuilder(qt)}
 }
 
-func (s *stateUpdateBetwent) Where(brs ...operator) *stateUpdateBetwent {
+func (s *stateUpdateIn) Where(brs ...operator) *stateUpdateIn {
 	where(s.builder, brs...)
 	return s
 }
 
-func (s *stateUpdateBetwent) queryUpdateBetwent(args []string, addrMap map[string]any) *stateUpdateBetwent {
+func (s *stateUpdateIn) queryUpdateIn(args []string, addrMap map[string]any) *stateUpdateIn {
 	s.builder.args = args
-	s.builder.buildUpdateBetwent(addrMap)
+	s.builder.buildUpdateIn(addrMap)
 	return s
 }
 
-func (s *stateUpdateBetwent) Value(value any) {
+func (s *stateUpdateIn) Value(value any) {
 	s.builder.argsAny = append(s.builder.argsAny, value)
 
-	s.builder.buildSetBetwent()
+	s.builder.buildSetIn()
 
-	s.builder.buildeSqlUpdateBetwent()
+	s.builder.buildeSqlUpdateIn()
 
 	fmt.Println(s.builder.sql)
 	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)

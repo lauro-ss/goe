@@ -64,14 +64,14 @@ func (db *DB) Update(tables ...any) *stateUpdate {
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
 
-func (db *DB) UpdateBetwent(table1 any, table2 any) *stateUpdateBetwent {
+func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
 	stringArgs := getArgs(table1, table2)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createUpdateBetwentState(conn, queryUPDATE)
+	state := createUpdateInState(conn, queryUPDATE)
 
-	return state.queryUpdateBetwent(stringArgs, db.addrMap)
+	return state.queryUpdateIn(stringArgs, db.addrMap)
 }
 
 func (db *DB) Delete(table any) *stateDelete {
