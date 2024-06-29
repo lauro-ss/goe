@@ -166,8 +166,9 @@ func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, a
 
 	dest := make([]any, len(structColumns))
 	for i := range dest {
-		t, _ := value.Type().Elem().FieldByName(structColumns[i])
-		dest[i] = reflect.New(t.Type).Interface()
+		if t, ok := value.Type().Elem().FieldByName(structColumns[i]); ok {
+			dest[i] = reflect.New(t.Type).Interface()
+		}
 	}
 
 	err = mapStructQuery(rows, dest, value, structColumns)
