@@ -38,22 +38,20 @@ func createManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type
 }
 
 type manyToOne struct {
-	pk                  *pk
-	targetTable         string
-	id                  string
-	attributeName       string
-	structAttributeName string
-	targetPkName        string
-	hasMany             bool
+	pk          *pk
+	targetTable string
+	attributeStrings
+	targetPkName string
+	hasMany      bool
 }
 
 func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool) *manyToOne {
 	mto := new(manyToOne)
 	targetPkName := primaryKeys(typeOf)[0].Name
 	mto.targetTable = utils.TableNamePattern(typeOf.Name())
-	mto.id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(targetPkName, typeOf.Name()))
+	mto.selectName = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(targetPkName, typeOf.Name()))
 	mto.hasMany = hasMany
-	mto.attributeName = utils.ColumnNamePattern(primaryKeys(typeOf)[0].Name + typeOf.Name())
+	mto.attributeName = utils.ColumnNamePattern(utils.ManyToOneNamePattern(targetPkName, typeOf.Name()))
 	mto.structAttributeName = typeOf.Name()
 	mto.targetPkName = targetPkName
 	return mto

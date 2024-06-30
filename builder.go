@@ -244,11 +244,11 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 			case *manyToOne:
 				if fk.hasMany {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.id), writeJOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.selectName), writeJOIN),
 					)
 				} else {
 					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).selectName, fk.id), writeJOIN),
+						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).selectName, fk.selectName), writeJOIN),
 					)
 				}
 				// skips the table keyword that has already be matched
@@ -271,62 +271,6 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 		}
 		pk = pks.get()
 	}
-}
-
-func (b *builder) buildUpdate(addrMap map[string]any) (targetFksNames map[string]string, strNames []string) {
-	//TODO: Set a drive type to share stm
-	b.queue.add(statementUPDATE)
-
-	targetFksNames = make(map[string]string)
-	strNames = make([]string, 0, len(b.args))
-	attrNames := make([]string, 0, len(b.args))
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.queue.add(createStatement(atr.pk.table, writeDML))
-			b.queue.add(statementSET)
-			//b.queue.add(createStatement(fmt.Sprintf("%v = %v", atr.attributeName, "$1"), writeATT))
-			attrNames = append(attrNames, atr.attributeName)
-			strNames = append(strNames, atr.structAttributeName)
-		case *pk:
-			if !atr.autoIncrement {
-				b.queue.add(createStatement(atr.table, writeDML))
-				b.queue.add(statementSET)
-				//b.queue.add(createStatement(fmt.Sprintf("%v = %v", atr.attributeName, "$1"), writeATT))
-				attrNames = append(attrNames, atr.attributeName)
-				strNames = append(strNames, atr.structAttributeName)
-			}
-			b.pks.add(atr)
-		case *manyToOne:
-			b.queue.add(createStatement(atr.pk.table, writeDML))
-			b.queue.add(statementSET)
-			attrNames = append(attrNames, atr.attributeName)
-			strNames = append(strNames, atr.structAttributeName)
-			targetFksNames[atr.structAttributeName] = atr.targetPkName
-		}
-	}
-	b.attrNames = attrNames
-	return targetFksNames, strNames
-}
-
-func (b *builder) buildUpdateIn(addrMap map[string]any) {
-	//TODO: Set a drive type to share stm
-	b.queue.add(statementUPDATE)
-
-	attrNames := make([]string, 0, len(b.args))
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.tables.add(createStatement(atr.pk.table, writeTABLE))
-			b.pks.add(atr.pk)
-		case *pk:
-			b.tables.add(createStatement(atr.table, writeTABLE))
-			b.pks.add(atr)
-		}
-	}
-	b.attrNames = attrNames
 }
 
 func (b *builder) buildInsert(addrMap map[string]any) map[string]string {
@@ -389,6 +333,82 @@ func (b *builder) buildInsertIn(addrMap map[string]any) {
 	b.attrNames = attrNames
 }
 
+func (b *builder) buildValuesIn() {
+	if b.tables.size != 2 {
+		return
+	}
+	stTable := b.tables.get()
+
+	pk1 := b.pks.get()
+	pk2 := b.pks.get()
+
+	mtm := pk2.fks[stTable.keyword]
+	if mtm == nil {
+		return
+	}
+
+	mtmValue := mtm.(*manyToMany)
+	b.queue.add(createStatement(mtmValue.table, writeDML))
+	b.queue.add(createStatement(mtmValue.ids[pk1.table].attributeName, writeATT))
+	b.queue.add(createStatement(mtmValue.ids[pk2.table].attributeName, writeATT))
+	b.queue.add(statementVALUES)
+
+	b.queue.add(createStatement("$1", writeATT))
+	b.queue.add(createStatement("$2", writeATT))
+}
+
+func (b *builder) buildUpdate(addrMap map[string]any) (targetFksNames map[string]string, strNames []string) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementUPDATE)
+
+	targetFksNames = make(map[string]string)
+	strNames = make([]string, 0, len(b.args))
+	attrNames := make([]string, 0, len(b.args))
+
+	switch atr := addrMap[b.args[0]].(type) {
+	case *att:
+		b.queue.add(createStatement(atr.pk.table, writeDML))
+		b.queue.add(statementSET)
+		attrNames = append(attrNames, atr.attributeName)
+		strNames = append(strNames, atr.structAttributeName)
+	case *pk:
+		if !atr.autoIncrement {
+			b.queue.add(createStatement(atr.table, writeDML))
+			b.queue.add(statementSET)
+			attrNames = append(attrNames, atr.attributeName)
+			strNames = append(strNames, atr.structAttributeName)
+		}
+		b.pks.add(atr)
+	case *manyToOne:
+		b.queue.add(createStatement(atr.pk.table, writeDML))
+		b.queue.add(statementSET)
+		attrNames = append(attrNames, atr.attributeName)
+		strNames = append(strNames, atr.structAttributeName)
+		targetFksNames[atr.structAttributeName] = atr.targetPkName
+	}
+
+	//TODO Better Query
+	for _, v := range b.args[1:] {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			attrNames = append(attrNames, atr.attributeName)
+			strNames = append(strNames, atr.structAttributeName)
+		case *pk:
+			if !atr.autoIncrement {
+				attrNames = append(attrNames, atr.attributeName)
+				strNames = append(strNames, atr.structAttributeName)
+			}
+			b.pks.add(atr)
+		case *manyToOne:
+			attrNames = append(attrNames, atr.attributeName)
+			strNames = append(strNames, atr.structAttributeName)
+			targetFksNames[atr.structAttributeName] = atr.targetPkName
+		}
+	}
+	b.attrNames = attrNames
+	return targetFksNames, strNames
+}
+
 func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string, strNames []string) {
 	var valueField reflect.Value
 	b.argsAny = make([]any, 0, len(b.attrNames))
@@ -421,6 +441,25 @@ func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string
 		b.argsAny = append(b.argsAny, valueField.Interface())
 		c++
 	}
+}
+
+func (b *builder) buildUpdateIn(addrMap map[string]any) {
+	//TODO: Set a drive type to share stm
+	b.queue.add(statementUPDATE)
+
+	attrNames := make([]string, 0, len(b.args))
+	//TODO Better Query
+	for _, v := range b.args {
+		switch atr := addrMap[v].(type) {
+		case *att:
+			b.tables.add(createStatement(atr.pk.table, writeTABLE))
+			b.pks.add(atr.pk)
+		case *pk:
+			b.tables.add(createStatement(atr.table, writeTABLE))
+			b.pks.add(atr)
+		}
+	}
+	b.attrNames = attrNames
 }
 
 func (b *builder) buildSetIn() {
@@ -472,30 +511,6 @@ func (b *builder) buildValues(value reflect.Value, targetFksNames map[string]str
 	b.queue.add(st)
 	return pk.structAttributeName
 
-}
-
-func (b *builder) buildValuesIn() {
-	if b.tables.size != 2 {
-		return
-	}
-	stTable := b.tables.get()
-
-	pk1 := b.pks.get()
-	pk2 := b.pks.get()
-
-	mtm := pk2.fks[stTable.keyword]
-	if mtm == nil {
-		return
-	}
-
-	mtmValue := mtm.(*manyToMany)
-	b.queue.add(createStatement(mtmValue.table, writeDML))
-	b.queue.add(createStatement(mtmValue.ids[pk1.table].attributeName, writeATT))
-	b.queue.add(createStatement(mtmValue.ids[pk2.table].attributeName, writeATT))
-	b.queue.add(statementVALUES)
-
-	b.queue.add(createStatement("$1", writeATT))
-	b.queue.add(createStatement("$2", writeATT))
 }
 
 func (b *builder) buildDelete(addrMap map[string]any) {

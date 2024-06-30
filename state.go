@@ -88,9 +88,8 @@ func (s *stateInsert) Value(target any) {
 }
 
 type stateInsertIn struct {
-	conn           Connection
-	targetFksNames map[string]string
-	builder        *builder
+	conn    Connection
+	builder *builder
 }
 
 func createInsertStateIn(conn Connection, qt int8) *stateInsertIn {

@@ -45,7 +45,7 @@ func (db *DB) Insert(table any) *stateInsert {
 }
 
 func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
-	stringArgs := getArgs(table1, table2)
+	stringArgs := getArgsIn(table1, table2)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -54,8 +54,8 @@ func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
 	return state.queryInsertIn(stringArgs, db.addrMap)
 }
 
-func (db *DB) Update(tables ...any) *stateUpdate {
-	stringArgs := getArgs(tables...)
+func (db *DB) Update(tables any) *stateUpdate {
+	stringArgs := getArgs(tables)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -65,7 +65,7 @@ func (db *DB) Update(tables ...any) *stateUpdate {
 }
 
 func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
-	stringArgs := getArgs(table1, table2)
+	stringArgs := getArgsIn(table1, table2)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -85,7 +85,7 @@ func (db *DB) Delete(table any) *stateDelete {
 }
 
 func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
-	stringArgs := getArgs(table1, table2)
+	stringArgs := getArgsIn(table1, table2)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -124,6 +124,23 @@ func getArgs(args ...any) []string {
 				for i := 0; i < reflect.ValueOf(v).Elem().NumField(); i++ {
 					stringArgs = append(stringArgs, fmt.Sprintf("%p", reflect.ValueOf(v).Elem().Field(i).Addr().Interface()))
 				}
+			} else {
+				stringArgs = append(stringArgs, fmt.Sprintf("%p", v))
+			}
+		} else {
+			//TODO: Add ptr error
+		}
+	}
+	return stringArgs
+}
+
+func getArgsIn(args ...any) []string {
+	stringArgs := make([]string, 0)
+	for _, v := range args {
+		if reflect.ValueOf(v).Kind() == reflect.Ptr {
+			valueOf := reflect.ValueOf(v).Elem()
+			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
+				stringArgs = append(stringArgs, fmt.Sprintf("%p", reflect.ValueOf(v).Elem().Field(0).Addr().Interface()))
 			} else {
 				stringArgs = append(stringArgs, fmt.Sprintf("%p", v))
 			}
