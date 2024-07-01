@@ -10,6 +10,14 @@ type operator interface {
 	operation() string
 }
 
+type field interface {
+	getPrimaryKey() *pk
+	buildAttributeSelect(*builder)
+	buildAttributeInsert(*builder)
+	buildAttributeUpdate(*builder)
+	buildComplexOperator(string, any) operator
+}
+
 type Driver interface {
 	Migrate(*Migrator, Connection)
 	Init(*DB)

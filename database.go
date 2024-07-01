@@ -8,7 +8,7 @@ import (
 
 type DB struct {
 	ConnPool ConnectionPool
-	addrMap  map[string]any
+	addrMap  map[string]field
 	driver   Driver
 }
 
@@ -24,7 +24,7 @@ func (db *DB) Migrate(m *Migrator) {
 
 func (db *DB) Select(args ...any) *stateSelect {
 
-	stringArgs := getArgs(args...)
+	stringArgs := getArgs(db.addrMap, args...)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -35,7 +35,7 @@ func (db *DB) Select(args ...any) *stateSelect {
 }
 
 func (db *DB) Insert(table any) *stateInsert {
-	stringArgs := getArgs(table)
+	stringArgs := getArgs(db.addrMap, table)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -55,7 +55,7 @@ func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
 }
 
 func (db *DB) Update(tables any) *stateUpdate {
-	stringArgs := getArgs(tables)
+	stringArgs := getArgs(db.addrMap, tables)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -75,7 +75,7 @@ func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
 }
 
 func (db *DB) Delete(table any) *stateDelete {
-	stringArgs := getArgs(table)
+	stringArgs := getArgs(db.addrMap, table)
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
@@ -96,15 +96,11 @@ func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
 
 func (db *DB) Equals(arg any, value any) operator {
 	addr := fmt.Sprintf("%p", arg)
-	//TODO: add pointer validate
-	switch atr := db.addrMap[addr].(type) {
-	case *att:
-		return createComplexOperator(atr.selectName, "=", value, atr.pk)
-	case *pk:
-		return createComplexOperator(atr.selectName, "=", value, atr)
+	if db.addrMap[addr] == nil {
+		//TODO: Add error
+		return nil
 	}
-
-	return nil
+	return db.addrMap[addr].buildComplexOperator("=", value)
 }
 
 func (db *DB) And() operator {
@@ -115,14 +111,22 @@ func (db *DB) Or() operator {
 	return simpleOperator{operator: "OR"}
 }
 
-func getArgs(args ...any) []string {
+func getArgs(addrMap map[string]field, args ...any) []string {
 	stringArgs := make([]string, 0)
 	for _, v := range args {
 		if reflect.ValueOf(v).Kind() == reflect.Ptr {
 			valueOf := reflect.ValueOf(v).Elem()
 			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
-				for i := 0; i < reflect.ValueOf(v).Elem().NumField(); i++ {
-					stringArgs = append(stringArgs, fmt.Sprintf("%p", reflect.ValueOf(v).Elem().Field(i).Addr().Interface()))
+				var fieldOf reflect.Value
+				for i := 0; i < valueOf.NumField(); i++ {
+					fieldOf = valueOf.Field(i)
+					if fieldOf.Kind() == reflect.Slice && fieldOf.Type().Elem().Kind() == reflect.Struct {
+						continue
+					}
+					addr := fmt.Sprintf("%p", fieldOf.Addr().Interface())
+					if addrMap[addr] != nil {
+						stringArgs = append(stringArgs, addr)
+					}
 				}
 			} else {
 				stringArgs = append(stringArgs, fmt.Sprintf("%p", v))

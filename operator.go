@@ -26,6 +26,10 @@ func (co complexOperator) operation() string {
 	return fmt.Sprintf("%v %v %v", co.argument, co.operator, co.valueFlag)
 }
 
-func (co *complexOperator) setValueFlag(f any) {
-	co.valueFlag = f.(string)
+func (co *complexOperator) setValueFlag(f string) {
+	co.valueFlag = f
+}
+
+func (co *complexOperator) setArgument(s string) {
+	co.argument = s
 }

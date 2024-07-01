@@ -63,15 +63,17 @@ var (
 )
 
 type builder struct {
-	sql       *strings.Builder
-	args      []string
-	argsAny   []any
-	attrNames []string
-	brs       []operator
-	queue     *statementQueue
-	tables    *statementQueue
-	pks       *pkQueue
-	queryType int8
+	sql            *strings.Builder
+	args           []string
+	argsAny        []any
+	structColumns  []string          //select and update
+	attrNames      []string          //insert and update
+	targetFksNames map[string]string //insert and update
+	brs            []operator
+	queue          *statementQueue
+	tables         *statementQueue
+	pks            *pkQueue
+	queryType      int8
 }
 
 func createBuilder(qt int8) *builder {
@@ -93,50 +95,35 @@ func createStatement(k string, t int8) *statement {
 	return &statement{keyword: k, tip: t}
 }
 
-func (b *builder) buildSelect(addrMap map[string]any) (structColumns []string) {
+func (b *builder) buildSelect(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementSELECT)
 
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.queue.add(createStatement(atr.selectName, writeATT))
-			b.tables.add(createStatement(atr.pk.table, writeTABLE))
-			structColumns = append(structColumns, atr.structAttributeName)
-			//TODO: Add a list pk?
-			b.pks.add(atr.pk)
-		case *pk:
-			b.queue.add(createStatement(atr.selectName, writeATT))
-			b.tables.add(createStatement(atr.table, writeTABLE))
-			structColumns = append(structColumns, atr.structAttributeName)
-			//TODO: Add a list pk?
-			b.pks.add(atr)
-		}
+	b.structColumns = make([]string, 0, len(b.args))
+
+	f := addrMap[b.args[0]]
+	b.tables.add(createStatement(f.getPrimaryKey().table, writeTABLE))
+	f.buildAttributeSelect(b)
+
+	for _, v := range b.args[1:] {
+		addrMap[v].buildAttributeSelect(b)
 	}
 
 	b.queue.add(statementFROM)
-	return structColumns
 }
 
-func (b *builder) buildSelectJoins(addrMap map[string]any) {
+func (b *builder) buildSelectJoins(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementSELECT)
 
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.tables.add(createStatement(atr.pk.table, writeTABLE))
+	f := addrMap[b.args[0]]
+	b.tables.add(createStatement(f.getPrimaryKey().table, writeTABLE))
+	b.pks.add(f.getPrimaryKey())
 
-			//TODO: Add a list pk?
-			b.pks.add(atr.pk)
-		case *pk:
-			b.tables.add(createStatement(atr.table, writeTABLE))
-
-			//TODO: Add a list pk?
-			b.pks.add(atr)
-		}
+	for _, v := range b.args[1:] {
+		f = addrMap[v]
+		b.tables.add(createStatement(f.getPrimaryKey().table, writeTABLE))
+		b.pks.add(f.getPrimaryKey())
 	}
 
 	b.queue.add(statementFROM)
@@ -164,7 +151,7 @@ func (b *builder) buildSqlDelete() {
 	writeDelete(b.sql, b.queue)
 }
 
-func (b *builder) buildeSqlUpdateIn() {
+func (b *builder) buildSqlUpdateIn() {
 	b.buildWhereIn()
 	writeUpdate(b.sql, b.queue)
 }
@@ -198,7 +185,7 @@ func (b *builder) buildWhereIn() {
 	for _, op := range b.brs {
 		switch v := op.(type) {
 		case complexOperator:
-			st := buildWhereIn(b.pks, v.pk, argsCount)
+			st := buildWhereIn(b.pks, v.pk, argsCount, v)
 			if st != nil {
 				b.queue.add(st)
 				b.argsAny = append(b.argsAny, v.value)
@@ -210,7 +197,7 @@ func (b *builder) buildWhereIn() {
 	}
 }
 
-func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int) *statement {
+func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int, v complexOperator) *statement {
 	pk2 := pkQueue.get()
 	if pk2 == nil {
 		pk2 = pkQueue.get()
@@ -218,8 +205,11 @@ func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int) *statement {
 	for pk2 != nil {
 		mtm := brPk.fks[pk2.table]
 		if mtm != nil {
-			mtmValue := mtm.(*manyToMany)
-			return createStatement(fmt.Sprintf("%v = $%v", mtmValue.ids[brPk.table].attributeName, argsCount), 0)
+			if mtmValue, ok := mtm.(*manyToMany); ok {
+				v.setValueFlag(fmt.Sprintf("$%v", argsCount))
+				v.setArgument(mtmValue.ids[brPk.table].attributeName)
+				return createStatement(v.operation(), 0)
+			}
 		}
 		pk2 = pkQueue.get()
 	}
@@ -273,70 +263,39 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 	}
 }
 
-func (b *builder) buildInsert(addrMap map[string]any) map[string]string {
+func (b *builder) buildInsert(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementINSERT)
 
 	b.queue.add(statementINTO)
 
-	targetFksNames := make(map[string]string)
-	attrNames := make([]string, 0, len(b.args))
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.queue.add(createStatement(atr.pk.table, writeDML))
-			b.queue.add(createStatement(atr.attributeName, writeATT))
-			attrNames = append(attrNames, atr.structAttributeName)
+	b.targetFksNames = make(map[string]string)
+	b.attrNames = make([]string, 0, len(b.args))
 
-		case *pk:
-			if !atr.autoIncrement {
-				b.queue.add(createStatement(atr.table, writeDML))
-				b.queue.add(createStatement(atr.attributeName, writeATT))
-				attrNames = append(attrNames, atr.structAttributeName)
-			}
-			b.pks.add(atr)
-		case *manyToOne:
-			b.queue.add(createStatement(atr.pk.table, writeDML))
-			b.queue.add(createStatement(atr.attributeName, writeATT))
-			attrNames = append(attrNames, atr.structAttributeName)
-			targetFksNames[atr.structAttributeName] = atr.targetPkName
-		}
+	f := addrMap[b.args[0]]
+	b.queue.add(createStatement(f.getPrimaryKey().table, writeDML))
+	b.pks.add(f.getPrimaryKey())
+	f.buildAttributeInsert(b)
+
+	for _, v := range b.args[1:] {
+		addrMap[v].buildAttributeInsert(b)
 	}
-
-	b.attrNames = attrNames
 
 	b.queue.add(statementVALUES)
-
-	return targetFksNames
 }
 
-func (b *builder) buildInsertIn(addrMap map[string]any) {
+func (b *builder) buildInsertIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementINSERT)
 
 	b.queue.add(statementINTO)
 
-	attrNames := make([]string, 0, len(b.args))
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.tables.add(createStatement(atr.pk.table, writeTABLE))
-			b.pks.add(atr.pk)
-		case *pk:
-			b.tables.add(createStatement(atr.table, writeTABLE))
-			b.pks.add(atr)
-		}
-	}
-
-	b.attrNames = attrNames
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
+	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
 
 func (b *builder) buildValuesIn() {
-	if b.tables.size != 2 {
-		return
-	}
 	stTable := b.tables.get()
 
 	pk1 := b.pks.get()
@@ -357,56 +316,21 @@ func (b *builder) buildValuesIn() {
 	b.queue.add(createStatement("$2", writeATT))
 }
 
-func (b *builder) buildUpdate(addrMap map[string]any) (targetFksNames map[string]string, strNames []string) {
+func (b *builder) buildUpdate(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementUPDATE)
 
-	targetFksNames = make(map[string]string)
-	strNames = make([]string, 0, len(b.args))
-	attrNames := make([]string, 0, len(b.args))
+	b.targetFksNames = make(map[string]string)
+	b.structColumns = make([]string, 0, len(b.args))
+	b.attrNames = make([]string, 0, len(b.args))
 
-	switch atr := addrMap[b.args[0]].(type) {
-	case *att:
-		b.queue.add(createStatement(atr.pk.table, writeDML))
-		b.queue.add(statementSET)
-		attrNames = append(attrNames, atr.attributeName)
-		strNames = append(strNames, atr.structAttributeName)
-	case *pk:
-		if !atr.autoIncrement {
-			b.queue.add(createStatement(atr.table, writeDML))
-			b.queue.add(statementSET)
-			attrNames = append(attrNames, atr.attributeName)
-			strNames = append(strNames, atr.structAttributeName)
-		}
-		b.pks.add(atr)
-	case *manyToOne:
-		b.queue.add(createStatement(atr.pk.table, writeDML))
-		b.queue.add(statementSET)
-		attrNames = append(attrNames, atr.attributeName)
-		strNames = append(strNames, atr.structAttributeName)
-		targetFksNames[atr.structAttributeName] = atr.targetPkName
-	}
+	b.queue.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeDML))
+	b.queue.add(statementSET)
+	addrMap[b.args[0]].buildAttributeUpdate(b)
 
-	//TODO Better Query
 	for _, v := range b.args[1:] {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			attrNames = append(attrNames, atr.attributeName)
-			strNames = append(strNames, atr.structAttributeName)
-		case *pk:
-			if !atr.autoIncrement {
-				attrNames = append(attrNames, atr.attributeName)
-				strNames = append(strNames, atr.structAttributeName)
-			}
-			b.pks.add(atr)
-		case *manyToOne:
-			attrNames = append(attrNames, atr.attributeName)
-			strNames = append(strNames, atr.structAttributeName)
-			targetFksNames[atr.structAttributeName] = atr.targetPkName
-		}
+		addrMap[v].buildAttributeUpdate(b)
 	}
-	b.attrNames = attrNames
-	return targetFksNames, strNames
 }
 
 func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string, strNames []string) {
@@ -443,29 +367,17 @@ func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string
 	}
 }
 
-func (b *builder) buildUpdateIn(addrMap map[string]any) {
+func (b *builder) buildUpdateIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementUPDATE)
 
-	attrNames := make([]string, 0, len(b.args))
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.tables.add(createStatement(atr.pk.table, writeTABLE))
-			b.pks.add(atr.pk)
-		case *pk:
-			b.tables.add(createStatement(atr.table, writeTABLE))
-			b.pks.add(atr)
-		}
-	}
-	b.attrNames = attrNames
+	b.attrNames = make([]string, 0, len(b.args))
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
+	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
 
 func (b *builder) buildSetIn() {
-	if b.tables.size != 2 {
-		return
-	}
 
 	stTable := b.tables.get()
 
@@ -478,10 +390,11 @@ func (b *builder) buildSetIn() {
 		return
 	}
 
-	mtmValue := mtm.(*manyToMany)
-	b.queue.add(createStatement(mtmValue.table, writeDML))
-	b.queue.add(statementSET)
-	b.queue.add(createStatement(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName), writeATT))
+	if mtmValue, ok := mtm.(*manyToMany); ok {
+		b.queue.add(createStatement(mtmValue.table, writeDML))
+		b.queue.add(statementSET)
+		b.queue.add(createStatement(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName), writeATT))
+	}
 }
 
 func (b *builder) buildValues(value reflect.Value, targetFksNames map[string]string) string {
@@ -513,65 +426,40 @@ func (b *builder) buildValues(value reflect.Value, targetFksNames map[string]str
 
 }
 
-func (b *builder) buildDelete(addrMap map[string]any) {
+func (b *builder) buildDelete(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementDELETE)
 	b.queue.add(statementFROM)
-
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.queue.add(createStatement(atr.pk.table, writeDML))
-
-		case *pk:
-			b.queue.add(createStatement(atr.table, writeDML))
-		}
-	}
-
+	b.queue.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeDML))
 }
 
-func (b *builder) buildDeleteIn(addrMap map[string]any) {
+func (b *builder) buildDeleteIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.queue.add(statementDELETE)
 	b.queue.add(statementFROM)
 
-	//TODO Better Query
-	for _, v := range b.args {
-		switch atr := addrMap[v].(type) {
-		case *att:
-			b.pks.add(atr.pk)
-			b.tables.add(createStatement(atr.pk.table, writeTABLE))
-		case *pk:
-			b.pks.add(atr)
-			b.tables.add(createStatement(atr.table, writeTABLE))
-		}
-	}
-
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
+	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
 
 func (b *builder) buildSqlDeleteIn() {
-	if b.tables.size != 2 {
-		return
-	}
 	stTable := b.tables.get()
 
-	pk1 := b.pks.get()
+	b.pks.get()
 	pk2 := b.pks.get()
 
 	mtm := pk2.fks[stTable.keyword]
 	if mtm == nil {
+		//TODO: add error
 		return
 	}
 
-	mtmValue := mtm.(*manyToMany)
-	b.queue.add(createStatement(mtmValue.table, writeDML))
-	if len(b.argsAny) != 0 {
-		b.queue.add(createStatement(fmt.Sprintf("WHERE %v = $1", mtmValue.ids[pk1.table].attributeName), writeATT))
-		if len(b.argsAny) == 2 {
-			b.queue.add(createStatement(fmt.Sprintf(" AND %v = $2", mtmValue.ids[pk2.table].attributeName), writeATT))
-		}
-	}
+	if mtmValue, ok := mtm.(*manyToMany); ok {
+		b.queue.add(createStatement(mtmValue.table, writeDML))
+		b.buildWhereIn()
 
-	writeDelete(b.sql, b.queue)
+		writeDelete(b.sql, b.queue)
+	}
+	//TODO: add error
 }

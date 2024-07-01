@@ -45,6 +45,10 @@ type manyToOne struct {
 	hasMany      bool
 }
 
+func (m *manyToOne) getPrimaryKey() *pk {
+	return m.pk
+}
+
 func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool) *manyToOne {
 	mto := new(manyToOne)
 	targetPkName := primaryKeys(typeOf)[0].Name
@@ -78,6 +82,10 @@ type pk struct {
 	attributeStrings
 }
 
+func (p *pk) getPrimaryKey() *pk {
+	return p
+}
+
 func createPk(table string, attributeName string, autoIncrement bool) *pk {
 	table = utils.TableNamePattern(table)
 	return &pk{
@@ -92,7 +100,82 @@ type att struct {
 	pk *pk
 }
 
+func (a *att) getPrimaryKey() *pk {
+	return a.pk
+}
+
 func createAtt(attributeName string, pk *pk) *att {
 	return &att{
 		attributeStrings: createAttributeStrings(pk.table, attributeName), pk: pk}
+}
+
+func (p *pk) buildAttributeSelect(b *builder) {
+	b.queue.add(createStatement(p.selectName, writeATT))
+	b.structColumns = append(b.structColumns, p.structAttributeName)
+	b.pks.add(p)
+}
+
+func (a *att) buildAttributeSelect(b *builder) {
+	b.queue.add(createStatement(a.selectName, writeATT))
+	b.structColumns = append(b.structColumns, a.structAttributeName)
+	b.pks.add(a.pk)
+}
+
+func (m *manyToOne) buildAttributeSelect(b *builder) {
+	b.queue.add(createStatement(m.selectName, writeATT))
+	b.structColumns = append(b.structColumns, m.structAttributeName)
+	b.pks.add(m.pk)
+}
+
+func (p *pk) buildAttributeInsert(b *builder) {
+	if !p.autoIncrement {
+		b.queue.add(createStatement(p.attributeName, writeATT))
+		b.attrNames = append(b.attrNames, p.structAttributeName)
+	}
+}
+
+func (a *att) buildAttributeInsert(b *builder) {
+	b.queue.add(createStatement(a.attributeName, writeATT))
+	b.attrNames = append(b.attrNames, a.structAttributeName)
+}
+
+func (m *manyToOne) buildAttributeInsert(b *builder) {
+	b.queue.add(createStatement(m.attributeName, writeATT))
+	b.attrNames = append(b.attrNames, m.structAttributeName)
+	b.targetFksNames[m.structAttributeName] = m.targetPkName
+}
+
+func (p *pk) buildAttributeUpdate(b *builder) {
+	if !p.autoIncrement {
+		b.queue.add(statementSET)
+		b.attrNames = append(b.attrNames, p.attributeName)
+		b.structColumns = append(b.structColumns, p.structAttributeName)
+	}
+	b.pks.add(p)
+}
+
+func (a *att) buildAttributeUpdate(b *builder) {
+	b.queue.add(statementSET)
+	b.attrNames = append(b.attrNames, a.attributeName)
+	b.structColumns = append(b.structColumns, a.structAttributeName)
+}
+
+func (m *manyToOne) buildAttributeUpdate(b *builder) {
+	b.queue.add(createStatement(m.pk.table, writeDML))
+	b.queue.add(statementSET)
+	b.attrNames = append(b.attrNames, m.attributeName)
+	b.structColumns = append(b.structColumns, m.structAttributeName)
+	b.targetFksNames[m.structAttributeName] = m.targetPkName
+}
+
+func (p *pk) buildComplexOperator(o string, v any) operator {
+	return createComplexOperator(p.selectName, o, v, p)
+}
+
+func (a *att) buildComplexOperator(o string, v any) operator {
+	return createComplexOperator(a.selectName, o, v, a.pk)
+}
+
+func (m *manyToOne) buildComplexOperator(o string, v any) operator {
+	return createComplexOperator(m.selectName, o, v, m.pk)
 }
