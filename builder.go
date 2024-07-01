@@ -129,21 +129,19 @@ func (b *builder) buildSelectJoins(addrMap map[string]field) {
 	b.queue.add(statementFROM)
 }
 
-func (b *builder) buildSql() {
-	//TODO: Remove this switch
-	switch b.queryType {
-	case querySELECT:
-		b.buildTables()
-		b.buildWhere()
-		writeSelect(b.sql, b.queue)
-	case queryINSERT:
-		writeInsert(b.sql, b.queue)
-	case queryUPDATE:
-		b.buildWhere()
-		writeUpdate(b.sql, b.queue)
-	case queryDELETE:
-		break
-	}
+func (b *builder) buildSqlSelect() {
+	b.buildTables()
+	b.buildWhere()
+	writeSelect(b.sql, b.queue)
+}
+
+func (b *builder) buildSqlInsert() {
+	writeInsert(b.sql, b.queue)
+}
+
+func (b *builder) buildSqlUpdate() {
+	b.buildWhere()
+	writeUpdate(b.sql, b.queue)
 }
 
 func (b *builder) buildSqlDelete() {

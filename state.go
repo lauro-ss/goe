@@ -41,7 +41,7 @@ func (s *stateSelect) Result(target any) {
 	}
 
 	//generate query
-	s.builder.buildSql()
+	s.builder.buildSqlSelect()
 
 	fmt.Println(s.builder.sql)
 	handlerResult(s.conn, s.builder.sql.String(), value.Elem(), s.builder.argsAny, s.builder.structColumns)
@@ -79,7 +79,7 @@ func (s *stateInsert) Value(target any) {
 	idName := s.builder.buildValues(value, s.builder.targetFksNames)
 
 	//generate query
-	s.builder.buildSql()
+	s.builder.buildSqlInsert()
 
 	fmt.Println(s.builder.sql)
 	handlerValuesReturning(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
@@ -106,7 +106,7 @@ func (s *stateInsertIn) Values(v1 any, v2 any) {
 
 	s.builder.buildValuesIn()
 
-	s.builder.buildSql()
+	s.builder.buildSqlInsert()
 
 	fmt.Println(s.builder.sql)
 	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
@@ -150,7 +150,7 @@ func (s *stateUpdate) Value(target any) {
 	s.builder.buildSet(value, s.builder.targetFksNames, s.builder.structColumns)
 
 	//generate query
-	s.builder.buildSql()
+	s.builder.buildSqlUpdate()
 
 	fmt.Println(s.builder.sql)
 	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
