@@ -101,31 +101,24 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 
 	b.structColumns = make([]string, 0, len(b.args))
 
-	f := addrMap[b.args[0]]
-	b.tables.add(createStatement(f.getPrimaryKey().table, writeTABLE))
-	f.buildAttributeSelect(b)
-
 	for _, v := range b.args[1:] {
 		addrMap[v].buildAttributeSelect(b)
 	}
+
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	addrMap[b.args[0]].buildAttributeSelect(b)
 
 	b.queue.add(statementFROM)
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]field) {
-	//TODO: Set a drive type to share stm
-	b.queue.add(statementSELECT)
-
-	f := addrMap[b.args[0]]
-	b.tables.add(createStatement(f.getPrimaryKey().table, writeTABLE))
-	b.pks.add(f.getPrimaryKey())
-
 	for _, v := range b.args[1:] {
-		f = addrMap[v]
-		b.tables.add(createStatement(f.getPrimaryKey().table, writeTABLE))
-		b.pks.add(f.getPrimaryKey())
+		b.tables.add(createStatement(addrMap[v].getPrimaryKey().table, writeTABLE))
+		b.pks.add(addrMap[v].getPrimaryKey())
 	}
 
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.queue.add(statementFROM)
 }
 
