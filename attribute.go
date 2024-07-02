@@ -110,44 +110,43 @@ func createAtt(attributeName string, pk *pk) *att {
 }
 
 func (p *pk) buildAttributeSelect(b *builder) {
-	b.queue.add(createStatement(p.selectName, writeATT))
+	b.sql.WriteString(p.selectName)
 	b.structColumns = append(b.structColumns, p.structAttributeName)
 	b.pks.add(p)
 }
 
 func (a *att) buildAttributeSelect(b *builder) {
-	b.queue.add(createStatement(a.selectName, writeATT))
+	b.sql.WriteString(a.selectName)
 	b.structColumns = append(b.structColumns, a.structAttributeName)
 	b.pks.add(a.pk)
 }
 
 func (m *manyToOne) buildAttributeSelect(b *builder) {
-	b.queue.add(createStatement(m.selectName, writeATT))
+	b.sql.WriteString(m.selectName)
 	b.structColumns = append(b.structColumns, m.structAttributeName)
 	b.pks.add(m.pk)
 }
 
 func (p *pk) buildAttributeInsert(b *builder) {
 	if !p.autoIncrement {
-		b.queue.add(createStatement(p.attributeName, writeATT))
+		b.sql.WriteString(p.attributeName)
 		b.attrNames = append(b.attrNames, p.structAttributeName)
 	}
 }
 
 func (a *att) buildAttributeInsert(b *builder) {
-	b.queue.add(createStatement(a.attributeName, writeATT))
+	b.sql.WriteString(a.attributeName)
 	b.attrNames = append(b.attrNames, a.structAttributeName)
 }
 
 func (m *manyToOne) buildAttributeInsert(b *builder) {
-	b.queue.add(createStatement(m.attributeName, writeATT))
+	b.sql.WriteString(m.attributeName)
 	b.attrNames = append(b.attrNames, m.structAttributeName)
 	b.targetFksNames[m.structAttributeName] = m.targetPkName
 }
 
 func (p *pk) buildAttributeUpdate(b *builder) {
 	if !p.autoIncrement {
-		b.queue.add(statementSET)
 		b.attrNames = append(b.attrNames, p.attributeName)
 		b.structColumns = append(b.structColumns, p.structAttributeName)
 	}
@@ -155,14 +154,11 @@ func (p *pk) buildAttributeUpdate(b *builder) {
 }
 
 func (a *att) buildAttributeUpdate(b *builder) {
-	b.queue.add(statementSET)
 	b.attrNames = append(b.attrNames, a.attributeName)
 	b.structColumns = append(b.structColumns, a.structAttributeName)
 }
 
 func (m *manyToOne) buildAttributeUpdate(b *builder) {
-	b.queue.add(createStatement(m.pk.table, writeDML))
-	b.queue.add(statementSET)
 	b.attrNames = append(b.attrNames, m.attributeName)
 	b.structColumns = append(b.structColumns, m.structAttributeName)
 	b.targetFksNames[m.structAttributeName] = m.targetPkName

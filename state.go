@@ -11,8 +11,8 @@ type stateSelect struct {
 	builder *builder
 }
 
-func createSelectState(conn Connection, qt int8) *stateSelect {
-	return &stateSelect{conn: conn, builder: createBuilder(qt)}
+func createSelectState(conn Connection) *stateSelect {
+	return &stateSelect{conn: conn, builder: createBuilder()}
 }
 
 func (s *stateSelect) Where(brs ...operator) *stateSelect {
@@ -55,8 +55,8 @@ type stateInsert struct {
 	builder *builder
 }
 
-func createInsertState(conn Connection, qt int8) *stateInsert {
-	return &stateInsert{conn: conn, builder: createBuilder(qt)}
+func createInsertState(conn Connection) *stateInsert {
+	return &stateInsert{conn: conn, builder: createBuilder()}
 }
 
 func (s *stateInsert) queryInsert(args []string, addrMap map[string]field) *stateInsert {
@@ -76,10 +76,7 @@ func (s *stateInsert) Value(target any) {
 
 	value = value.Elem()
 
-	idName := s.builder.buildValues(value, s.builder.targetFksNames)
-
-	//generate query
-	s.builder.buildSqlInsert()
+	idName := s.builder.buildValues(value)
 
 	fmt.Println(s.builder.sql)
 	handlerValuesReturning(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
@@ -90,8 +87,8 @@ type stateInsertIn struct {
 	builder *builder
 }
 
-func createInsertStateIn(conn Connection, qt int8) *stateInsertIn {
-	return &stateInsertIn{conn: conn, builder: createBuilder(qt)}
+func createInsertStateIn(conn Connection) *stateInsertIn {
+	return &stateInsertIn{conn: conn, builder: createBuilder()}
 }
 
 func (s *stateInsertIn) queryInsertIn(args []string, addrMap map[string]field) *stateInsertIn {
@@ -106,8 +103,6 @@ func (s *stateInsertIn) Values(v1 any, v2 any) {
 
 	s.builder.buildValuesIn()
 
-	s.builder.buildSqlInsert()
-
 	fmt.Println(s.builder.sql)
 	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
 }
@@ -120,8 +115,8 @@ type stateUpdate struct {
 	builder *builder
 }
 
-func createUpdateState(conn Connection, qt int8) *stateUpdate {
-	return &stateUpdate{conn: conn, builder: createBuilder(qt)}
+func createUpdateState(conn Connection) *stateUpdate {
+	return &stateUpdate{conn: conn, builder: createBuilder()}
 }
 
 func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
@@ -147,7 +142,7 @@ func (s *stateUpdate) Value(target any) {
 		return
 	}
 
-	s.builder.buildSet(value, s.builder.targetFksNames, s.builder.structColumns)
+	s.builder.buildSet(value)
 
 	//generate query
 	s.builder.buildSqlUpdate()
@@ -162,8 +157,8 @@ type stateUpdateIn struct {
 	builder *builder
 }
 
-func createUpdateInState(conn Connection, qt int8) *stateUpdateIn {
-	return &stateUpdateIn{conn: conn, builder: createBuilder(qt)}
+func createUpdateInState(conn Connection) *stateUpdateIn {
+	return &stateUpdateIn{conn: conn, builder: createBuilder()}
 }
 
 func (s *stateUpdateIn) Where(brs ...operator) *stateUpdateIn {
@@ -193,8 +188,8 @@ type stateDelete struct {
 	builder *builder
 }
 
-func createDeleteState(conn Connection, qt int8) *stateDelete {
-	return &stateDelete{conn: conn, builder: createBuilder(qt)}
+func createDeleteState(conn Connection) *stateDelete {
+	return &stateDelete{conn: conn, builder: createBuilder()}
 }
 
 func (s *stateDelete) queryDelete(args []string, addrMap map[string]field) *stateDelete {
@@ -217,8 +212,8 @@ type stateDeleteIn struct {
 	builder *builder
 }
 
-func createDeleteInState(conn Connection, qt int8) *stateDeleteIn {
-	return &stateDeleteIn{conn: conn, builder: createBuilder(qt)}
+func createDeleteInState(conn Connection) *stateDeleteIn {
+	return &stateDeleteIn{conn: conn, builder: createBuilder()}
 }
 
 func (s *stateDeleteIn) queryDeleteIn(args []string, addrMap map[string]field) *stateDeleteIn {
@@ -240,7 +235,7 @@ func where(builder *builder, brs ...operator) {
 	builder.brs = brs
 	for _, br := range builder.brs {
 		if op, ok := br.(complexOperator); ok {
-			builder.tables.add(createStatement(op.pk.table, writeTABLE))
+			builder.tables.add(createStatement(op.pk.table, 0))
 			builder.pks.add(op.pk)
 		}
 	}

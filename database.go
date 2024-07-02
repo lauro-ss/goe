@@ -28,7 +28,7 @@ func (db *DB) Select(args ...any) *stateSelect {
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createSelectState(conn, querySELECT)
+	state := createSelectState(conn)
 
 	state.addrMap = db.addrMap
 	return state.querySelect(stringArgs)
@@ -39,7 +39,7 @@ func (db *DB) Insert(table any) *stateInsert {
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createInsertState(conn, queryINSERT)
+	state := createInsertState(conn)
 
 	return state.queryInsert(stringArgs, db.addrMap)
 }
@@ -49,7 +49,7 @@ func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createInsertStateIn(conn, queryINSERT)
+	state := createInsertStateIn(conn)
 
 	return state.queryInsertIn(stringArgs, db.addrMap)
 }
@@ -59,7 +59,7 @@ func (db *DB) Update(tables any) *stateUpdate {
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createUpdateState(conn, queryUPDATE)
+	state := createUpdateState(conn)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
@@ -69,7 +69,7 @@ func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createUpdateInState(conn, queryUPDATE)
+	state := createUpdateInState(conn)
 
 	return state.queryUpdateIn(stringArgs, db.addrMap)
 }
@@ -79,7 +79,7 @@ func (db *DB) Delete(table any) *stateDelete {
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createDeleteState(conn, queryUPDATE)
+	state := createDeleteState(conn)
 
 	return state.queryDelete(stringArgs, db.addrMap)
 }
@@ -89,7 +89,7 @@ func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
 
 	//TODO: add ctx
 	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createDeleteInState(conn, queryUPDATE)
+	state := createDeleteInState(conn)
 
 	return state.queryDeleteIn(stringArgs, db.addrMap)
 }

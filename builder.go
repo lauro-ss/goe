@@ -6,62 +6,6 @@ import (
 	"strings"
 )
 
-const (
-	querySELECT int8 = 1
-	queryINSERT int8 = 2
-	queryUPDATE int8 = 3
-	queryDELETE int8 = 4
-)
-
-var (
-	// Select keywords
-	statementSELECT = &statement{
-		keyword: "SELECT",
-		tip:     writeDML,
-	}
-	statementFROM = &statement{
-		keyword: "FROM",
-		tip:     writeDML,
-	}
-	statementWHERE = &statement{
-		keyword: "WHERE",
-		tip:     writeMIDDLE,
-	}
-
-	// Insert keywords
-	statementINSERT = &statement{
-		keyword: "INSERT",
-		tip:     writeDML,
-	}
-	statementINTO = &statement{
-		keyword: "INTO",
-		tip:     writeDML,
-	}
-	statementVALUES = &statement{
-		keyword: "VALUES",
-		tip:     writeDML,
-	}
-	statementRETURNING = &statement{
-		keyword: "RETURNING",
-		tip:     writeDML,
-	}
-
-	// Update keywords
-	statementUPDATE = &statement{
-		keyword: "UPDATE",
-		tip:     writeDML,
-	}
-	statementSET = &statement{
-		keyword: "SET",
-		tip:     writeDML,
-	}
-
-	statementDELETE = &statement{
-		keyword: "DELETE",
-		tip:     writeDML,
-	}
-)
-
 type builder struct {
 	sql            *strings.Builder
 	args           []string
@@ -70,19 +14,15 @@ type builder struct {
 	attrNames      []string          //insert and update
 	targetFksNames map[string]string //insert and update
 	brs            []operator
-	queue          *statementQueue
 	tables         *statementQueue
 	pks            *pkQueue
-	queryType      int8
 }
 
-func createBuilder(qt int8) *builder {
+func createBuilder() *builder {
 	return &builder{
-		sql:       &strings.Builder{},
-		queue:     createStatementQueue(),
-		tables:    createStatementQueue(),
-		queryType: qt,
-		pks:       createPkQueue()}
+		sql:    &strings.Builder{},     //TODO: Add grow for sql builder
+		tables: createStatementQueue(), //TODO: Change to string queue
+		pks:    createPkQueue()}        //TODO: Change to string queue
 }
 
 type statement struct {
@@ -97,71 +37,67 @@ func createStatement(k string, t int8) *statement {
 
 func (b *builder) buildSelect(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(statementSELECT)
+	b.sql.WriteString("SELECT")
+	b.sql.WriteRune(' ')
 
 	b.structColumns = make([]string, 0, len(b.args))
 
 	for _, v := range b.args[1:] {
 		addrMap[v].buildAttributeSelect(b)
+		b.sql.WriteRune(',')
 	}
-
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
 	addrMap[b.args[0]].buildAttributeSelect(b)
-
-	b.queue.add(statementFROM)
+	b.sql.WriteString(" FROM ")
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]field) {
 	for _, v := range b.args[1:] {
-		b.tables.add(createStatement(addrMap[v].getPrimaryKey().table, writeTABLE))
+		b.tables.add(createStatement(addrMap[v].getPrimaryKey().table, 0))
 		b.pks.add(addrMap[v].getPrimaryKey())
 	}
 
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
-	b.queue.add(statementFROM)
 }
 
 func (b *builder) buildSqlSelect() {
 	b.buildTables()
 	b.buildWhere()
-	writeSelect(b.sql, b.queue)
-}
-
-func (b *builder) buildSqlInsert() {
-	writeInsert(b.sql, b.queue)
+	b.sql.WriteRune(';')
 }
 
 func (b *builder) buildSqlUpdate() {
 	b.buildWhere()
-	writeUpdate(b.sql, b.queue)
+	b.sql.WriteRune(';')
 }
 
 func (b *builder) buildSqlDelete() {
 	b.buildWhere()
-	writeDelete(b.sql, b.queue)
+	b.sql.WriteRune(';')
 }
 
 func (b *builder) buildSqlUpdateIn() {
 	b.buildWhereIn()
-	writeUpdate(b.sql, b.queue)
+	b.sql.WriteRune(';')
 }
 
 func (b *builder) buildWhere() {
 	if len(b.brs) == 0 {
 		return
 	}
-	b.queue.add(statementWHERE)
+	b.sql.WriteRune('\n')
+	b.sql.WriteString("WHERE ")
 	argsCount := len(b.argsAny) + 1
 	for _, op := range b.brs {
 		switch v := op.(type) {
 		case complexOperator:
 			v.setValueFlag(fmt.Sprintf("$%v", argsCount))
-			b.queue.add(createStatement(v.operation(), 0))
+			b.sql.WriteString(v.operation())
 			b.argsAny = append(b.argsAny, v.value)
 			argsCount++
 		case simpleOperator:
-			b.queue.add(createStatement(v.operation(), 0))
+			b.sql.WriteString(v.operation())
 		}
 	}
 }
@@ -170,7 +106,8 @@ func (b *builder) buildWhereIn() {
 	if len(b.brs) == 0 {
 		return
 	}
-	b.queue.add(statementWHERE)
+	b.sql.WriteRune('\n')
+	b.sql.WriteString("WHERE ")
 	argsCount := len(b.argsAny) + 1
 
 	for _, op := range b.brs {
@@ -178,12 +115,12 @@ func (b *builder) buildWhereIn() {
 		case complexOperator:
 			st := buildWhereIn(b.pks, v.pk, argsCount, v)
 			if st != nil {
-				b.queue.add(st)
+				b.sql.WriteString(st.keyword)
 				b.argsAny = append(b.argsAny, v.value)
 				argsCount++
 			}
 		case simpleOperator:
-			b.queue.add(createStatement(v.operation(), 0))
+			b.sql.WriteString(v.operation())
 		}
 	}
 }
@@ -208,44 +145,38 @@ func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int, v complexOperator) 
 }
 
 func (b *builder) buildTables() {
-	b.queue.add(b.tables.get())
+	b.sql.WriteString(b.tables.get().keyword)
 	if b.tables.size >= 1 {
 		for table := b.tables.get(); table != nil; {
-			buildJoins(table, b.pks, b.queue)
+			buildJoins(table, b.pks, b.sql)
 			table = b.tables.get()
 		}
 	}
 }
 
-func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
+func buildJoins(table *statement, pks *pkQueue, sql *strings.Builder) {
 	var skipTable string
 	for pk := pks.get(); pk != nil; {
 		if pk.table != table.keyword && skipTable != table.keyword {
 			switch fk := pk.fks[table.keyword].(type) {
 			case *manyToOne:
 				if fk.hasMany {
-					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.selectName), writeJOIN),
-					)
+					sql.WriteRune('\n')
+					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.selectName))
 				} else {
-					stQueue.add(
-						createStatement(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pks.findPk(table.keyword).selectName, fk.selectName), writeJOIN),
-					)
+					sql.WriteRune('\n')
+					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.selectName))
 				}
 				// skips the table keyword that has already be matched
 				skipTable = table.keyword
 			case *manyToMany:
-				stQueue.add(
-					createStatement(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table].selectName), writeJOIN),
-				)
-				stQueue.add(
-					createStatement(
-						fmt.Sprintf(
-							"inner join %v on (%v = %v)",
-							table.keyword, fk.ids[table.keyword].selectName,
-							pks.findPk(table.keyword).selectName), writeJOIN,
-					),
-				)
+				sql.WriteRune('\n')
+				sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table].selectName))
+				sql.WriteRune('\n')
+				sql.WriteString(fmt.Sprintf(
+					"inner join %v on (%v = %v)",
+					table.keyword, fk.ids[table.keyword].selectName,
+					pks.findPk(table.keyword).selectName))
 				// skips the table keyword that has already be matched
 				skipTable = table.keyword
 			}
@@ -256,32 +187,32 @@ func buildJoins(table *statement, pks *pkQueue, stQueue *statementQueue) {
 
 func (b *builder) buildInsert(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(statementINSERT)
-
-	b.queue.add(statementINTO)
+	b.sql.WriteString("INSERT ")
+	b.sql.WriteString("INTO ")
 
 	b.targetFksNames = make(map[string]string)
 	b.attrNames = make([]string, 0, len(b.args))
 
 	f := addrMap[b.args[0]]
-	b.queue.add(createStatement(f.getPrimaryKey().table, writeDML))
+	b.sql.WriteString(f.getPrimaryKey().table)
+	b.sql.WriteString(" (")
 	b.pks.add(f.getPrimaryKey())
 	f.buildAttributeInsert(b)
 
 	for _, v := range b.args[1:] {
+		b.sql.WriteRune(',')
 		addrMap[v].buildAttributeInsert(b)
 	}
-
-	b.queue.add(statementVALUES)
+	b.sql.WriteString(") ")
+	b.sql.WriteString("VALUES ")
 }
 
 func (b *builder) buildInsertIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(statementINSERT)
+	b.sql.WriteString("INSERT ")
+	b.sql.WriteString("INTO ")
 
-	b.queue.add(statementINTO)
-
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
@@ -298,25 +229,26 @@ func (b *builder) buildValuesIn() {
 	}
 
 	mtmValue := mtm.(*manyToMany)
-	b.queue.add(createStatement(mtmValue.table, writeDML))
-	b.queue.add(createStatement(mtmValue.ids[pk1.table].attributeName, writeATT))
-	b.queue.add(createStatement(mtmValue.ids[pk2.table].attributeName, writeATT))
-	b.queue.add(statementVALUES)
-
-	b.queue.add(createStatement("$1", writeATT))
-	b.queue.add(createStatement("$2", writeATT))
+	b.sql.WriteString(mtmValue.table)
+	b.sql.WriteString(" (")
+	b.sql.WriteString(mtmValue.ids[pk1.table].attributeName)
+	b.sql.WriteString(",")
+	b.sql.WriteString(mtmValue.ids[pk2.table].attributeName)
+	b.sql.WriteString(") ")
+	b.sql.WriteString("VALUES ")
+	b.sql.WriteString("($1,$2);")
 }
 
 func (b *builder) buildUpdate(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(statementUPDATE)
+	b.sql.WriteString("UPDATE ")
 
 	b.targetFksNames = make(map[string]string)
 	b.structColumns = make([]string, 0, len(b.args))
 	b.attrNames = make([]string, 0, len(b.args))
 
-	b.queue.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeDML))
-	b.queue.add(statementSET)
+	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
+	b.sql.WriteString(" SET ")
 	addrMap[b.args[0]].buildAttributeUpdate(b)
 
 	for _, v := range b.args[1:] {
@@ -324,46 +256,51 @@ func (b *builder) buildUpdate(addrMap map[string]field) {
 	}
 }
 
-func (b *builder) buildSet(value reflect.Value, targetFksNames map[string]string, strNames []string) {
-	var valueField reflect.Value
+func (b *builder) buildSet(value reflect.Value) {
 	b.argsAny = make([]any, 0, len(b.attrNames))
-	c := 1
-	for i, attr := range b.attrNames {
-		valueField = value.FieldByName(strNames[i])
-		switch valueField.Kind() {
-		case reflect.Struct:
-			if valueField.Type().Name() == "Time" {
-				b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
-				b.argsAny = append(b.argsAny, valueField.Interface())
-				c++
-				continue
-			}
-			if !valueField.FieldByName(targetFksNames[strNames[i]]).IsZero() {
-				b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
-				b.argsAny = append(b.argsAny, valueField.FieldByName(targetFksNames[strNames[i]]).Interface())
-				c++
-			}
-			continue
-		case reflect.Pointer:
-			if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
-				b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
-				b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(targetFksNames[strNames[i]]).Interface())
-				c++
-				continue
-			}
-		}
-		b.queue.add(createStatement(fmt.Sprintf("%v = $%v", attr, c), writeATT))
-		b.argsAny = append(b.argsAny, valueField.Interface())
+	var c uint16 = 1
+	buildSetField(value.FieldByName(b.structColumns[0]), b.attrNames[0], b, c)
+	for i, attr := range b.attrNames[1:] {
+		b.sql.WriteRune(',')
 		c++
+		buildSetField(value.FieldByName(b.structColumns[i+1]), attr, b, c)
 	}
+}
+
+func buildSetField(valueField reflect.Value, fieldName string, b *builder, c uint16) {
+	switch valueField.Kind() {
+	case reflect.Struct:
+		if valueField.Type().Name() == "Time" {
+			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
+			b.argsAny = append(b.argsAny, valueField.Interface())
+			c++
+			return
+		}
+		if !valueField.FieldByName(b.targetFksNames[fieldName]).IsZero() {
+			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
+			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[fieldName]).Interface())
+			c++
+		}
+		return
+	case reflect.Pointer:
+		if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
+			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
+			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[fieldName]).Interface())
+			c++
+			return
+		}
+	}
+	b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
+	b.argsAny = append(b.argsAny, valueField.Interface())
+	c++
 }
 
 func (b *builder) buildUpdateIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(statementUPDATE)
+	b.sql.WriteString("UPDATE ")
 
 	b.attrNames = make([]string, 0, len(b.args))
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
@@ -382,54 +319,63 @@ func (b *builder) buildSetIn() {
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
-		b.queue.add(createStatement(mtmValue.table, writeDML))
-		b.queue.add(statementSET)
-		b.queue.add(createStatement(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName), writeATT))
+		b.sql.WriteString(mtmValue.table)
+		b.sql.WriteString(" SET ")
+		b.sql.WriteString(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName))
 	}
 }
 
-func (b *builder) buildValues(value reflect.Value, targetFksNames map[string]string) string {
-	var valueField reflect.Value
+func (b *builder) buildValues(value reflect.Value) string {
+	b.sql.WriteString("(")
 	b.argsAny = make([]any, 0, len(b.attrNames))
-	for i, attr := range b.attrNames {
-		b.queue.add(createStatement(fmt.Sprintf("$%v", i+1), writeATT))
-		valueField = value.FieldByName(attr)
-		switch valueField.Kind() {
-		case reflect.Struct:
-			if valueField.Type().Name() != "Time" {
-				b.argsAny = append(b.argsAny, valueField.FieldByName(targetFksNames[attr]).Interface())
-				continue
-			}
-		case reflect.Pointer:
-			if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
-				b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(targetFksNames[attr]).Interface())
-				continue
-			}
-		}
-		b.argsAny = append(b.argsAny, valueField.Interface())
+
+	c := 2
+	b.sql.WriteString("$1")
+	buildValueField(value.FieldByName(b.attrNames[0]), b.attrNames[0], b)
+	for _, attr := range b.attrNames[1:] {
+		b.sql.WriteRune(',')
+		b.sql.WriteString(fmt.Sprintf("$%v", c))
+		buildValueField(value.FieldByName(attr), attr, b)
+		c++
 	}
 	pk := b.pks.get()
-	b.queue.add(statementRETURNING)
+	b.sql.WriteString(") ")
+	b.sql.WriteString("RETURNING ")
 	st := createStatement(pk.attributeName, 0)
 	st.allowCopies = true
-	b.queue.add(st)
+	b.sql.WriteString(pk.attributeName)
+	b.sql.WriteRune(';')
 	return pk.structAttributeName
 
 }
 
+func buildValueField(valueField reflect.Value, fieldName string, b *builder) {
+	switch valueField.Kind() {
+	case reflect.Struct:
+		if valueField.Type().Name() != "Time" {
+			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[fieldName]).Interface())
+			return
+		}
+	case reflect.Pointer:
+		if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
+			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[fieldName]).Interface())
+			return
+		}
+	}
+	b.argsAny = append(b.argsAny, valueField.Interface())
+}
+
 func (b *builder) buildDelete(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(statementDELETE)
-	b.queue.add(statementFROM)
-	b.queue.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeDML))
+	b.sql.WriteString("DELETE FROM ")
+	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
 }
 
 func (b *builder) buildDeleteIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.queue.add(statementDELETE)
-	b.queue.add(statementFROM)
+	b.sql.WriteString("DELETE FROM ")
 
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, writeTABLE))
+	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
@@ -447,10 +393,9 @@ func (b *builder) buildSqlDeleteIn() {
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
-		b.queue.add(createStatement(mtmValue.table, writeDML))
+		b.sql.WriteString(mtmValue.table)
 		b.buildWhereIn()
-
-		writeDelete(b.sql, b.queue)
+		b.sql.WriteRune(';')
 	}
 	//TODO: add error
 }
