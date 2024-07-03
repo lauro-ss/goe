@@ -52,13 +52,10 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]field) {
-	for _, v := range b.args[1:] {
+	for _, v := range b.args {
 		b.tables.add(addrMap[v].getPrimaryKey().table)
 		b.pks.add(addrMap[v].getPrimaryKey())
 	}
-
-	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
-	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 }
 
 func (b *builder) buildSqlSelect() {
