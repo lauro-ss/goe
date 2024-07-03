@@ -1,20 +1,20 @@
 package goe
 
-type statementQueue struct {
+type queue struct {
 	head *node
 	size int
 }
 
 type node struct {
-	value *statement
+	value string
 	next  *node
 }
 
-func createStatementQueue() *statementQueue {
-	return &statementQueue{}
+func createQueue() *queue {
+	return &queue{}
 }
 
-func (q *statementQueue) add(v *statement) {
+func (q *queue) add(v string) {
 	n := &node{value: v}
 
 	if q.head == nil {
@@ -31,9 +31,9 @@ func (q *statementQueue) add(v *statement) {
 	q.size++
 }
 
-func (q *statementQueue) get() *statement {
+func (q *queue) get() string {
 	if q.head == nil {
-		return nil
+		return ""
 	}
 
 	n := q.head
@@ -42,8 +42,8 @@ func (q *statementQueue) get() *statement {
 	return n.value
 }
 
-func getTail(n *node, v *statement) *node {
-	if n.value.keyword == v.keyword && !v.allowCopies {
+func getTail(n *node, v string) *node {
+	if n.value == v {
 		return nil
 	}
 	if n.next != nil {

@@ -14,15 +14,15 @@ type builder struct {
 	attrNames      []string          //insert and update
 	targetFksNames map[string]string //insert and update
 	brs            []operator
-	tables         *statementQueue
+	tables         *queue
 	pks            *pkQueue
 }
 
 func createBuilder() *builder {
 	return &builder{
-		sql:    &strings.Builder{},     //TODO: Add grow for sql builder
-		tables: createStatementQueue(), //TODO: Change to string queue
-		pks:    createPkQueue()}        //TODO: Change to string queue
+		sql:    &strings.Builder{}, //TODO: Add grow for sql builder
+		tables: createQueue(),
+		pks:    createPkQueue()} //TODO: Change to string queue
 }
 
 type statement struct {
@@ -48,16 +48,16 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 	}
 	addrMap[b.args[0]].buildAttributeSelect(b)
 	b.sql.WriteString(" FROM ")
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
+	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]field) {
 	for _, v := range b.args[1:] {
-		b.tables.add(createStatement(addrMap[v].getPrimaryKey().table, 0))
+		b.tables.add(addrMap[v].getPrimaryKey().table)
 		b.pks.add(addrMap[v].getPrimaryKey())
 	}
 
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
+	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 }
 
@@ -145,40 +145,40 @@ func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int, v complexOperator) 
 }
 
 func (b *builder) buildTables() {
-	b.sql.WriteString(b.tables.get().keyword)
+	b.sql.WriteString(b.tables.get())
 	if b.tables.size >= 1 {
-		for table := b.tables.get(); table != nil; {
+		for table := b.tables.get(); table != ""; {
 			buildJoins(table, b.pks, b.sql)
 			table = b.tables.get()
 		}
 	}
 }
 
-func buildJoins(table *statement, pks *pkQueue, sql *strings.Builder) {
+func buildJoins(table string, pks *pkQueue, sql *strings.Builder) {
 	var skipTable string
 	for pk := pks.get(); pk != nil; {
-		if pk.table != table.keyword && skipTable != table.keyword {
-			switch fk := pk.fks[table.keyword].(type) {
+		if pk.table != table && skipTable != table {
+			switch fk := pk.fks[table].(type) {
 			case *manyToOne:
 				if fk.hasMany {
 					sql.WriteRune('\n')
-					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.selectName))
+					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table, pk.selectName, fk.selectName))
 				} else {
 					sql.WriteRune('\n')
-					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table.keyword, pk.selectName, fk.selectName))
+					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table, pk.selectName, fk.selectName))
 				}
 				// skips the table keyword that has already be matched
-				skipTable = table.keyword
+				skipTable = table
 			case *manyToMany:
 				sql.WriteRune('\n')
 				sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table].selectName))
 				sql.WriteRune('\n')
 				sql.WriteString(fmt.Sprintf(
 					"inner join %v on (%v = %v)",
-					table.keyword, fk.ids[table.keyword].selectName,
-					pks.findPk(table.keyword).selectName))
+					table, fk.ids[table].selectName,
+					pks.findPk(table).selectName))
 				// skips the table keyword that has already be matched
-				skipTable = table.keyword
+				skipTable = table
 			}
 		}
 		pk = pks.get()
@@ -219,7 +219,7 @@ func (b *builder) buildInsertIn(addrMap map[string]field) {
 	b.sql.WriteString("INSERT ")
 	b.sql.WriteString("INTO ")
 
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
+	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
@@ -230,7 +230,7 @@ func (b *builder) buildValuesIn() {
 	pk1 := b.pks.get()
 	pk2 := b.pks.get()
 
-	mtm := pk2.fks[stTable.keyword]
+	mtm := pk2.fks[stTable]
 	if mtm == nil {
 		return
 	}
@@ -307,7 +307,7 @@ func (b *builder) buildUpdateIn(addrMap map[string]field) {
 	b.sql.WriteString("UPDATE ")
 
 	b.attrNames = make([]string, 0, len(b.args))
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
+	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
@@ -320,7 +320,7 @@ func (b *builder) buildSetIn() {
 	b.pks.get()
 	pk2 := b.pks.get()
 
-	mtm := pk2.fks[stTable.keyword]
+	mtm := pk2.fks[stTable]
 	if mtm == nil {
 		return
 	}
@@ -382,7 +382,7 @@ func (b *builder) buildDeleteIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("DELETE FROM ")
 
-	b.tables.add(createStatement(addrMap[b.args[0]].getPrimaryKey().table, 0))
+	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
@@ -393,7 +393,7 @@ func (b *builder) buildSqlDeleteIn() {
 	b.pks.get()
 	pk2 := b.pks.get()
 
-	mtm := pk2.fks[stTable.keyword]
+	mtm := pk2.fks[stTable]
 	if mtm == nil {
 		//TODO: add error
 		return

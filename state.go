@@ -235,7 +235,7 @@ func where(builder *builder, brs ...operator) {
 	builder.brs = brs
 	for _, br := range builder.brs {
 		if op, ok := br.(complexOperator); ok {
-			builder.tables.add(createStatement(op.pk.table, 0))
+			builder.tables.add(op.pk.table)
 			builder.pks.add(op.pk)
 		}
 	}
