@@ -198,10 +198,17 @@ func (b *builder) buildInsert(addrMap map[string]field) {
 	b.sql.WriteString(" (")
 	b.pks.add(f.getPrimaryKey())
 	f.buildAttributeInsert(b)
-
-	for _, v := range b.args[1:] {
+	if !f.getPrimaryKey().autoIncrement {
 		b.sql.WriteRune(',')
+	}
+
+	l := len(b.args[1:]) - 1
+
+	for i, v := range b.args[1:] {
 		addrMap[v].buildAttributeInsert(b)
+		if i != l {
+			b.sql.WriteRune(',')
+		}
 	}
 	b.sql.WriteString(") ")
 	b.sql.WriteString("VALUES ")
