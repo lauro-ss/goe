@@ -54,11 +54,11 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
 }
 
-func (b *builder) buildSelectJoins(addrMap map[string]field) {
+func (b *builder) buildSelectJoins(addrMap map[string]field, join string) {
 	for _, v := range b.argsJoins {
 		b.tables.add(addrMap[v].getPrimaryKey().table)
 		b.pks.add(addrMap[v].getPrimaryKey())
-		b.joins = append(b.joins, "join")
+		b.joins = append(b.joins, join)
 	}
 }
 
@@ -162,7 +162,7 @@ func (b *builder) buildTables() {
 
 func buildJoins(table string, pks *pkQueue, join string, sql *strings.Builder) {
 	if join == "" {
-		join = "inner join"
+		join = "INNER JOIN"
 	}
 	var skipTable string
 	for pk := pks.get(); pk != nil; {

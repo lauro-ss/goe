@@ -22,7 +22,25 @@ func (s *stateSelect) Where(brs ...operator) *stateSelect {
 
 func (s *stateSelect) Join(tables ...any) *stateSelect {
 	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
-	s.builder.buildSelectJoins(s.addrMap)
+	s.builder.buildSelectJoins(s.addrMap, "JOIN")
+	return s
+}
+
+func (s *stateSelect) InnerJoin(tables ...any) *stateSelect {
+	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
+	s.builder.buildSelectJoins(s.addrMap, "INNER JOIN")
+	return s
+}
+
+func (s *stateSelect) RightJoin(tables ...any) *stateSelect {
+	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
+	s.builder.buildSelectJoins(s.addrMap, "RIGHT JOIN")
+	return s
+}
+
+func (s *stateSelect) LeftJoin(tables ...any) *stateSelect {
+	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
+	s.builder.buildSelectJoins(s.addrMap, "LEFT JOIN")
 	return s
 }
 
