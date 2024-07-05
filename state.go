@@ -21,7 +21,7 @@ func (s *stateSelect) Where(brs ...operator) *stateSelect {
 }
 
 func (s *stateSelect) Join(tables ...any) *stateSelect {
-	s.builder.args = append(s.builder.args, getArgs(s.addrMap, tables...)...)
+	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
 	s.builder.buildSelectJoins(s.addrMap)
 	return s
 }

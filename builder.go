@@ -9,10 +9,12 @@ import (
 type builder struct {
 	sql            *strings.Builder
 	args           []string
+	argsJoins      []string //select
 	argsAny        []any
 	structColumns  []string          //select and update
 	attrNames      []string          //insert and update
 	targetFksNames map[string]string //insert and update
+	joins          []string
 	brs            []operator
 	tables         *queue
 	pks            *pkQueue
@@ -21,6 +23,7 @@ type builder struct {
 func createBuilder() *builder {
 	return &builder{
 		sql:    &strings.Builder{}, //TODO: Add grow for sql builder
+		joins:  make([]string, 0),
 		tables: createQueue(),
 		pks:    createPkQueue()} //TODO: Change to string queue
 }
@@ -52,9 +55,10 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]field) {
-	for _, v := range b.args {
+	for _, v := range b.argsJoins {
 		b.tables.add(addrMap[v].getPrimaryKey().table)
 		b.pks.add(addrMap[v].getPrimaryKey())
+		b.joins = append(b.joins, "join")
 	}
 }
 
@@ -144,14 +148,22 @@ func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int, v complexOperator) 
 func (b *builder) buildTables() {
 	b.sql.WriteString(b.tables.get())
 	if b.tables.size >= 1 {
+		if (b.tables.size) > len(b.joins) {
+			b.joins = append(b.joins, make([]string, b.tables.size-len(b.joins))...)
+		}
+		i := 0
 		for table := b.tables.get(); table != ""; {
-			buildJoins(table, b.pks, b.sql)
+			buildJoins(table, b.pks, b.joins[i], b.sql)
 			table = b.tables.get()
+			i++
 		}
 	}
 }
 
-func buildJoins(table string, pks *pkQueue, sql *strings.Builder) {
+func buildJoins(table string, pks *pkQueue, join string, sql *strings.Builder) {
+	if join == "" {
+		join = "inner join"
+	}
 	var skipTable string
 	for pk := pks.get(); pk != nil; {
 		if pk.table != table && skipTable != table {
@@ -159,19 +171,20 @@ func buildJoins(table string, pks *pkQueue, sql *strings.Builder) {
 			case *manyToOne:
 				if fk.hasMany {
 					sql.WriteRune('\n')
-					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table, pk.selectName, fk.selectName))
+					sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk.selectName, fk.selectName))
 				} else {
 					sql.WriteRune('\n')
-					sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", table, pk.selectName, fk.selectName))
+					sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk.selectName, fk.selectName))
 				}
 				// skips the table keyword that has already be matched
 				skipTable = table
 			case *manyToMany:
 				sql.WriteRune('\n')
-				sql.WriteString(fmt.Sprintf("inner join %v on (%v = %v)", fk.table, pk.selectName, fk.ids[pk.table].selectName))
+				sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, fk.table, pk.selectName, fk.ids[pk.table].selectName))
 				sql.WriteRune('\n')
 				sql.WriteString(fmt.Sprintf(
-					"inner join %v on (%v = %v)",
+					"%v %v on (%v = %v)",
+					join,
 					table, fk.ids[table].selectName,
 					pks.findPk(table).selectName))
 				// skips the table keyword that has already be matched
