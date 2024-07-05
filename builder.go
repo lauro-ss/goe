@@ -22,7 +22,7 @@ type builder struct {
 
 func createBuilder() *builder {
 	return &builder{
-		sql:    &strings.Builder{}, //TODO: Add grow for sql builder
+		sql:    &strings.Builder{},
 		joins:  make([]string, 0),
 		tables: createQueue(),
 		pks:    createPkQueue()} //TODO: Change to string queue
@@ -45,19 +45,19 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 
 	b.structColumns = make([]string, 0, len(b.args))
 
-	for _, v := range b.args[1:] {
-		addrMap[v].buildAttributeSelect(b)
+	for i := range b.args[:len(b.args)-1] {
+		addrMap[b.args[i]].buildAttributeSelect(b)
 		b.sql.WriteRune(',')
 	}
-	addrMap[b.args[0]].buildAttributeSelect(b)
+	addrMap[b.args[len(b.args)-1]].buildAttributeSelect(b)
 	b.sql.WriteString(" FROM ")
 	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]field, join string) {
-	for _, v := range b.argsJoins {
-		b.tables.add(addrMap[v].getPrimaryKey().table)
-		b.pks.add(addrMap[v].getPrimaryKey())
+	for i := range b.argsJoins {
+		b.tables.add(addrMap[b.argsJoins[i]].getPrimaryKey().table)
+		b.pks.add(addrMap[b.argsJoins[i]].getPrimaryKey())
 		b.joins = append(b.joins, join)
 	}
 }
@@ -214,14 +214,56 @@ func (b *builder) buildInsert(addrMap map[string]field) {
 
 	l := len(b.args[1:]) - 1
 
-	for i, v := range b.args[1:] {
-		addrMap[v].buildAttributeInsert(b)
+	a := b.args[1:]
+	for i := range a {
+		addrMap[a[i]].buildAttributeInsert(b)
 		if i != l {
 			b.sql.WriteRune(',')
 		}
 	}
 	b.sql.WriteString(") ")
 	b.sql.WriteString("VALUES ")
+}
+
+func (b *builder) buildValues(value reflect.Value) string {
+	b.sql.WriteString("(")
+	b.argsAny = make([]any, 0, len(b.attrNames))
+
+	c := 2
+	b.sql.WriteString("$1")
+	buildValueField(value.FieldByName(b.attrNames[0]), b.attrNames[0], b)
+	a := b.attrNames[1:]
+	for i := range a {
+		b.sql.WriteRune(',')
+		b.sql.WriteString(fmt.Sprintf("$%v", c))
+		buildValueField(value.FieldByName(a[i]), a[i], b)
+		c++
+	}
+	pk := b.pks.get()
+	b.sql.WriteString(") ")
+	b.sql.WriteString("RETURNING ")
+	st := createStatement(pk.attributeName, 0)
+	st.allowCopies = true
+	b.sql.WriteString(pk.attributeName)
+	b.sql.WriteRune(';')
+	return pk.structAttributeName
+
+}
+
+func buildValueField(valueField reflect.Value, fieldName string, b *builder) {
+	switch valueField.Kind() {
+	case reflect.Struct:
+		if valueField.Type().Name() != "Time" {
+			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[fieldName]).Interface())
+			return
+		}
+	case reflect.Pointer:
+		if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
+			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[fieldName]).Interface())
+			return
+		}
+	}
+	b.argsAny = append(b.argsAny, valueField.Interface())
 }
 
 func (b *builder) buildInsertIn(addrMap map[string]field) {
@@ -268,8 +310,9 @@ func (b *builder) buildUpdate(addrMap map[string]field) {
 	b.sql.WriteString(" SET ")
 	addrMap[b.args[0]].buildAttributeUpdate(b)
 
-	for _, v := range b.args[1:] {
-		addrMap[v].buildAttributeUpdate(b)
+	a := b.args[1:]
+	for i := range a {
+		addrMap[a[i]].buildAttributeUpdate(b)
 	}
 }
 
@@ -277,10 +320,13 @@ func (b *builder) buildSet(value reflect.Value) {
 	b.argsAny = make([]any, 0, len(b.attrNames))
 	var c uint16 = 1
 	buildSetField(value.FieldByName(b.structColumns[0]), b.attrNames[0], b, c)
-	for i, attr := range b.attrNames[1:] {
+
+	a := b.attrNames[1:]
+	s := b.structColumns[1:]
+	for i := range a {
 		b.sql.WriteRune(',')
 		c++
-		buildSetField(value.FieldByName(b.structColumns[i+1]), attr, b, c)
+		buildSetField(value.FieldByName(s[i]), a[i], b, c)
 	}
 }
 
@@ -340,46 +386,6 @@ func (b *builder) buildSetIn() {
 		b.sql.WriteString(" SET ")
 		b.sql.WriteString(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName))
 	}
-}
-
-func (b *builder) buildValues(value reflect.Value) string {
-	b.sql.WriteString("(")
-	b.argsAny = make([]any, 0, len(b.attrNames))
-
-	c := 2
-	b.sql.WriteString("$1")
-	buildValueField(value.FieldByName(b.attrNames[0]), b.attrNames[0], b)
-	for _, attr := range b.attrNames[1:] {
-		b.sql.WriteRune(',')
-		b.sql.WriteString(fmt.Sprintf("$%v", c))
-		buildValueField(value.FieldByName(attr), attr, b)
-		c++
-	}
-	pk := b.pks.get()
-	b.sql.WriteString(") ")
-	b.sql.WriteString("RETURNING ")
-	st := createStatement(pk.attributeName, 0)
-	st.allowCopies = true
-	b.sql.WriteString(pk.attributeName)
-	b.sql.WriteRune(';')
-	return pk.structAttributeName
-
-}
-
-func buildValueField(valueField reflect.Value, fieldName string, b *builder) {
-	switch valueField.Kind() {
-	case reflect.Struct:
-		if valueField.Type().Name() != "Time" {
-			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[fieldName]).Interface())
-			return
-		}
-	case reflect.Pointer:
-		if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
-			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[fieldName]).Interface())
-			return
-		}
-	}
-	b.argsAny = append(b.argsAny, valueField.Interface())
 }
 
 func (b *builder) buildDelete(addrMap map[string]field) {

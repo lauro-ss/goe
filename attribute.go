@@ -150,7 +150,6 @@ func (p *pk) buildAttributeUpdate(b *builder) {
 		b.attrNames = append(b.attrNames, p.attributeName)
 		b.structColumns = append(b.structColumns, p.structAttributeName)
 	}
-	b.pks.add(p)
 }
 
 func (a *att) buildAttributeUpdate(b *builder) {
