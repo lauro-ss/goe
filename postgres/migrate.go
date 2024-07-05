@@ -376,7 +376,7 @@ func checkIndex(attrs map[string]*migrateAttribute, table string, sql *strings.B
 							migrateIndexs = append(migrateIndexs, di.indexName)
 							//drop index if uniquenes changes
 							if di.unique != strings.Contains(index, "unique") {
-								sql.WriteString(fmt.Sprintf("DROP INDEX %v;\n", di.indexName))
+								sql.WriteString(fmt.Sprintf("DROP INDEX IF EXISTS %v;\n", di.indexName))
 								continue
 							}
 							v.indexNames = append(v.indexNames, di.indexName)
@@ -390,7 +390,7 @@ func checkIndex(attrs map[string]*migrateAttribute, table string, sql *strings.B
 	//drop no match index
 	for _, di = range dis {
 		if !slices.Contains(migrateIndexs, di.indexName) {
-			sql.WriteString(fmt.Sprintf("DROP INDEX %v;\n", di.indexName))
+			sql.WriteString(fmt.Sprintf("DROP INDEX IF EXISTS %v;\n", di.indexName))
 		}
 	}
 
