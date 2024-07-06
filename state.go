@@ -3,6 +3,7 @@ package goe
 import (
 	"fmt"
 	"reflect"
+	"slices"
 )
 
 type stateSelect struct {
@@ -61,8 +62,9 @@ func (s *stateSelect) Result(target any) {
 	//generate query
 	s.builder.buildSqlSelect()
 
-	fmt.Println(s.builder.sql)
-	handlerResult(s.conn, s.builder.sql.String(), value.Elem(), s.builder.argsAny, s.builder.structColumns)
+	sql := s.builder.sql.String()
+	fmt.Println(sql)
+	handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns)
 }
 
 /*
@@ -251,10 +253,16 @@ func (s *stateDeleteIn) Where(brs ...operator) {
 
 func where(builder *builder, brs ...operator) {
 	builder.brs = brs
+	size := len(brs)
+	i := len(builder.tables)
+	builder.tables = append(builder.tables, make([]string, size-(size-1)/2)...)
 	for _, br := range builder.brs {
 		if op, ok := br.(complexOperator); ok {
-			builder.tables.add(op.pk.table)
-			builder.pks.add(op.pk)
+			if !slices.Contains(builder.tables, op.pk.table) {
+				builder.tables[i] = op.pk.table
+				i++
+				builder.pks.add(op.pk)
+			}
 		}
 	}
 }

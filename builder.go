@@ -16,15 +16,14 @@ type builder struct {
 	targetFksNames map[string]string //insert and update
 	joins          []string
 	brs            []operator
-	tables         *queue
+	tables         []string
 	pks            *pkQueue
 }
 
 func createBuilder() *builder {
 	return &builder{
 		sql:    &strings.Builder{},
-		joins:  make([]string, 0),
-		tables: createQueue(),
+		tables: make([]string, 1),
 		pks:    createPkQueue()} //TODO: Change to string queue
 }
 
@@ -51,14 +50,18 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 	}
 	addrMap[b.args[len(b.args)-1]].buildAttributeSelect(b)
 	b.sql.WriteString(" FROM ")
-	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
+	b.tables[0] = addrMap[b.args[0]].getPrimaryKey().table
 }
 
 func (b *builder) buildSelectJoins(addrMap map[string]field, join string) {
+	c := len(b.tables)
+	b.tables = append(b.tables, make([]string, len(b.argsJoins))...)
+	b.joins = make([]string, len(b.argsJoins))
 	for i := range b.argsJoins {
-		b.tables.add(addrMap[b.argsJoins[i]].getPrimaryKey().table)
+		b.tables[c] = addrMap[b.argsJoins[i]].getPrimaryKey().table
 		b.pks.add(addrMap[b.argsJoins[i]].getPrimaryKey())
-		b.joins = append(b.joins, join)
+		b.joins[i] = join
+		c++
 	}
 }
 
@@ -146,16 +149,16 @@ func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int, v complexOperator) 
 }
 
 func (b *builder) buildTables() {
-	b.sql.WriteString(b.tables.get())
-	if b.tables.size >= 1 {
-		if (b.tables.size) > len(b.joins) {
-			b.joins = append(b.joins, make([]string, b.tables.size-len(b.joins))...)
+	b.sql.WriteString(b.tables[0])
+	if len(b.tables) > 1 {
+		if len(b.tables[1:]) > len(b.joins) {
+			b.joins = append(b.joins, make([]string, len(b.tables[1:])-len(b.joins))...)
 		}
-		i := 0
-		for table := b.tables.get(); table != ""; {
-			buildJoins(table, b.pks, b.joins[i], b.sql)
-			table = b.tables.get()
-			i++
+		t := b.tables[1:]
+		for i := range t {
+			if t[i] != "" {
+				buildJoins(t[i], b.pks, b.joins[i], b.sql)
+			}
 		}
 	}
 }
@@ -271,18 +274,16 @@ func (b *builder) buildInsertIn(addrMap map[string]field) {
 	b.sql.WriteString("INSERT ")
 	b.sql.WriteString("INTO ")
 
-	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
+	b.tables[0] = addrMap[b.args[0]].getPrimaryKey().table
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
 
 func (b *builder) buildValuesIn() {
-	stTable := b.tables.get()
-
 	pk1 := b.pks.get()
 	pk2 := b.pks.get()
 
-	mtm := pk2.fks[stTable]
+	mtm := pk2.fks[b.tables[0]]
 	if mtm == nil {
 		return
 	}
@@ -363,20 +364,17 @@ func (b *builder) buildUpdateIn(addrMap map[string]field) {
 	b.sql.WriteString("UPDATE ")
 
 	b.attrNames = make([]string, 0, len(b.args))
-	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
+	b.tables[0] = addrMap[b.args[0]].getPrimaryKey().table
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
 
 func (b *builder) buildSetIn() {
-
-	stTable := b.tables.get()
-
 	// skips the first primary key
 	b.pks.get()
 	pk2 := b.pks.get()
 
-	mtm := pk2.fks[stTable]
+	mtm := pk2.fks[b.tables[0]]
 	if mtm == nil {
 		return
 	}
@@ -398,18 +396,16 @@ func (b *builder) buildDeleteIn(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("DELETE FROM ")
 
-	b.tables.add(addrMap[b.args[0]].getPrimaryKey().table)
+	b.tables[0] = addrMap[b.args[0]].getPrimaryKey().table
 	b.pks.add(addrMap[b.args[0]].getPrimaryKey())
 	b.pks.add(addrMap[b.args[1]].getPrimaryKey())
 }
 
 func (b *builder) buildSqlDeleteIn() {
-	stTable := b.tables.get()
-
 	b.pks.get()
 	pk2 := b.pks.get()
 
-	mtm := pk2.fks[stTable]
+	mtm := pk2.fks[b.tables[0]]
 	if mtm == nil {
 		//TODO: add error
 		return
