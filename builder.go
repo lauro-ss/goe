@@ -9,7 +9,6 @@ import (
 type builder struct {
 	sql            *strings.Builder
 	args           []string
-	argsJoins      []string //select
 	argsAny        []any
 	structColumns  []string          //select and update
 	attrNames      []string          //insert and update
@@ -17,14 +16,16 @@ type builder struct {
 	joins          []string
 	brs            []operator
 	tables         []string
+	tablesPk       []*pk
 	pks            *pkQueue
 }
 
 func createBuilder() *builder {
 	return &builder{
-		sql:    &strings.Builder{},
-		tables: make([]string, 1),
-		pks:    createPkQueue()} //TODO: Change to string queue
+		sql:      &strings.Builder{},
+		tables:   make([]string, 1),
+		tablesPk: make([]*pk, 1),
+		pks:      createPkQueue()} //TODO: Change to string queue
 }
 
 type statement struct {
@@ -50,19 +51,16 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 	}
 	addrMap[b.args[len(b.args)-1]].buildAttributeSelect(b)
 	b.sql.WriteString(" FROM ")
-	b.tables[0] = addrMap[b.args[0]].getPrimaryKey().table
+	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
+	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 }
 
-func (b *builder) buildSelectJoins(addrMap map[string]field, join string) {
-	c := len(b.tables)
-	b.tables = append(b.tables, make([]string, len(b.argsJoins))...)
-	b.joins = make([]string, len(b.argsJoins))
-	for i := range b.argsJoins {
-		b.tables[c] = addrMap[b.argsJoins[i]].getPrimaryKey().table
-		b.pks.add(addrMap[b.argsJoins[i]].getPrimaryKey())
-		b.joins[i] = join
-		c++
-	}
+func (b *builder) buildSelectJoins(addrMap map[string]field, join string, argsJoins []string) {
+	b.tablesPk = append(b.tablesPk, make([]*pk, 2)...)
+	c := len(b.tablesPk) - 2
+	b.joins = append(b.joins, join)
+	b.tablesPk[c] = addrMap[argsJoins[0]].getPrimaryKey()
+	b.tablesPk[c+1] = addrMap[argsJoins[1]].getPrimaryKey()
 }
 
 func (b *builder) buildSqlSelect() {
@@ -149,52 +147,42 @@ func buildWhereIn(pkQueue *pkQueue, brPk *pk, argsCount int, v complexOperator) 
 }
 
 func (b *builder) buildTables() {
-	b.sql.WriteString(b.tables[0])
-	if len(b.tables) > 1 {
-		if len(b.tables[1:]) > len(b.joins) {
-			b.joins = append(b.joins, make([]string, len(b.tables[1:])-len(b.joins))...)
-		}
-		t := b.tables[1:]
-		for i := range t {
-			if t[i] != "" {
-				buildJoins(t[i], b.pks, b.joins[i], b.sql)
-			}
+	if len(b.tablesPk) > 1 {
+		c := 1
+		for i := range b.joins {
+			buildJoins(b.tablesPk[i+c], b.tablesPk[i+c+1], b.joins[i], b.sql, i+c+1, b.tablesPk)
+			c++
 		}
 	}
 }
 
-func buildJoins(table string, pks *pkQueue, join string, sql *strings.Builder) {
-	if join == "" {
-		join = "INNER JOIN"
-	}
-	var skipTable string
-	for pk := pks.get(); pk != nil; {
-		if pk.table != table && skipTable != table {
-			switch fk := pk.fks[table].(type) {
-			case *manyToOne:
-				if fk.hasMany {
-					sql.WriteRune('\n')
-					sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk.selectName, fk.selectName))
-				} else {
-					sql.WriteRune('\n')
-					sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk.selectName, fk.selectName))
-				}
-				// skips the table keyword that has already be matched
-				skipTable = table
-			case *manyToMany:
-				sql.WriteRune('\n')
-				sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, fk.table, pk.selectName, fk.ids[pk.table].selectName))
-				sql.WriteRune('\n')
-				sql.WriteString(fmt.Sprintf(
-					"%v %v on (%v = %v)",
-					join,
-					table, fk.ids[table].selectName,
-					pks.findPk(table).selectName))
-				// skips the table keyword that has already be matched
-				skipTable = table
+func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks []*pk) {
+	switch fk := pk1.fks[pk2.table].(type) {
+	case *manyToOne:
+		if fk.hasMany {
+			sql.WriteRune('\n')
+			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk1.selectName, fk.selectName))
+		} else {
+			sql.WriteRune('\n')
+			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, fk.selectName, pk2.selectName))
+		}
+	case *manyToMany:
+		for c := range pks[:i] {
+			//switch pks if pk2 is priority
+			if pks[c].table == pk2.table {
+				pk2 = pk1
+				pk1 = pks[c]
+				break
 			}
 		}
-		pk = pks.get()
+		sql.WriteRune('\n')
+		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, fk.table, pk1.selectName, fk.ids[pk1.table].selectName))
+		sql.WriteRune('\n')
+		sql.WriteString(fmt.Sprintf(
+			"%v %v on (%v = %v)",
+			join,
+			pk2.table, fk.ids[pk2.table].selectName,
+			pk2.selectName))
 	}
 }
 

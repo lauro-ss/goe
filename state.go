@@ -3,7 +3,6 @@ package goe
 import (
 	"fmt"
 	"reflect"
-	"slices"
 )
 
 type stateSelect struct {
@@ -21,27 +20,23 @@ func (s *stateSelect) Where(brs ...operator) *stateSelect {
 	return s
 }
 
-func (s *stateSelect) Join(tables ...any) *stateSelect {
-	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
-	s.builder.buildSelectJoins(s.addrMap, "JOIN")
+func (s *stateSelect) Join(t1 any, t2 any) *stateSelect {
+	s.builder.buildSelectJoins(s.addrMap, "JOIN", getArgsIn(t1, t2))
 	return s
 }
 
-func (s *stateSelect) InnerJoin(tables ...any) *stateSelect {
-	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
-	s.builder.buildSelectJoins(s.addrMap, "INNER JOIN")
+func (s *stateSelect) InnerJoin(t1 any, t2 any) *stateSelect {
+	s.builder.buildSelectJoins(s.addrMap, "INNER JOIN", getArgsIn(t1, t2))
 	return s
 }
 
-func (s *stateSelect) RightJoin(tables ...any) *stateSelect {
-	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
-	s.builder.buildSelectJoins(s.addrMap, "RIGHT JOIN")
+func (s *stateSelect) RightJoin(t1 any, t2 any) *stateSelect {
+	s.builder.buildSelectJoins(s.addrMap, "RIGHT JOIN", getArgsIn(t1, t2))
 	return s
 }
 
-func (s *stateSelect) LeftJoin(tables ...any) *stateSelect {
-	s.builder.argsJoins = append(s.builder.argsJoins, getArgsIn(tables...)...)
-	s.builder.buildSelectJoins(s.addrMap, "LEFT JOIN")
+func (s *stateSelect) LeftJoin(t1 any, t2 any) *stateSelect {
+	s.builder.buildSelectJoins(s.addrMap, "LEFT JOIN", getArgsIn(t1, t2))
 	return s
 }
 
@@ -253,16 +248,4 @@ func (s *stateDeleteIn) Where(brs ...operator) {
 
 func where(builder *builder, brs ...operator) {
 	builder.brs = brs
-	size := len(brs)
-	i := len(builder.tables)
-	builder.tables = append(builder.tables, make([]string, size-(size-1)/2)...)
-	for _, br := range builder.brs {
-		if op, ok := br.(complexOperator); ok {
-			if !slices.Contains(builder.tables, op.pk.table) {
-				builder.tables[i] = op.pk.table
-				i++
-				builder.pks.add(op.pk)
-			}
-		}
-	}
 }
