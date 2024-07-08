@@ -112,19 +112,16 @@ func createAtt(attributeName string, pk *pk) *att {
 func (p *pk) buildAttributeSelect(b *builder) {
 	b.sql.WriteString(p.selectName)
 	b.structColumns = append(b.structColumns, p.structAttributeName)
-	b.pks.add(p)
 }
 
 func (a *att) buildAttributeSelect(b *builder) {
 	b.sql.WriteString(a.selectName)
 	b.structColumns = append(b.structColumns, a.structAttributeName)
-	b.pks.add(a.pk)
 }
 
 func (m *manyToOne) buildAttributeSelect(b *builder) {
 	b.sql.WriteString(m.selectName)
 	b.structColumns = append(b.structColumns, m.structAttributeName)
-	b.pks.add(m.pk)
 }
 
 func (p *pk) buildAttributeInsert(b *builder) {
