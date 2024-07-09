@@ -8,7 +8,7 @@ import (
 
 type builder struct {
 	sql            *strings.Builder
-	args           []string
+	args           []uintptr
 	argsAny        []any
 	structColumns  []string          //select and update
 	attrNames      []string          //insert and update
@@ -34,7 +34,7 @@ func createStatement(k string, t int8) *statement {
 	return &statement{keyword: k, tip: t}
 }
 
-func (b *builder) buildSelect(addrMap map[string]field) {
+func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("SELECT ")
 
@@ -52,7 +52,7 @@ func (b *builder) buildSelect(addrMap map[string]field) {
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 }
 
-func (b *builder) buildSelectJoins(addrMap map[string]field, join string, argsJoins []string) {
+func (b *builder) buildSelectJoins(addrMap map[uintptr]field, join string, argsJoins []uintptr) {
 	b.tablesPk = append(b.tablesPk, make([]*pk, 2)...)
 	c := len(b.tablesPk) - 2
 	b.joins = append(b.joins, join)
@@ -178,7 +178,7 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 	}
 }
 
-func (b *builder) buildInsert(addrMap map[string]field) {
+func (b *builder) buildInsert(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("INSERT ")
 	b.sql.WriteString("INTO ")
@@ -250,7 +250,7 @@ func buildValueField(valueField reflect.Value, fieldName string, b *builder) {
 	b.argsAny = append(b.argsAny, valueField.Interface())
 }
 
-func (b *builder) buildInsertIn(addrMap map[string]field) {
+func (b *builder) buildInsertIn(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("INSERT ")
 	b.sql.WriteString("INTO ")
@@ -282,7 +282,7 @@ func (b *builder) buildValuesIn() {
 	b.sql.WriteString("($1,$2);")
 }
 
-func (b *builder) buildUpdate(addrMap map[string]field) {
+func (b *builder) buildUpdate(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("UPDATE ")
 
@@ -342,7 +342,7 @@ func buildSetField(valueField reflect.Value, fieldName string, b *builder, c uin
 	c++
 }
 
-func (b *builder) buildUpdateIn(addrMap map[string]field) {
+func (b *builder) buildUpdateIn(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("UPDATE ")
 
@@ -369,13 +369,13 @@ func (b *builder) buildSetIn() {
 	}
 }
 
-func (b *builder) buildDelete(addrMap map[string]field) {
+func (b *builder) buildDelete(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("DELETE FROM ")
 	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
 }
 
-func (b *builder) buildDeleteIn(addrMap map[string]field) {
+func (b *builder) buildDeleteIn(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("DELETE FROM ")
 

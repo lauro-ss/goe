@@ -21,7 +21,7 @@ func Open(db any, driver Driver) error {
 			dbTarget = (reflect.New(valueOf.Field(i).Type().Elem()).Interface()).(*DB)
 		}
 	}
-	dbTarget.addrMap = make(map[string]field)
+	dbTarget.addrMap = make(map[uintptr]field)
 
 	for i := 0; i < valueOf.NumField(); i++ {
 		if valueOf.Field(i).IsNil() {
@@ -38,7 +38,7 @@ func Open(db any, driver Driver) error {
 
 func initField(valueOf reflect.Value, db *DB) {
 	p, fieldName := getPk(valueOf.Type())
-	db.addrMap[fmt.Sprintf("%p", valueOf.FieldByName(fieldName).Addr().Interface())] = p
+	db.addrMap[uintptr(valueOf.FieldByName(fieldName).Addr().UnsafePointer())] = p
 	var field reflect.StructField
 
 	for i := 0; i < valueOf.NumField(); i++ {
@@ -56,15 +56,15 @@ func initField(valueOf reflect.Value, db *DB) {
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type()); mto != nil {
 					key := utils.TableNamePattern(valueOf.Field(i).Type().Elem().Name())
-					db.addrMap[fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface())] = mto
+					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = mto
 					mto.pk = p
 					p.fks[key] = mto
 				}
 			} else {
-				newAttr(valueOf, i, p, fmt.Sprint(valueOf.Field(i).Addr()), db)
+				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db)
 			}
 		default:
-			newAttr(valueOf, i, p, fmt.Sprint(valueOf.Field(i).Addr()), db)
+			newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db)
 		}
 	}
 }
@@ -72,11 +72,11 @@ func initField(valueOf reflect.Value, db *DB) {
 func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB) {
 	switch targetTypeOf.Name() {
 	case "Time":
-		newAttr(valueOf, i, p, fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface()), db)
+		newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db)
 	default:
 		if mto := isManyToOne(targetTypeOf, valueOf.Type()); mto != nil {
 			key := utils.TableNamePattern(targetTypeOf.Name())
-			db.addrMap[fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface())] = mto
+			db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = mto
 			mto.pk = p
 			p.fks[key] = mto
 		}
@@ -87,7 +87,7 @@ func handlerSlice(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
 		valueOf.Field(i).SetBytes([]byte{})
-		newAttr(valueOf, i, p, fmt.Sprintf("%p", valueOf.Field(i).Addr().Interface()), db)
+		newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db)
 	default:
 		if mtm := isManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db); mtm != nil {
 			key := utils.TableNamePattern(targetTypeOf.Name())
@@ -97,7 +97,7 @@ func handlerSlice(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk
 
 }
 
-func newAttr(valueOf reflect.Value, i int, p *pk, addr string, db *DB) {
+func newAttr(valueOf reflect.Value, i int, p *pk, addr uintptr, db *DB) {
 	at := createAtt(
 		valueOf.Type().Field(i).Name,
 		p,

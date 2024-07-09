@@ -7,7 +7,7 @@ import (
 
 type stateSelect struct {
 	conn    Connection
-	addrMap map[string]field
+	addrMap map[uintptr]field
 	builder *builder
 }
 
@@ -40,7 +40,7 @@ func (s *stateSelect) LeftJoin(t1 any, t2 any) *stateSelect {
 	return s
 }
 
-func (s *stateSelect) querySelect(args []string) *stateSelect {
+func (s *stateSelect) querySelect(args []uintptr) *stateSelect {
 	s.builder.args = args
 	s.builder.buildSelect(s.addrMap)
 	return s
@@ -74,7 +74,7 @@ func createInsertState(conn Connection) *stateInsert {
 	return &stateInsert{conn: conn, builder: createBuilder()}
 }
 
-func (s *stateInsert) queryInsert(args []string, addrMap map[string]field) *stateInsert {
+func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *stateInsert {
 	s.builder.args = args
 	s.builder.buildInsert(addrMap)
 	return s
@@ -106,7 +106,7 @@ func createInsertStateIn(conn Connection) *stateInsertIn {
 	return &stateInsertIn{conn: conn, builder: createBuilder()}
 }
 
-func (s *stateInsertIn) queryInsertIn(args []string, addrMap map[string]field) *stateInsertIn {
+func (s *stateInsertIn) queryInsertIn(args []uintptr, addrMap map[uintptr]field) *stateInsertIn {
 	s.builder.args = args
 	s.builder.buildInsertIn(addrMap)
 	return s
@@ -139,7 +139,7 @@ func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
 	return s
 }
 
-func (s *stateUpdate) queryUpdate(args []string, addrMap map[string]field) *stateUpdate {
+func (s *stateUpdate) queryUpdate(args []uintptr, addrMap map[uintptr]field) *stateUpdate {
 	s.builder.args = args
 	s.builder.buildUpdate(addrMap)
 	return s
@@ -181,7 +181,7 @@ func (s *stateUpdateIn) Where(brs ...operator) *stateUpdateIn {
 	return s
 }
 
-func (s *stateUpdateIn) queryUpdateIn(args []string, addrMap map[string]field) *stateUpdateIn {
+func (s *stateUpdateIn) queryUpdateIn(args []uintptr, addrMap map[uintptr]field) *stateUpdateIn {
 	s.builder.args = args
 	s.builder.buildUpdateIn(addrMap)
 	return s
@@ -207,7 +207,7 @@ func createDeleteState(conn Connection) *stateDelete {
 	return &stateDelete{conn: conn, builder: createBuilder()}
 }
 
-func (s *stateDelete) queryDelete(args []string, addrMap map[string]field) *stateDelete {
+func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *stateDelete {
 	s.builder.args = args
 	s.builder.buildDelete(addrMap)
 	return s
@@ -231,7 +231,7 @@ func createDeleteInState(conn Connection) *stateDeleteIn {
 	return &stateDeleteIn{conn: conn, builder: createBuilder()}
 }
 
-func (s *stateDeleteIn) queryDeleteIn(args []string, addrMap map[string]field) *stateDeleteIn {
+func (s *stateDeleteIn) queryDeleteIn(args []uintptr, addrMap map[uintptr]field) *stateDeleteIn {
 	s.builder.args = args
 	s.builder.buildDeleteIn(addrMap)
 	return s

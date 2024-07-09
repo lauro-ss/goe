@@ -8,7 +8,7 @@ import (
 
 type DB struct {
 	ConnPool ConnectionPool
-	addrMap  map[string]field
+	addrMap  map[uintptr]field
 	driver   Driver
 }
 
@@ -95,7 +95,12 @@ func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
 }
 
 func (db *DB) Equals(arg any, value any) operator {
-	addr := fmt.Sprintf("%p", arg)
+	v := reflect.ValueOf(arg)
+	if v.Kind() != reflect.Pointer {
+		return nil
+	}
+
+	addr := uintptr(v.UnsafePointer())
 	if db.addrMap[addr] == nil {
 		//TODO: Add error
 		return nil
@@ -111,8 +116,8 @@ func (db *DB) Or() operator {
 	return simpleOperator{operator: "OR"}
 }
 
-func getArgs(addrMap map[string]field, args ...any) []string {
-	stringArgs := make([]string, 0)
+func getArgs(addrMap map[uintptr]field, args ...any) []uintptr {
+	stringArgs := make([]uintptr, 0)
 	for i := range args {
 		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
 			valueOf := reflect.ValueOf(args[i]).Elem()
@@ -123,13 +128,13 @@ func getArgs(addrMap map[string]field, args ...any) []string {
 					if fieldOf.Kind() == reflect.Slice && fieldOf.Type().Elem().Kind() == reflect.Struct {
 						continue
 					}
-					addr := fmt.Sprintf("%p", fieldOf.Addr().Interface())
+					addr := uintptr(fieldOf.Addr().UnsafePointer())
 					if addrMap[addr] != nil {
 						stringArgs = append(stringArgs, addr)
 					}
 				}
 			} else {
-				stringArgs = append(stringArgs, fmt.Sprintf("%p", args[i]))
+				stringArgs = append(stringArgs, uintptr(valueOf.Addr().UnsafePointer()))
 			}
 		} else {
 			//TODO: Add ptr error
@@ -138,15 +143,15 @@ func getArgs(addrMap map[string]field, args ...any) []string {
 	return stringArgs
 }
 
-func getArgsIn(args ...any) []string {
-	stringArgs := make([]string, 2)
+func getArgsIn(args ...any) []uintptr {
+	stringArgs := make([]uintptr, 2)
 	for i := range args {
 		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
 			valueOf := reflect.ValueOf(args[i]).Elem()
 			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
-				stringArgs[i] = fmt.Sprintf("%p", reflect.ValueOf(args[i]).Elem().Field(0).Addr().Interface())
+				stringArgs[i] = uintptr(reflect.ValueOf(args[i]).Elem().Field(0).Addr().UnsafePointer())
 			} else {
-				stringArgs[i] = fmt.Sprintf("%p", args[i])
+				stringArgs[i] = uintptr(valueOf.Addr().UnsafePointer())
 			}
 		} else {
 			//TODO: Add ptr error
