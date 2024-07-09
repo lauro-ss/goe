@@ -22,46 +22,10 @@ func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Valu
 
 	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
 
-	//TODO: Better returning handler
-	targetId := value.FieldByName(idName)
-	id := returnTarget(targetId)
-	err := row.Scan(id)
+	err := row.Scan(value.FieldByName(idName).Addr().Interface())
 	if err != nil {
 		fmt.Println(err)
 		return
-	}
-
-	targetId.Set(reflect.ValueOf(id).Elem())
-}
-
-func returnTarget(targetId reflect.Value) any {
-	switch targetId.Kind() {
-	case reflect.Uint64:
-		return new(uint64)
-	case reflect.Uint32:
-		return new(uint32)
-	case reflect.Uint16:
-		return new(uint16)
-	case reflect.Uint8:
-		return new(uint8)
-	case reflect.Uint:
-		return new(uint)
-	case reflect.Int:
-		return new(int)
-	case reflect.Int8:
-		return new(int8)
-	case reflect.Int16:
-		return new(int16)
-	case reflect.Int32:
-		return new(int32)
-	case reflect.Int64:
-		return new(int64)
-	case reflect.String:
-		return new(string)
-	case reflect.Slice:
-		return new([]byte)
-	default:
-		return new(any)
 	}
 }
 
