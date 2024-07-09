@@ -12,7 +12,7 @@ type operator interface {
 
 type field interface {
 	getPrimaryKey() *pk
-	buildAttributeSelect(*builder)
+	buildAttributeSelect(*builder, int)
 	buildAttributeInsert(*builder)
 	buildAttributeUpdate(*builder)
 	buildComplexOperator(string, any) operator

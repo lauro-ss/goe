@@ -113,9 +113,9 @@ func (db *DB) Or() operator {
 
 func getArgs(addrMap map[string]field, args ...any) []string {
 	stringArgs := make([]string, 0)
-	for _, v := range args {
-		if reflect.ValueOf(v).Kind() == reflect.Ptr {
-			valueOf := reflect.ValueOf(v).Elem()
+	for i := range args {
+		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
+			valueOf := reflect.ValueOf(args[i]).Elem()
 			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
 				var fieldOf reflect.Value
 				for i := 0; i < valueOf.NumField(); i++ {
@@ -129,7 +129,7 @@ func getArgs(addrMap map[string]field, args ...any) []string {
 					}
 				}
 			} else {
-				stringArgs = append(stringArgs, fmt.Sprintf("%p", v))
+				stringArgs = append(stringArgs, fmt.Sprintf("%p", args[i]))
 			}
 		} else {
 			//TODO: Add ptr error
@@ -139,14 +139,14 @@ func getArgs(addrMap map[string]field, args ...any) []string {
 }
 
 func getArgsIn(args ...any) []string {
-	stringArgs := make([]string, 0)
-	for _, v := range args {
-		if reflect.ValueOf(v).Kind() == reflect.Ptr {
-			valueOf := reflect.ValueOf(v).Elem()
+	stringArgs := make([]string, 2)
+	for i := range args {
+		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
+			valueOf := reflect.ValueOf(args[i]).Elem()
 			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
-				stringArgs = append(stringArgs, fmt.Sprintf("%p", reflect.ValueOf(v).Elem().Field(0).Addr().Interface()))
+				stringArgs[i] = fmt.Sprintf("%p", reflect.ValueOf(args[i]).Elem().Field(0).Addr().Interface())
 			} else {
-				stringArgs = append(stringArgs, fmt.Sprintf("%p", v))
+				stringArgs[i] = fmt.Sprintf("%p", args[i])
 			}
 		} else {
 			//TODO: Add ptr error

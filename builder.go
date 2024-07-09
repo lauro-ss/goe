@@ -36,17 +36,17 @@ func createStatement(k string, t int8) *statement {
 
 func (b *builder) buildSelect(addrMap map[string]field) {
 	//TODO: Set a drive type to share stm
-	b.sql.WriteString("SELECT")
-	b.sql.WriteRune(' ')
+	b.sql.WriteString("SELECT ")
 
-	b.structColumns = make([]string, 0, len(b.args))
+	b.structColumns = make([]string, len(b.args))
 	b.tablesPk = make([]*pk, 1)
 
 	for i := range b.args[:len(b.args)-1] {
-		addrMap[b.args[i]].buildAttributeSelect(b)
-		b.sql.WriteRune(',')
+		addrMap[b.args[i]].buildAttributeSelect(b, i)
+		b.sql.WriteByte(44)
 	}
-	addrMap[b.args[len(b.args)-1]].buildAttributeSelect(b)
+
+	addrMap[b.args[len(b.args)-1]].buildAttributeSelect(b, len(b.args)-1)
 	b.sql.WriteString(" FROM ")
 	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
@@ -63,29 +63,29 @@ func (b *builder) buildSelectJoins(addrMap map[string]field, join string, argsJo
 func (b *builder) buildSqlSelect() {
 	b.buildTables()
 	b.buildWhere()
-	b.sql.WriteRune(';')
+	b.sql.WriteByte(59)
 }
 
 func (b *builder) buildSqlUpdate() {
 	b.buildWhere()
-	b.sql.WriteRune(';')
+	b.sql.WriteByte(59)
 }
 
 func (b *builder) buildSqlDelete() {
 	b.buildWhere()
-	b.sql.WriteRune(';')
+	b.sql.WriteByte(59)
 }
 
 func (b *builder) buildSqlUpdateIn() {
 	b.buildWhereIn()
-	b.sql.WriteRune(';')
+	b.sql.WriteByte(59)
 }
 
 func (b *builder) buildWhere() {
 	if len(b.brs) == 0 {
 		return
 	}
-	b.sql.WriteRune('\n')
+	b.sql.WriteByte(10)
 	b.sql.WriteString("WHERE ")
 	argsCount := len(b.argsAny) + 1
 	for _, op := range b.brs {
@@ -105,7 +105,7 @@ func (b *builder) buildWhereIn() {
 	if len(b.brs) == 0 {
 		return
 	}
-	b.sql.WriteRune('\n')
+	b.sql.WriteByte(10)
 	b.sql.WriteString("WHERE ")
 	argsCount := len(b.argsAny) + 1
 
@@ -152,10 +152,10 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 	switch fk := pk1.fks[pk2.table].(type) {
 	case *manyToOne:
 		if fk.hasMany {
-			sql.WriteRune('\n')
+			sql.WriteByte(10)
 			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk1.selectName, fk.selectName))
 		} else {
-			sql.WriteRune('\n')
+			sql.WriteByte(10)
 			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, fk.selectName, pk2.selectName))
 		}
 	case *manyToMany:
@@ -167,9 +167,9 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 				break
 			}
 		}
-		sql.WriteRune('\n')
+		sql.WriteByte(10)
 		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, fk.table, pk1.selectName, fk.ids[pk1.table].selectName))
-		sql.WriteRune('\n')
+		sql.WriteByte(10)
 		sql.WriteString(fmt.Sprintf(
 			"%v %v on (%v = %v)",
 			join,
@@ -193,7 +193,7 @@ func (b *builder) buildInsert(addrMap map[string]field) {
 	b.tablesPk[0] = f.getPrimaryKey()
 	f.buildAttributeInsert(b)
 	if !f.getPrimaryKey().autoIncrement {
-		b.sql.WriteRune(',')
+		b.sql.WriteByte(44)
 	}
 
 	l := len(b.args[1:]) - 1
@@ -202,7 +202,7 @@ func (b *builder) buildInsert(addrMap map[string]field) {
 	for i := range a {
 		addrMap[a[i]].buildAttributeInsert(b)
 		if i != l {
-			b.sql.WriteRune(',')
+			b.sql.WriteByte(44)
 		}
 	}
 	b.sql.WriteString(") ")
@@ -218,7 +218,7 @@ func (b *builder) buildValues(value reflect.Value) string {
 	buildValueField(value.FieldByName(b.attrNames[0]), b.attrNames[0], b)
 	a := b.attrNames[1:]
 	for i := range a {
-		b.sql.WriteRune(',')
+		b.sql.WriteByte(44)
 		b.sql.WriteString(fmt.Sprintf("$%v", c))
 		buildValueField(value.FieldByName(a[i]), a[i], b)
 		c++
@@ -229,7 +229,7 @@ func (b *builder) buildValues(value reflect.Value) string {
 	st := createStatement(pk.attributeName, 0)
 	st.allowCopies = true
 	b.sql.WriteString(pk.attributeName)
-	b.sql.WriteRune(';')
+	b.sql.WriteByte(59)
 	return pk.structAttributeName
 
 }
@@ -308,7 +308,7 @@ func (b *builder) buildSet(value reflect.Value) {
 	a := b.attrNames[1:]
 	s := b.structColumns[1:]
 	for i := range a {
-		b.sql.WriteRune(',')
+		b.sql.WriteByte(44)
 		c++
 		buildSetField(value.FieldByName(s[i]), a[i], b, c)
 	}
@@ -396,7 +396,7 @@ func (b *builder) buildSqlDeleteIn() {
 	if mtmValue, ok := mtm.(*manyToMany); ok {
 		b.sql.WriteString(mtmValue.table)
 		b.buildWhereIn()
-		b.sql.WriteRune(';')
+		b.sql.WriteByte(59)
 	}
 	//TODO: add error
 }

@@ -109,19 +109,19 @@ func createAtt(attributeName string, pk *pk) *att {
 		attributeStrings: createAttributeStrings(pk.table, attributeName), pk: pk}
 }
 
-func (p *pk) buildAttributeSelect(b *builder) {
+func (p *pk) buildAttributeSelect(b *builder, i int) {
 	b.sql.WriteString(p.selectName)
-	b.structColumns = append(b.structColumns, p.structAttributeName)
+	b.structColumns[i] = p.structAttributeName
 }
 
-func (a *att) buildAttributeSelect(b *builder) {
+func (a *att) buildAttributeSelect(b *builder, i int) {
 	b.sql.WriteString(a.selectName)
-	b.structColumns = append(b.structColumns, a.structAttributeName)
+	b.structColumns[i] = a.structAttributeName
 }
 
-func (m *manyToOne) buildAttributeSelect(b *builder) {
+func (m *manyToOne) buildAttributeSelect(b *builder, i int) {
 	b.sql.WriteString(m.selectName)
-	b.structColumns = append(b.structColumns, m.structAttributeName)
+	b.structColumns[i] = m.structAttributeName
 }
 
 func (p *pk) buildAttributeInsert(b *builder) {
