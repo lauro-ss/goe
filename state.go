@@ -83,7 +83,6 @@ func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *st
 func (s *stateInsert) Value(target any) {
 	value := reflect.ValueOf(target)
 
-	//TODO: Handler value as struct or ptr
 	if value.Kind() != reflect.Ptr {
 		fmt.Printf("%v: target result needs to be a pointer try &animals\n", pkg)
 		return
@@ -91,10 +90,24 @@ func (s *stateInsert) Value(target any) {
 
 	value = value.Elem()
 
+	if value.Kind() == reflect.Slice {
+		s.batchValue(value)
+		return
+	}
+
 	idName := s.builder.buildValues(value)
 
-	fmt.Println(s.builder.sql)
-	handlerValuesReturning(s.conn, s.builder.sql.String(), value, s.builder.argsAny, idName)
+	sql := s.builder.sql.String()
+	fmt.Println(sql)
+	handlerValuesReturning(s.conn, sql, value, s.builder.argsAny, idName)
+}
+
+func (s *stateInsert) batchValue(value reflect.Value) {
+	idName := s.builder.buildBatchValues(value)
+
+	sql := s.builder.sql.String()
+	fmt.Println(sql)
+	handlerValuesReturningBatch(s.conn, sql, value, s.builder.argsAny, idName)
 }
 
 type stateInsertIn struct {

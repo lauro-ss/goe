@@ -24,16 +24,6 @@ func createBuilder() *builder {
 		sql: &strings.Builder{}}
 }
 
-type statement struct {
-	keyword     string
-	allowCopies bool
-	tip         int8
-}
-
-func createStatement(k string, t int8) *statement {
-	return &statement{keyword: k, tip: t}
-}
-
 func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("SELECT ")
@@ -210,7 +200,7 @@ func (b *builder) buildInsert(addrMap map[uintptr]field) {
 }
 
 func (b *builder) buildValues(value reflect.Value) string {
-	b.sql.WriteString("(")
+	b.sql.WriteByte(40)
 	b.argsAny = make([]any, 0, len(b.attrNames))
 
 	c := 2
@@ -224,14 +214,45 @@ func (b *builder) buildValues(value reflect.Value) string {
 		c++
 	}
 	pk := b.tablesPk[0]
-	b.sql.WriteString(") ")
+	b.sql.Write([]byte{41, 32})
 	b.sql.WriteString("RETURNING ")
-	st := createStatement(pk.attributeName, 0)
-	st.allowCopies = true
 	b.sql.WriteString(pk.attributeName)
 	b.sql.WriteByte(59)
 	return pk.structAttributeName
 
+}
+
+func (b *builder) buildBatchValues(value reflect.Value) string {
+	b.argsAny = make([]any, 0, len(b.attrNames))
+
+	c := 1
+	buildBatchValues(value.Index(0), b, &c)
+	c++
+	for j := 1; j < value.Len(); j++ {
+		b.sql.WriteByte(44)
+		buildBatchValues(value.Index(j), b, &c)
+		c++
+	}
+	pk := b.tablesPk[0]
+	b.sql.WriteString(" RETURNING ")
+	b.sql.WriteString(pk.attributeName)
+	b.sql.WriteByte(59)
+	return pk.structAttributeName
+
+}
+
+func buildBatchValues(value reflect.Value, b *builder, c *int) {
+	b.sql.WriteByte(40)
+	b.sql.WriteString(fmt.Sprintf("$%v", *c))
+	buildValueField(value.FieldByName(b.attrNames[0]), b.attrNames[0], b)
+	a := b.attrNames[1:]
+	for i := range a {
+		b.sql.WriteByte(44)
+		b.sql.WriteString(fmt.Sprintf("$%v", *c+1))
+		buildValueField(value.FieldByName(a[i]), a[i], b)
+		*c++
+	}
+	b.sql.WriteString(")")
 }
 
 func buildValueField(valueField reflect.Value, fieldName string, b *builder) {

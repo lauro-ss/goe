@@ -29,6 +29,26 @@ func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Valu
 	}
 }
 
+func handlerValuesReturningBatch(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) {
+	defer conn.Close()
+
+	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	i := 0
+	for rows.Next() {
+		err = rows.Scan(value.Index(i).FieldByName(idName).Addr().Interface())
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		i++
+	}
+}
+
 func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
 	defer conn.Close()
 
