@@ -125,14 +125,39 @@ func (s *stateInsertIn) queryInsertIn(args []uintptr, addrMap map[uintptr]field)
 	return s
 }
 
-func (s *stateInsertIn) Values(v1 any, v2 any) {
-	s.builder.argsAny = append(s.builder.argsAny, v1)
-	s.builder.argsAny = append(s.builder.argsAny, v2)
+func (s *stateInsertIn) Values(v ...any) {
+	switch len(v) {
+	case 1:
+		value := reflect.ValueOf(v[0])
+		if value.Kind() == reflect.Pointer {
+			value = value.Elem()
+		}
+		if value.Kind() != reflect.Slice {
+			fmt.Printf("%v: for a batch InsertIn the value needs to be a slice\n", pkg)
+			return
+		}
+		if value.Len() < 2 {
+			return
+		}
 
-	s.builder.buildValuesIn()
+		s.builder.buildValuesInBatch(value)
 
-	fmt.Println(s.builder.sql)
-	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
+		sql := s.builder.sql.String()
+		fmt.Println(sql)
+		handlerValues(s.conn, sql, s.builder.argsAny)
+	case 2:
+		s.builder.argsAny = append(s.builder.argsAny, v[0])
+		s.builder.argsAny = append(s.builder.argsAny, v[1])
+
+		s.builder.buildValuesIn()
+
+		sql := s.builder.sql.String()
+		fmt.Println(sql)
+		handlerValues(s.conn, sql, s.builder.argsAny)
+	default:
+		fmt.Printf("%v: invalid values for InsertIn\n", pkg)
+		return
+	}
 }
 
 /*

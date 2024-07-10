@@ -303,6 +303,39 @@ func (b *builder) buildValuesIn() {
 	b.sql.WriteString("($1,$2);")
 }
 
+func (b *builder) buildValuesInBatch(v reflect.Value) {
+	pk1 := b.tablesPk[0]
+	pk2 := b.tablesPk[1]
+
+	mtm := pk2.fks[b.table]
+	if mtm == nil {
+		return
+	}
+
+	mtmValue := mtm.(*manyToMany)
+	b.sql.WriteString(mtmValue.table)
+	b.sql.Write([]byte{32, 40})
+	b.sql.WriteString(mtmValue.ids[pk1.table].attributeName)
+	b.sql.WriteByte(44)
+	b.sql.WriteString(mtmValue.ids[pk2.table].attributeName)
+	b.sql.Write([]byte{41, 32})
+	b.sql.WriteString("VALUES ")
+	b.sql.WriteString("($1,$2)")
+	b.argsAny = make([]any, v.Len())
+	b.argsAny[0] = v.Index(0).Interface()
+	b.argsAny[1] = v.Index(1).Interface()
+
+	for i := 2; i < v.Len(); i++ {
+		b.argsAny[i] = v.Index(i).Interface()
+	}
+	c := 1
+	for i := 2; i <= v.Len()/2; i++ {
+		b.sql.WriteString(fmt.Sprintf(",($%v,$%v)", i+c, i+c+1))
+		c++
+	}
+	b.sql.WriteByte(59)
+}
+
 func (b *builder) buildUpdate(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("UPDATE ")
