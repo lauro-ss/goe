@@ -28,3 +28,7 @@ func (dr *Driver) Init(db *goe.DB) {
 	}
 	db.ConnPool = stdlib.OpenDB(*config)
 }
+
+func (dr *Driver) KeywordHandler(s string) string {
+	return fmt.Sprintf(`"%s"`, s)
+}
