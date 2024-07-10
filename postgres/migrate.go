@@ -173,12 +173,12 @@ func createManyToManyTable(mtm *goe.MigrateManyToMany, dataMap map[string]string
 
 func newMigrateTableManyToMany(fk *goe.MigrateManyToMany, dataMap map[string]string) *tableManytoMany {
 	table := new(tableManytoMany)
-	table.tableName = fmt.Sprintf("CREATE TABLE %v (", fk.Table)
+	table.tableName = fmt.Sprintf(`CREATE TABLE "%v" (`, fk.Table)
 	table.ids = make([]string, 0, len(fk.Ids))
-	table.createPks = "primary key (id_flag, id_flag)"
+	table.createPks = `primary key ("id_flag", "id_flag")`
 	for key, attr := range fk.Ids {
 		attr.DataType = checkDataType(attr.DataType, dataMap)
-		table.ids = append(table.ids, fmt.Sprintf("%v %v NOT NULL REFERENCES %v,", attr.AttributeName, attr.DataType, key))
+		table.ids = append(table.ids, fmt.Sprintf(`"%v" %v NOT NULL REFERENCES "%v",`, attr.AttributeName, attr.DataType, key))
 		table.createPks = strings.Replace(table.createPks, "id_flag", attr.AttributeName, 1)
 	}
 	return table
@@ -273,20 +273,20 @@ func checkTableChanges(mt *migrateTable, tables map[string]*migrateTable, dataMa
 func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, sql *strings.Builder) {
 	t := table{}
 	mt.migrated = true
-	t.name = fmt.Sprintf("CREATE TABLE %v (", mt.pk.Table)
+	t.name = fmt.Sprintf(`CREATE TABLE "%v" (`, mt.pk.Table)
 	for _, attrAny := range mt.atts {
 		switch attr := attrAny.attribute.(type) {
 		case *goe.MigratePk:
 			attr.DataType = checkDataType(attr.DataType, dataMap)
 			if attr.AutoIncrement {
-				t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v NOT NULL,", attr.AttributeName, checkTypeAutoIncrement(attr.DataType)))
+				t.createAttrs = append(t.createAttrs, fmt.Sprintf(`"%v" %v NOT NULL,`, attr.AttributeName, checkTypeAutoIncrement(attr.DataType)))
 			} else {
-				t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v NOT NULL,", attr.AttributeName, attr.DataType))
+				t.createAttrs = append(t.createAttrs, fmt.Sprintf(`"%v" %v NOT NULL,`, attr.AttributeName, attr.DataType))
 			}
-			t.createPk = fmt.Sprintf("primary key (%v)", attr.AttributeName)
+			t.createPk = fmt.Sprintf(`primary key ("%v")`, attr.AttributeName)
 		case *goe.MigrateAtt:
 			attr.DataType = checkDataType(attr.DataType, dataMap)
-			t.createAttrs = append(t.createAttrs, fmt.Sprintf("%v %v %v,", attr.AttributeName, attr.DataType, func(n bool) string {
+			t.createAttrs = append(t.createAttrs, fmt.Sprintf(`"%v" %v %v,`, attr.AttributeName, attr.DataType, func(n bool) string {
 				if n {
 					return "NULL"
 				} else {
@@ -312,7 +312,7 @@ func createTable(mt *migrateTable, tables map[string]*migrateTable, dataMap map[
 
 func foreingManyToOne(attr *goe.MigrateManyToOne, pk *goe.MigratePk, dataMap map[string]string) string {
 	pk.DataType = checkDataType(pk.DataType, dataMap)
-	return fmt.Sprintf("%v %v %v REFERENCES %v,", strings.Split(attr.Id, ".")[1], pk.DataType, func(n bool) string {
+	return fmt.Sprintf(`"%v" %v %v REFERENCES "%v",`, strings.Split(attr.Id, ".")[1], pk.DataType, func(n bool) string {
 		if n {
 			return "NULL"
 		} else {
@@ -376,7 +376,7 @@ func checkIndex(attrs map[string]*migrateAttribute, table string, sql *strings.B
 							migrateIndexs = append(migrateIndexs, di.indexName)
 							//drop index if uniquenes changes
 							if di.unique != strings.Contains(index, "unique") {
-								sql.WriteString(fmt.Sprintf("DROP INDEX IF EXISTS %v;\n", di.indexName))
+								sql.WriteString(fmt.Sprintf(`DROP INDEX IF EXISTS "%v";`, di.indexName) + "\n")
 								continue
 							}
 							v.indexNames = append(v.indexNames, di.indexName)
@@ -390,7 +390,7 @@ func checkIndex(attrs map[string]*migrateAttribute, table string, sql *strings.B
 	//drop no match index
 	for _, di = range dis {
 		if !slices.Contains(migrateIndexs, di.indexName) {
-			sql.WriteString(fmt.Sprintf("DROP INDEX IF EXISTS %v;\n", di.indexName))
+			sql.WriteString(fmt.Sprintf(`DROP INDEX IF EXISTS "%v";`, di.indexName) + "\n")
 		}
 	}
 
@@ -442,7 +442,7 @@ func checkColumnIndex(indexName, attrName, table string, attrs map[string]*migra
 				for _, i := range indexs {
 					if attr.AttributeName != attrName && strings.Contains(i, "unique") == unique && indexName == fmt.Sprintf("%v_%v", table, getIndexValue(i, "n:")) {
 						if f := getIndexValue(i, "f:"); f != "" {
-							f := fmt.Sprintf("%v(%v)", f, attr.AttributeName)
+							f := fmt.Sprintf(`%v("%v")`, f, attr.AttributeName)
 							return f
 						}
 						return attr.AttributeName
@@ -465,7 +465,7 @@ func getIndexValue(valueTag string, tag string) string {
 }
 
 func createIndex(table, name, attribute string, unique bool, function string) string {
-	return fmt.Sprintf("CREATE %v %v ON %v (%v);\n",
+	return fmt.Sprintf(`CREATE %v "%v" ON "%v" (%v);`,
 		func(u bool) string {
 			if unique {
 				return "UNIQUE INDEX"
@@ -477,15 +477,15 @@ func createIndex(table, name, attribute string, unique bool, function string) st
 		table,
 		func(a, f string) string {
 			if f != "" {
-				return fmt.Sprintf("%v(%v)", f, a)
+				return fmt.Sprintf(`%v("%v")`, f, a)
 			}
-			return a
+			return fmt.Sprintf(`"%s"`, a)
 		}(attribute, function),
-	)
+	) + "\n"
 }
 
 func createIndexColumns(table, attribute1, attribute2, name string, unique bool, function string) string {
-	return fmt.Sprintf("CREATE %v %v ON %v (%v,%v);\n", func(u bool) string {
+	return fmt.Sprintf(`CREATE %v "%v" ON "%v" (%v,%v);`, func(u bool) string {
 		if unique {
 			return "UNIQUE INDEX"
 		} else {
@@ -493,10 +493,10 @@ func createIndexColumns(table, attribute1, attribute2, name string, unique bool,
 		}
 	}(unique), name, table, func(a, f string) string {
 		if f != "" {
-			return fmt.Sprintf("%v(%v)", f, a)
+			return fmt.Sprintf(`%v("%v")`, f, a)
 		}
 		return a
-	}(attribute1, function), attribute2)
+	}(attribute1, function), attribute2) + "\n"
 }
 
 func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[string]*migrateTable, dataMap map[string]string, sql *strings.Builder) {
@@ -528,7 +528,7 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 		}
 		if databaseTable.dataType != dataType {
 			if attr.AutoIncrement {
-				sql.WriteString(alterColumn(attr.Table, databaseTable.columnName, fmt.Sprintf("%v USING %v::%v", checkTypeAutoIncrement(dataType), attr.AttributeName, checkTypeAutoIncrement(dataType)), dataMap))
+				sql.WriteString(alterColumn(attr.Table, databaseTable.columnName, fmt.Sprintf(`%v USING "%v"::%v`, checkTypeAutoIncrement(dataType), attr.AttributeName, checkTypeAutoIncrement(dataType)), dataMap))
 				sql.WriteString(fmt.Sprintf("CREATE SEQUENCE %v_%v_seq OWNED BY %v.%v;\n", attr.Table, attr.AttributeName, attr.Table, attr.AttributeName))
 				sql.WriteString(alterColumnDefault(attr.Table, attr.AttributeName, fmt.Sprintf("nextval('%v_%v_seq'::regclass)", attr.Table, attr.AttributeName)))
 			} else {
@@ -576,17 +576,17 @@ func checkNewFields(mt *migrateTable, dataMap map[string]string, tables map[stri
 }
 
 func addColumn(table, column, dataType string, nullable bool) string {
-	return fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v %v;\n", table, column, dataType,
+	return fmt.Sprintf(`ALTER TABLE "%v" ADD COLUMN "%v" %v %v;`, table, column, dataType,
 		func(n bool) string {
 			if n {
 				return "NULL"
 			}
 			return "NOT NULL"
-		}(nullable))
+		}(nullable)) + "\n"
 }
 
 func addFkColumn(table, column, targetTable string) string {
-	return fmt.Sprintf("ALTER TABLE %v ADD CONSTRAINT %v FOREIGN KEY (%v) REFERENCES %v;\n", table, fmt.Sprintf("fk_%v_%v", targetTable, column), column, targetTable)
+	return fmt.Sprintf(`ALTER TABLE "%v" ADD CONSTRAINT %v FOREIGN KEY ("%v") REFERENCES "%v";`, table, fmt.Sprintf("fk_%v_%v", targetTable, column), column, targetTable) + "\n"
 }
 
 func checkDataType(structDataType string, dataMap map[string]string) string {
@@ -617,26 +617,26 @@ func checkTypeAutoIncrement(structDataType string) string {
 
 func alterColumn(table, column, dataType string, dataMap map[string]string) string {
 	if dataMap[dataType] == "" {
-		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v;\n", table, column, dataType)
+		return fmt.Sprintf(`ALTER TABLE "%v" ALTER COLUMN "%v" TYPE %v;`, table, column, dataType) + "\n"
 	}
-	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v TYPE %v;\n", table, column, dataMap[dataType])
+	return fmt.Sprintf(`ALTER TABLE "%v" ALTER COLUMN "%v" TYPE %v;`, table, column, dataMap[dataType]) + "\n"
 }
 
 func alterColumnDefault(table, column, defa string) string {
-	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v SET DEFAULT %v;\n", table, column, defa)
+	return fmt.Sprintf(`ALTER TABLE "%v" ALTER COLUMN "%v" SET DEFAULT %v;`, table, column, defa) + "\n"
 }
 
 func nullableColumn(table, columnName string, nullable bool) string {
 	if nullable {
-		return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v DROP NOT NULL;\n", table, columnName)
+		return fmt.Sprintf(`ALTER TABLE "%v" ALTER COLUMN "%v" DROP NOT NULL;`, table, columnName) + "\n"
 	}
-	return fmt.Sprintf("ALTER TABLE %v ALTER COLUMN %v SET NOT NULL;\n", table, columnName)
+	return fmt.Sprintf(`ALTER TABLE "%v" ALTER COLUMN "%v" SET NOT NULL;`, table, columnName) + "\n"
 }
 
 func renameColumn(table, oldColumnName, newColumnName string) string {
-	return fmt.Sprintf("ALTER TABLE %v RENAME COLUMN %v TO %v;\n", table, oldColumnName, newColumnName)
+	return fmt.Sprintf(`ALTER TABLE "%v" RENAME COLUMN "%v" TO "%v";`, table, oldColumnName, newColumnName) + "\n"
 }
 
 func dropColumn(table, columnName string) string {
-	return fmt.Sprintf("ALTER TABLE %v DROP COLUMN %v;\n", table, columnName)
+	return fmt.Sprintf(`ALTER TABLE "%v" DROP COLUMN "%v";`, table, columnName) + "\n"
 }
