@@ -3,83 +3,80 @@ package goe
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"reflect"
 )
 
-func handlerValues(conn Connection, sqlQuery string, args []any) {
+func handlerValues(conn Connection, sqlQuery string, args []any) error {
 	defer conn.Close()
 
 	_, err := conn.ExecContext(context.Background(), sqlQuery, args...)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
+	return nil
 }
 
-func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) {
+func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) error {
 	defer conn.Close()
 
 	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
 
 	err := row.Scan(value.FieldByName(idName).Addr().Interface())
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
+	return nil
 }
 
-func handlerValuesReturningBatch(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) {
+func handlerValuesReturningBatch(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) error {
 	defer conn.Close()
 
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	i := 0
 	for rows.Next() {
 		err = rows.Scan(value.Index(i).FieldByName(idName).Addr().Interface())
 		if err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
 		i++
 	}
+	return nil
 }
 
-func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
+func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) error {
 	defer conn.Close()
 
 	switch value.Kind() {
 	case reflect.Slice:
 		if value.Type().Elem().Kind() == reflect.Struct {
-			handlerStructQuery(conn, sqlQuery, value, args, structColumns)
-			return
+			return handlerStructQuery(conn, sqlQuery, value, args, structColumns)
 		}
-		handlerQuery(conn, sqlQuery, value, args)
+		return handlerQuery(conn, sqlQuery, value, args)
 	case reflect.Struct:
-		handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
+		return handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
 	default:
-		handlerQueryRow(conn, sqlQuery, value, args)
+		return handlerQueryRow(conn, sqlQuery, value, args)
 	}
 }
 
-func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any) {
+func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any) error {
 	dest := make([]any, 1)
 	for i := range dest {
 		dest[i] = value.Addr().Interface()
 	}
 	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	value.Set(reflect.ValueOf(dest[0]).Elem())
+	return nil
 }
 
-func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string) {
+func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string) error {
 	dest := make([]any, len(columns))
 	for i := range dest {
 		t, _ := value.Type().FieldByName(columns[i])
@@ -87,22 +84,20 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 	}
 	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	for i, a := range dest {
 		value.FieldByName(columns[i]).Set(reflect.ValueOf(a).Elem())
 	}
+	return nil
 }
 
-func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any) {
+func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any) error {
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
-	//TODO: Better error
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	defer rows.Close()
 
@@ -113,11 +108,10 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 
 	err = mapQuery(rows, dest, value)
 
-	//TODO: Better error
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
+	return nil
 }
 
 func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
@@ -138,13 +132,11 @@ func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
 	return err
 }
 
-func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) {
+func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) error {
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
-	//TODO: Better error
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	defer rows.Close()
 
@@ -157,11 +149,10 @@ func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, a
 
 	err = mapStructQuery(rows, dest, value, structColumns)
 
-	//TODO: Better error
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
+	return nil
 }
 
 func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value, columns []string) (err error) {
