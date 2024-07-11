@@ -2,7 +2,6 @@ package goe
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 )
 
@@ -77,24 +76,23 @@ func (s *stateSelect) querySelect(args []uintptr) *stateSelect {
 	return s
 }
 
-func (s *stateSelect) Result(target any) error {
+func (s *stateSelect) Scan(target any) (string, error) {
 	if s.err != nil {
-		return s.err
+		return "", s.err
 	}
 
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
-		return ErrInvalidScan
+		return "", ErrInvalidScan
 	}
 
 	//generate query
 	s.builder.buildSqlSelect()
 
 	sql := s.builder.sql.String()
-	fmt.Println(sql)
 	handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns)
-	return nil
+	return sql, nil
 }
 
 /*
@@ -118,15 +116,15 @@ func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *st
 	return s
 }
 
-func (s *stateInsert) Value(target any) error {
+func (s *stateInsert) Value(target any) (string, error) {
 	if s.err != nil {
-		return s.err
+		return "", s.err
 	}
 
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
-		return ErrInvalidInsertValue
+		return "", ErrInvalidInsertValue
 	}
 
 	value = value.Elem()
@@ -138,18 +136,16 @@ func (s *stateInsert) Value(target any) error {
 	idName := s.builder.buildValues(value)
 
 	sql := s.builder.sql.String()
-	fmt.Println(sql)
 	handlerValuesReturning(s.conn, sql, value, s.builder.argsAny, idName)
-	return nil
+	return sql, nil
 }
 
-func (s *stateInsert) batchValue(value reflect.Value) error {
+func (s *stateInsert) batchValue(value reflect.Value) (string, error) {
 	idName := s.builder.buildBatchValues(value)
 
 	sql := s.builder.sql.String()
-	fmt.Println(sql)
 	handlerValuesReturningBatch(s.conn, sql, value, s.builder.argsAny, idName)
-	return nil
+	return sql, nil
 }
 
 type stateInsertIn struct {
@@ -170,9 +166,9 @@ func (s *stateInsertIn) queryInsertIn(args []uintptr, addrMap map[uintptr]field)
 	return s
 }
 
-func (s *stateInsertIn) Values(v ...any) error {
+func (s *stateInsertIn) Values(v ...any) (string, error) {
 	if s.err != nil {
-		return s.err
+		return "", s.err
 	}
 
 	switch len(v) {
@@ -182,15 +178,14 @@ func (s *stateInsertIn) Values(v ...any) error {
 			value = value.Elem()
 		}
 		if value.Kind() != reflect.Slice || value.Len() < 2 {
-			return ErrInvalidInsertInValue
+			return "", ErrInvalidInsertInValue
 		}
 
 		s.builder.buildValuesInBatch(value)
 
 		sql := s.builder.sql.String()
-		fmt.Println(sql)
 		handlerValues(s.conn, sql, s.builder.argsAny)
-		return nil
+		return sql, nil
 	case 2:
 		s.builder.argsAny = append(s.builder.argsAny, v[0])
 		s.builder.argsAny = append(s.builder.argsAny, v[1])
@@ -198,11 +193,10 @@ func (s *stateInsertIn) Values(v ...any) error {
 		s.builder.buildValuesIn()
 
 		sql := s.builder.sql.String()
-		fmt.Println(sql)
 		handlerValues(s.conn, sql, s.builder.argsAny)
-		return nil
+		return sql, nil
 	default:
-		return ErrInvalidInsertInValue
+		return "", ErrInvalidInsertInValue
 	}
 }
 
@@ -232,9 +226,9 @@ func (s *stateUpdate) queryUpdate(args []uintptr, addrMap map[uintptr]field) *st
 	return s
 }
 
-func (s *stateUpdate) Value(target any) error {
+func (s *stateUpdate) Value(target any) (string, error) {
 	if s.err != nil {
-		return s.err
+		return "", s.err
 	}
 
 	value := reflect.ValueOf(target)
@@ -244,7 +238,7 @@ func (s *stateUpdate) Value(target any) error {
 	}
 
 	if value.Kind() != reflect.Struct {
-		return ErrInvalidUpdateValue
+		return "", ErrInvalidUpdateValue
 	}
 
 	s.builder.buildSet(value)
@@ -252,9 +246,9 @@ func (s *stateUpdate) Value(target any) error {
 	//generate query
 	s.builder.buildSqlUpdate()
 
-	fmt.Println(s.builder.sql)
-	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
-	return nil
+	sql := s.builder.sql.String()
+	handlerValues(s.conn, sql, s.builder.argsAny)
+	return sql, nil
 }
 
 type stateUpdateIn struct {
@@ -280,9 +274,9 @@ func (s *stateUpdateIn) queryUpdateIn(args []uintptr, addrMap map[uintptr]field)
 	return s
 }
 
-func (s *stateUpdateIn) Value(value any) error {
+func (s *stateUpdateIn) Value(value any) (string, error) {
 	if s.err != nil {
-		return s.err
+		return "", s.err
 	}
 	s.builder.argsAny = append(s.builder.argsAny, value)
 
@@ -290,9 +284,9 @@ func (s *stateUpdateIn) Value(value any) error {
 
 	s.builder.buildSqlUpdateIn()
 
-	fmt.Println(s.builder.sql)
-	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
-	return nil
+	sql := s.builder.sql.String()
+	handlerValues(s.conn, sql, s.builder.argsAny)
+	return sql, nil
 }
 
 type stateDelete struct {
@@ -313,17 +307,17 @@ func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *st
 	return s
 }
 
-func (s *stateDelete) Where(brs ...operator) error {
+func (s *stateDelete) Where(brs ...operator) (string, error) {
 	if s.err != nil {
-		return s.err
+		return "", s.err
 	}
 	s.builder.brs = brs
 
 	s.builder.buildSqlDelete()
 
-	fmt.Println(s.builder.sql)
-	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
-	return nil
+	sql := s.builder.sql.String()
+	handlerValues(s.conn, sql, s.builder.argsAny)
+	return sql, nil
 }
 
 type stateDeleteIn struct {
@@ -344,15 +338,15 @@ func (s *stateDeleteIn) queryDeleteIn(args []uintptr, addrMap map[uintptr]field)
 	return s
 }
 
-func (s *stateDeleteIn) Where(brs ...operator) error {
+func (s *stateDeleteIn) Where(brs ...operator) (string, error) {
 	if s.err != nil {
-		return s.err
+		return "", s.err
 	}
 	s.builder.brs = brs
 
 	s.builder.buildSqlDeleteIn()
 
-	fmt.Println(s.builder.sql)
-	handlerValues(s.conn, s.builder.sql.String(), s.builder.argsAny)
-	return nil
+	sql := s.builder.sql.String()
+	handlerValues(s.conn, sql, s.builder.argsAny)
+	return sql, nil
 }
