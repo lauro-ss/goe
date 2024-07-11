@@ -2,9 +2,12 @@ package goe
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 )
+
+var ErrInvalidArg = errors.New("goe: invalid argument. try sending a pointer as argument")
 
 type DB struct {
 	ConnPool ConnectionPool
@@ -24,72 +27,110 @@ func (db *DB) Migrate(m *Migrator) {
 
 func (db *DB) Select(args ...any) *stateSelect {
 
-	stringArgs := getArgs(db.addrMap, args...)
+	stringArgs, err := getArgs(db.addrMap, args...)
+
+	var state *stateSelect
+	if err != nil {
+		state = createSelectState(nil, err)
+		return state.querySelect(nil)
+	}
 
 	//TODO: add ctx
-	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createSelectState(conn)
+	conn, err := db.ConnPool.Conn(context.Background())
+	state = createSelectState(conn, err)
 
 	state.addrMap = db.addrMap
 	return state.querySelect(stringArgs)
 }
 
 func (db *DB) Insert(table any) *stateInsert {
-	stringArgs := getArgs(db.addrMap, table)
+	stringArgs, err := getArgs(db.addrMap, table)
+
+	var state *stateInsert
+	if err != nil {
+		state = createInsertState(nil, err)
+		return state.queryInsert(nil, nil)
+	}
 
 	//TODO: add ctx
-	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createInsertState(conn)
+	conn, err := db.ConnPool.Conn(context.Background())
+	state = createInsertState(conn, err)
 
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
 func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
-	stringArgs := getArgsIn(table1, table2)
+	stringArgs, err := getArgsIn(table1, table2)
+
+	var state *stateInsertIn
+	if err != nil {
+		state = createInsertStateIn(nil, err)
+		return state.queryInsertIn(nil, nil)
+	}
 
 	//TODO: add ctx
-	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createInsertStateIn(conn)
+	conn, err := db.ConnPool.Conn(context.Background())
+	state = createInsertStateIn(conn, err)
 
 	return state.queryInsertIn(stringArgs, db.addrMap)
 }
 
 func (db *DB) Update(tables any) *stateUpdate {
-	stringArgs := getArgs(db.addrMap, tables)
+	stringArgs, err := getArgs(db.addrMap, tables)
 
+	var state *stateUpdate
+	if err != nil {
+		state = createUpdateState(nil, err)
+		return state.queryUpdate(nil, nil)
+	}
 	//TODO: add ctx
-	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createUpdateState(conn)
+	conn, err := db.ConnPool.Conn(context.Background())
+	state = createUpdateState(conn, err)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
 
 func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
-	stringArgs := getArgsIn(table1, table2)
+	stringArgs, err := getArgsIn(table1, table2)
 
+	var state *stateUpdateIn
+	if err != nil {
+		state = createUpdateInState(nil, err)
+		return state.queryUpdateIn(nil, nil)
+	}
 	//TODO: add ctx
-	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createUpdateInState(conn)
+	conn, err := db.ConnPool.Conn(context.Background())
+	state = createUpdateInState(conn, err)
 
 	return state.queryUpdateIn(stringArgs, db.addrMap)
 }
 
 func (db *DB) Delete(table any) *stateDelete {
-	stringArgs := getArgs(db.addrMap, table)
+	stringArgs, err := getArgs(db.addrMap, table)
 
+	var state *stateDelete
+	if err != nil {
+		state = createDeleteState(nil, err)
+		return state.queryDelete(nil, nil)
+	}
 	//TODO: add ctx
-	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createDeleteState(conn)
+	conn, err := db.ConnPool.Conn(context.Background())
+	state = createDeleteState(conn, err)
 
 	return state.queryDelete(stringArgs, db.addrMap)
 }
 
 func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
-	stringArgs := getArgsIn(table1, table2)
+	stringArgs, err := getArgsIn(table1, table2)
 
+	var state *stateDeleteIn
+	if err != nil {
+		state = createDeleteInState(nil, err)
+		return state.queryDeleteIn(nil, nil)
+	}
 	//TODO: add ctx
-	conn, _ := db.ConnPool.Conn(context.Background())
-	state := createDeleteInState(conn)
+	conn, err := db.ConnPool.Conn(context.Background())
+	state = createDeleteInState(conn, err)
 
 	return state.queryDeleteIn(stringArgs, db.addrMap)
 }
@@ -116,7 +157,7 @@ func (db *DB) Or() operator {
 	return simpleOperator{operator: "OR"}
 }
 
-func getArgs(addrMap map[uintptr]field, args ...any) []uintptr {
+func getArgs(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 	stringArgs := make([]uintptr, 0)
 	for i := range args {
 		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
@@ -137,13 +178,13 @@ func getArgs(addrMap map[uintptr]field, args ...any) []uintptr {
 				stringArgs = append(stringArgs, uintptr(valueOf.Addr().UnsafePointer()))
 			}
 		} else {
-			//TODO: Add ptr error
+			return nil, ErrInvalidArg
 		}
 	}
-	return stringArgs
+	return stringArgs, nil
 }
 
-func getArgsIn(args ...any) []uintptr {
+func getArgsIn(args ...any) ([]uintptr, error) {
 	stringArgs := make([]uintptr, 2)
 	for i := range args {
 		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
@@ -154,8 +195,8 @@ func getArgsIn(args ...any) []uintptr {
 				stringArgs[i] = uintptr(valueOf.Addr().UnsafePointer())
 			}
 		} else {
-			//TODO: Add ptr error
+			return nil, ErrInvalidArg
 		}
 	}
-	return stringArgs
+	return stringArgs, nil
 }
