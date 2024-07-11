@@ -38,6 +38,7 @@ func (db *Driver) Migrate(migrator *goe.Migrator, conn goe.Connection) {
 		"[]uint8":   "bytea",
 		"time.Time": "timestamp",
 		"bool":      "boolean",
+		"uuid.UUID": "uuid",
 	}
 
 	for _, v := range migrator.Tables {
@@ -503,7 +504,7 @@ func checkFields(databaseTable databaseTable, mt *migrateTable, tables map[strin
 	attrAny := mt.atts[databaseTable.columnName]
 	if attrAny == nil {
 		fmt.Printf(`goe:field "%v" exists on database table but is missed on struct "%v"%v`, databaseTable.columnName, mt.pk.Table, "\n")
-		fmt.Printf(`goe:do you renamed the field "%v" on "%v"? (leave empty if not):`, databaseTable.columnName, mt.pk.Table)
+		fmt.Printf(`goe:do you renamed the field "%v" on "%v"? (write new name or leave empty if not):`, databaseTable.columnName, mt.pk.Table)
 		var c string
 		fmt.Scanln(&c)
 		if c == "" {
