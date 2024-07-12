@@ -1,10 +1,15 @@
 package goe
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 )
+
+var ErrInvalidWhere = errors.New("goe: invalid where operation. try sending a pointer as parameter")
+var ErrNoMatchesTables = errors.New("don't have any many to one or many to many relationship")
+var ErrNotManyToMany = errors.New("don't have a many to many relationship")
 
 type builder struct {
 	sql            *strings.Builder
@@ -50,30 +55,37 @@ func (b *builder) buildSelectJoins(addrMap map[uintptr]field, join string, argsJ
 	b.tablesPk[c+1] = addrMap[argsJoins[1]].getPrimaryKey()
 }
 
-func (b *builder) buildSqlSelect() {
-	b.buildTables()
-	b.buildWhere()
+func (b *builder) buildSqlSelect() (err error) {
+	err = b.buildTables()
+	if err != nil {
+		return err
+	}
+	err = b.buildWhere()
 	b.sql.WriteByte(59)
+	return err
 }
 
-func (b *builder) buildSqlUpdate() {
-	b.buildWhere()
+func (b *builder) buildSqlUpdate() (err error) {
+	err = b.buildWhere()
 	b.sql.WriteByte(59)
+	return err
 }
 
-func (b *builder) buildSqlDelete() {
-	b.buildWhere()
+func (b *builder) buildSqlDelete() (err error) {
+	err = b.buildWhere()
 	b.sql.WriteByte(59)
+	return err
 }
 
-func (b *builder) buildSqlUpdateIn() {
-	b.buildWhereIn()
+func (b *builder) buildSqlUpdateIn() (err error) {
+	err = b.buildWhereIn()
 	b.sql.WriteByte(59)
+	return err
 }
 
-func (b *builder) buildWhere() {
+func (b *builder) buildWhere() error {
 	if len(b.brs) == 0 {
-		return
+		return nil
 	}
 	b.sql.WriteByte(10)
 	b.sql.WriteString("WHERE ")
@@ -87,13 +99,16 @@ func (b *builder) buildWhere() {
 			argsCount++
 		case simpleOperator:
 			b.sql.WriteString(v.operation())
+		default:
+			return ErrInvalidWhere
 		}
 	}
+	return nil
 }
 
-func (b *builder) buildWhereIn() {
+func (b *builder) buildWhereIn() error {
 	if len(b.brs) == 0 {
-		return
+		return nil
 	}
 	b.sql.WriteByte(10)
 	b.sql.WriteString("WHERE ")
@@ -110,8 +125,11 @@ func (b *builder) buildWhereIn() {
 			}
 		case simpleOperator:
 			b.sql.WriteString(v.operation())
+		default:
+			return ErrInvalidWhere
 		}
 	}
+	return nil
 }
 
 func buildWhereIn(pks []*pk, brPk *pk, argsCount int, v complexOperator) string {
@@ -128,17 +146,21 @@ func buildWhereIn(pks []*pk, brPk *pk, argsCount int, v complexOperator) string 
 	return ""
 }
 
-func (b *builder) buildTables() {
+func (b *builder) buildTables() (err error) {
 	if len(b.tablesPk) > 1 {
 		c := 1
 		for i := range b.joins {
-			buildJoins(b.tablesPk[i+c], b.tablesPk[i+c+1], b.joins[i], b.sql, i+c+1, b.tablesPk)
+			err = buildJoins(b.tablesPk[i+c], b.tablesPk[i+c+1], b.joins[i], b.sql, i+c+1, b.tablesPk)
+			if err != nil {
+				return err
+			}
 			c++
 		}
 	}
+	return err
 }
 
-func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks []*pk) {
+func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks []*pk) error {
 	switch fk := pk1.fks[pk2.table].(type) {
 	case *manyToOne:
 		if fk.hasMany {
@@ -165,7 +187,10 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 			join,
 			pk2.table, fk.ids[pk2.table].selectName,
 			pk2.selectName))
+	default:
+		return fmt.Errorf("goe: the tables %s and %s %w", pk1.table, pk2.table, ErrNoMatchesTables)
 	}
+	return nil
 }
 
 func (b *builder) buildInsert(addrMap map[uintptr]field) {
@@ -283,16 +308,19 @@ func (b *builder) buildInsertIn(addrMap map[uintptr]field) {
 	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
 }
 
-func (b *builder) buildValuesIn() {
+func (b *builder) buildValuesIn() error {
 	pk1 := b.tablesPk[0]
 	pk2 := b.tablesPk[1]
 
 	mtm := pk2.fks[b.table]
 	if mtm == nil {
-		return
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNoMatchesTables)
 	}
 
-	mtmValue := mtm.(*manyToMany)
+	mtmValue, ok := mtm.(*manyToMany)
+	if !ok {
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
+	}
 	b.sql.WriteString(mtmValue.table)
 	b.sql.WriteString(" (")
 	b.sql.WriteString(mtmValue.ids[pk1.table].attributeName)
@@ -301,18 +329,22 @@ func (b *builder) buildValuesIn() {
 	b.sql.WriteString(") ")
 	b.sql.WriteString("VALUES ")
 	b.sql.WriteString("($1,$2);")
+	return nil
 }
 
-func (b *builder) buildValuesInBatch(v reflect.Value) {
+func (b *builder) buildValuesInBatch(v reflect.Value) error {
 	pk1 := b.tablesPk[0]
 	pk2 := b.tablesPk[1]
 
 	mtm := pk2.fks[b.table]
 	if mtm == nil {
-		return
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNoMatchesTables)
 	}
 
-	mtmValue := mtm.(*manyToMany)
+	mtmValue, ok := mtm.(*manyToMany)
+	if !ok {
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
+	}
 	b.sql.WriteString(mtmValue.table)
 	b.sql.Write([]byte{32, 40})
 	b.sql.WriteString(mtmValue.ids[pk1.table].attributeName)
@@ -334,6 +366,7 @@ func (b *builder) buildValuesInBatch(v reflect.Value) {
 		c++
 	}
 	b.sql.WriteByte(59)
+	return nil
 }
 
 func (b *builder) buildUpdate(addrMap map[uintptr]field) {
@@ -408,19 +441,21 @@ func (b *builder) buildUpdateIn(addrMap map[uintptr]field) {
 	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
 }
 
-func (b *builder) buildSetIn() {
+func (b *builder) buildSetIn() error {
 	pk2 := b.tablesPk[1]
 
 	mtm := pk2.fks[b.table]
 	if mtm == nil {
-		return
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNoMatchesTables)
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
 		b.sql.WriteString(mtmValue.table)
 		b.sql.WriteString(" SET ")
 		b.sql.WriteString(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName))
+		return nil
 	}
+	return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
 }
 
 func (b *builder) buildDelete(addrMap map[uintptr]field) {
@@ -440,17 +475,17 @@ func (b *builder) buildDeleteIn(addrMap map[uintptr]field) {
 	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
 }
 
-func (b *builder) buildSqlDeleteIn() {
+func (b *builder) buildSqlDeleteIn() (err error) {
 	mtm := b.tablesPk[1].fks[b.table]
 	if mtm == nil {
-		//TODO: add error
-		return
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table, ErrNoMatchesTables)
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
 		b.sql.WriteString(mtmValue.table)
-		b.buildWhereIn()
+		err = b.buildWhereIn()
 		b.sql.WriteByte(59)
+		return err
 	}
-	//TODO: add error
+	return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table, ErrNotManyToMany)
 }

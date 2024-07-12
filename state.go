@@ -88,7 +88,10 @@ func (s *stateSelect) Scan(target any) (string, error) {
 	}
 
 	//generate query
-	s.builder.buildSqlSelect()
+	s.err = s.builder.buildSqlSelect()
+	if s.err != nil {
+		return "", s.err
+	}
 
 	sql := s.builder.sql.String()
 	return sql, handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns)
@@ -178,7 +181,10 @@ func (s *stateInsertIn) Values(v ...any) (string, error) {
 			return "", ErrInvalidInsertInValue
 		}
 
-		s.builder.buildValuesInBatch(value)
+		s.err = s.builder.buildValuesInBatch(value)
+		if s.err != nil {
+			return "", s.err
+		}
 
 		sql := s.builder.sql.String()
 		return sql, handlerValues(s.conn, sql, s.builder.argsAny)
@@ -186,7 +192,10 @@ func (s *stateInsertIn) Values(v ...any) (string, error) {
 		s.builder.argsAny = append(s.builder.argsAny, v[0])
 		s.builder.argsAny = append(s.builder.argsAny, v[1])
 
-		s.builder.buildValuesIn()
+		s.err = s.builder.buildValuesIn()
+		if s.err != nil {
+			return "", s.err
+		}
 
 		sql := s.builder.sql.String()
 		return sql, handlerValues(s.conn, sql, s.builder.argsAny)
@@ -239,7 +248,10 @@ func (s *stateUpdate) Value(target any) (string, error) {
 	s.builder.buildSet(value)
 
 	//generate query
-	s.builder.buildSqlUpdate()
+	s.err = s.builder.buildSqlUpdate()
+	if s.err != nil {
+		return "", s.err
+	}
 
 	sql := s.builder.sql.String()
 	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
@@ -274,9 +286,15 @@ func (s *stateUpdateIn) Value(value any) (string, error) {
 	}
 	s.builder.argsAny = append(s.builder.argsAny, value)
 
-	s.builder.buildSetIn()
+	s.err = s.builder.buildSetIn()
+	if s.err != nil {
+		return "", s.err
+	}
 
-	s.builder.buildSqlUpdateIn()
+	s.err = s.builder.buildSqlUpdateIn()
+	if s.err != nil {
+		return "", s.err
+	}
 
 	sql := s.builder.sql.String()
 	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
@@ -306,7 +324,10 @@ func (s *stateDelete) Where(brs ...operator) (string, error) {
 	}
 	s.builder.brs = brs
 
-	s.builder.buildSqlDelete()
+	s.err = s.builder.buildSqlDelete()
+	if s.err != nil {
+		return "", s.err
+	}
 
 	sql := s.builder.sql.String()
 	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
