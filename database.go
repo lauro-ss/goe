@@ -25,8 +25,7 @@ func (db *DB) Migrate(m *Migrator) {
 	db.driver.Migrate(m, c)
 }
 
-func (db *DB) Select(args ...any) *stateSelect {
-
+func (db *DB) SelectContext(ctx context.Context, args ...any) *stateSelect {
 	stringArgs, err := getArgs(db.addrMap, args...)
 
 	var state *stateSelect
@@ -35,15 +34,18 @@ func (db *DB) Select(args ...any) *stateSelect {
 		return state.querySelect(nil)
 	}
 
-	//TODO: add ctx
-	conn, err := db.ConnPool.Conn(context.Background())
+	conn, err := db.ConnPool.Conn(ctx)
 	state = createSelectState(conn, err)
 
 	state.addrMap = db.addrMap
 	return state.querySelect(stringArgs)
 }
 
-func (db *DB) Insert(table any) *stateInsert {
+func (db *DB) Select(args ...any) *stateSelect {
+	return db.SelectContext(context.Background(), args...)
+}
+
+func (db *DB) InsertContext(ctx context.Context, table any) *stateInsert {
 	stringArgs, err := getArgs(db.addrMap, table)
 
 	var state *stateInsert
@@ -52,14 +54,17 @@ func (db *DB) Insert(table any) *stateInsert {
 		return state.queryInsert(nil, nil)
 	}
 
-	//TODO: add ctx
-	conn, err := db.ConnPool.Conn(context.Background())
+	conn, err := db.ConnPool.Conn(ctx)
 	state = createInsertState(conn, err)
 
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
-func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
+func (db *DB) Insert(table any) *stateInsert {
+	return db.InsertContext(context.Background(), table)
+}
+
+func (db *DB) InsertInContext(ctx context.Context, table1 any, table2 any) *stateInsertIn {
 	stringArgs, err := getArgsIn(table1, table2)
 
 	var state *stateInsertIn
@@ -68,29 +73,35 @@ func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
 		return state.queryInsertIn(nil, nil)
 	}
 
-	//TODO: add ctx
-	conn, err := db.ConnPool.Conn(context.Background())
+	conn, err := db.ConnPool.Conn(ctx)
 	state = createInsertStateIn(conn, err)
 
 	return state.queryInsertIn(stringArgs, db.addrMap)
 }
 
-func (db *DB) Update(tables any) *stateUpdate {
-	stringArgs, err := getArgs(db.addrMap, tables)
+func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
+	return db.InsertInContext(context.Background(), table1, table2)
+}
+
+func (db *DB) UpdateContext(ctx context.Context, table any) *stateUpdate {
+	stringArgs, err := getArgs(db.addrMap, table)
 
 	var state *stateUpdate
 	if err != nil {
 		state = createUpdateState(nil, err)
 		return state.queryUpdate(nil, nil)
 	}
-	//TODO: add ctx
-	conn, err := db.ConnPool.Conn(context.Background())
+	conn, err := db.ConnPool.Conn(ctx)
 	state = createUpdateState(conn, err)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
 
-func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
+func (db *DB) Update(table any) *stateUpdate {
+	return db.UpdateContext(context.Background(), table)
+}
+
+func (db *DB) UpdateInContext(ctx context.Context, table1 any, table2 any) *stateUpdateIn {
 	stringArgs, err := getArgsIn(table1, table2)
 
 	var state *stateUpdateIn
@@ -98,14 +109,17 @@ func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
 		state = createUpdateInState(nil, err)
 		return state.queryUpdateIn(nil, nil)
 	}
-	//TODO: add ctx
-	conn, err := db.ConnPool.Conn(context.Background())
+	conn, err := db.ConnPool.Conn(ctx)
 	state = createUpdateInState(conn, err)
 
 	return state.queryUpdateIn(stringArgs, db.addrMap)
 }
 
-func (db *DB) Delete(table any) *stateDelete {
+func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
+	return db.UpdateInContext(context.Background(), table1, table2)
+}
+
+func (db *DB) DeleteContext(ctx context.Context, table any) *stateDelete {
 	stringArgs, err := getArgs(db.addrMap, table)
 
 	var state *stateDelete
@@ -113,14 +127,17 @@ func (db *DB) Delete(table any) *stateDelete {
 		state = createDeleteState(nil, err)
 		return state.queryDelete(nil, nil)
 	}
-	//TODO: add ctx
-	conn, err := db.ConnPool.Conn(context.Background())
+	conn, err := db.ConnPool.Conn(ctx)
 	state = createDeleteState(conn, err)
 
 	return state.queryDelete(stringArgs, db.addrMap)
 }
 
-func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
+func (db *DB) Delete(table any) *stateDelete {
+	return db.DeleteContext(context.Background(), table)
+}
+
+func (db *DB) DeleteInContext(ctx context.Context, table1 any, table2 any) *stateDeleteIn {
 	stringArgs, err := getArgsIn(table1, table2)
 
 	var state *stateDeleteIn
@@ -128,11 +145,14 @@ func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
 		state = createDeleteInState(nil, err)
 		return state.queryDeleteIn(nil, nil)
 	}
-	//TODO: add ctx
-	conn, err := db.ConnPool.Conn(context.Background())
+	conn, err := db.ConnPool.Conn(ctx)
 	state = createDeleteInState(conn, err)
 
 	return state.queryDeleteIn(stringArgs, db.addrMap)
+}
+
+func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
+	return db.DeleteInContext(context.Background(), table1, table2)
 }
 
 func (db *DB) Equals(arg any, value any) operator {
