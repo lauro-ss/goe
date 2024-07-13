@@ -7,7 +7,11 @@ import (
 
 var ErrInvalidScan = errors.New("goe: invalid scan target. try sending a pointer for scan")
 
-var ErrInvalidInsertValue = errors.New("goe: invalid insert value. try sending a pointer as value")
+var ErrInvalidInsertValue = errors.New("goe: invalid insert value. try sending a pointer to a struct as value")
+var ErrInvalidInsertBatchValue = errors.New("goe: invalid insert value. try sending a pointer to a slice of struct as value")
+var ErrEmptyBatchValue = errors.New("goe: can't insert a empty batch value")
+var ErrInvalidInsertPointer = errors.New("goe: invalid insert value. try sending a pointer as value")
+
 var ErrInvalidInsertInValue = errors.New("goe: invalid insertIn value. try sending only two values or a size even slice")
 
 var ErrInvalidUpdateValue = errors.New("goe: invalid update value. try sending a struct or a pointer to struct as value")
@@ -76,6 +80,26 @@ func (s *stateSelect) querySelect(args []uintptr) *stateSelect {
 	return s
 }
 
+// Scan fills the target with the returned sql data,
+// target can be a pointer or a pointer to [Slice].
+//
+// In case of passing a pointer of struct or a pointer to slice of
+// struct, goe package will match the fields by name
+//
+// Scan uses [sql.Row] if a not slice pointer is the target, in
+// this case can return [sql.ErrNoRows]
+//
+// Scan returns the SQL generated and a nil error if succeed.
+//
+// # Example:
+//
+//	// using struct
+//	var a Animal
+//	db.Select(db.Animal).Scan(&a)
+//
+//	// using slice
+//	var a []Animal
+//	db.Select(db.Animal).Scan(&a)
 func (s *stateSelect) Scan(target any) (string, error) {
 	if s.err != nil {
 		return "", s.err
@@ -118,30 +142,62 @@ func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *st
 	return s
 }
 
-func (s *stateInsert) Value(target any) (string, error) {
+// Value inserts the value inside the database, and updates the Id field if
+// is a auto increment.
+//
+// The value needs to be a pointer to a struct of database types
+// or a pointer to slice of database types (in case of batch insert).
+//
+// Value returns the SQL generated and error as nil if insert with success.
+//
+// # Example
+//
+//	// insert one value
+//	food := Food{Id: "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4", Name: "Cookie", Emoji: "🍪"}
+//	db.Insert(db.Food).Value(&food)
+//
+//	// insert batch values
+//	foods := []Food{
+//		{Id: "401b5e23-5aa7-435e-ba4d-5c1b2f123596", Name: "Meat", Emoji: "🥩"},
+//		{Id: "f023a4e7-34e9-4db2-85e0-efe8d67eea1b", Name: "Hotdog", Emoji: "🌭"},
+//		{Id: "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4", Name: "Cookie", Emoji: "🍪"},
+//	}
+//	db.Insert(db.Food).Value(&foods)
+func (s *stateInsert) Value(value any) (string, error) {
 	if s.err != nil {
 		return "", s.err
 	}
 
-	value := reflect.ValueOf(target)
+	v := reflect.ValueOf(value)
 
-	if value.Kind() != reflect.Ptr {
+	if v.Kind() != reflect.Ptr {
+		return "", ErrInvalidInsertPointer
+	}
+
+	v = v.Elem()
+
+	if v.Kind() == reflect.Slice {
+		return s.batchValue(v)
+	}
+
+	if v.Kind() != reflect.Struct {
 		return "", ErrInvalidInsertValue
 	}
 
-	value = value.Elem()
-
-	if value.Kind() == reflect.Slice {
-		return s.batchValue(value)
-	}
-
-	idName := s.builder.buildValues(value)
+	idName := s.builder.buildValues(v)
 
 	sql := s.builder.sql.String()
-	return sql, handlerValuesReturning(s.conn, sql, value, s.builder.argsAny, idName)
+	return sql, handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName)
 }
 
 func (s *stateInsert) batchValue(value reflect.Value) (string, error) {
+	if value.Len() == 0 {
+		return "", ErrEmptyBatchValue
+	}
+
+	if value.Index(0).Kind() != reflect.Struct {
+		return "", ErrInvalidInsertBatchValue
+	}
 	idName := s.builder.buildBatchValues(value)
 
 	sql := s.builder.sql.String()
@@ -166,6 +222,20 @@ func (s *stateInsertIn) queryInsertIn(args []uintptr, addrMap map[uintptr]field)
 	return s
 }
 
+// Values inserts the values inside the database.
+//
+// The values needs to be the same type as the ids from the database tables.
+// Values can be a even slice of [any] with the positional matchs of the ids
+//
+// Values returns the SQL generated and error as nil if insert with success.
+//
+// # Example:
+//
+//	// insert into AnimalFood first value is for idFood and second is for idAnimal
+//	db.InsertIn(db.Food, db.Animal).Values("5ad0e5fc-e9f7-4855-9698-d0c10b996f73", "401b5e23-5aa7-435e-ba4d-5c1b2f123596")
+//
+//	// insert into AnimalHabitat, first value is a uuid for idAnimal and second is a int for idHabitat
+//	db.InsertIn(db.Animal, db.Habitat).Values("5ad0e5fc-e9f7-4855-9698-d0c10b996f73", 25)
 func (s *stateInsertIn) Values(v ...any) (string, error) {
 	if s.err != nil {
 		return "", s.err
