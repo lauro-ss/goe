@@ -122,6 +122,8 @@ func (b *builder) buildWhereIn() error {
 				b.sql.WriteString(st)
 				b.argsAny = append(b.argsAny, v.value)
 				argsCount++
+			} else {
+				return fmt.Errorf("goe: the tables %s and %s %w", b.table, v.pk.table, ErrNotManyToMany)
 			}
 		case simpleOperator:
 			b.sql.WriteString(v.operation())

@@ -300,22 +300,35 @@ func (s *stateUpdate) queryUpdate(args []uintptr, addrMap map[uintptr]field) *st
 	return s
 }
 
-func (s *stateUpdate) Value(target any) (string, error) {
+// Value updates the targets in the database.
+//
+// The value can be a pointer to struct or a struct value.
+//
+// Value returns the SQL generated and error as nil if update with success.
+//
+// # Example
+//
+//	// updates all rows with aStruct values
+//	db.Update(db.Animal).Value(aStruct)
+//
+//	// updates single row using where
+//	db.Update(db.Animal).Where(db.Equals(&db.Animal.Id, aStruct.Id)).Value(aStruct)
+func (s *stateUpdate) Value(value any) (string, error) {
 	if s.err != nil {
 		return "", s.err
 	}
 
-	value := reflect.ValueOf(target)
+	v := reflect.ValueOf(value)
 
-	if value.Kind() == reflect.Ptr {
-		value = value.Elem()
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
 
-	if value.Kind() != reflect.Struct {
+	if v.Kind() != reflect.Struct {
 		return "", ErrInvalidUpdateValue
 	}
 
-	s.builder.buildSet(value)
+	s.builder.buildSet(v)
 
 	//generate query
 	s.err = s.builder.buildSqlUpdate()
@@ -350,6 +363,20 @@ func (s *stateUpdateIn) queryUpdateIn(args []uintptr, addrMap map[uintptr]field)
 	return s
 }
 
+// Value updates the targets in the database.
+//
+// The value needs to be the same as the id from database.
+//
+// Value returns the SQL generated and error as nil if update with success.
+//
+// # Example
+//
+//	// updates idFood in the matched where
+//	db.UpdateIn(db.Animal, db.Food).Where(
+//		db.Equals(&db.Animal.Id, "906f4f1f-49e7-47ee-8954-2d6e0a3354cf"),
+//		db.And(),
+//		db.Equals(&db.Food.Id, "f023a4e7-34e9-4db2-85e0-efe8d67eea1b")).
+//		Value("fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")
 func (s *stateUpdateIn) Value(value any) (string, error) {
 	if s.err != nil {
 		return "", s.err
@@ -388,6 +415,17 @@ func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *st
 	return s
 }
 
+// Where from state delete executes the delete command in the database.
+//
+// Returns the SQL generated and error as nil if delete with success.
+//
+// # Example
+//
+//	// delete all animals
+//	db.Delete(db.Animal).Where()
+//
+//	// delete matched animals
+//	db.Delete(db.Animal).Where(db.Equals(&db.Animal.Id, "906f4f1f-49e7-47ee-8954-2d6e0a3354cf"))
 func (s *stateDelete) Where(brs ...operator) (string, error) {
 	if s.err != nil {
 		return "", s.err
@@ -421,13 +459,31 @@ func (s *stateDeleteIn) queryDeleteIn(args []uintptr, addrMap map[uintptr]field)
 	return s
 }
 
+// Where from state delete executes the delete command in the database.
+//
+// Returns the SQL generated and error as nil if delete with success.
+//
+// # Example
+//
+//	// delete all rows from AnimalFood
+//	db.DeleteIn(db.Animal, db.Food).Where()
+//
+//	// delete all matched rows from AnimalFood
+//	db.DeleteIn(db.Animal, db.Food).Where(
+//		db.Equals(&db.Food.Id, "5ad0e5fc-e9f7-4855-9698-d0c10b996f73"),
+//		db.Or(),
+//		db.Equals(&db.Animal.Id, "401b5e23-5aa7-435e-ba4d-5c1b2f123596"),
+//	)
 func (s *stateDeleteIn) Where(brs ...operator) (string, error) {
 	if s.err != nil {
 		return "", s.err
 	}
 	s.builder.brs = brs
 
-	s.builder.buildSqlDeleteIn()
+	s.err = s.builder.buildSqlDeleteIn()
+	if s.err != nil {
+		return "", s.err
+	}
 
 	sql := s.builder.sql.String()
 	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
