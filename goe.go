@@ -13,14 +13,9 @@ func Open(db any, driver Driver) error {
 	if valueOf.Kind() != reflect.Ptr {
 		return fmt.Errorf("%v: the target value needs to be pass as a pointer", pkg)
 	}
-	var dbTarget *DB
+	dbTarget := new(DB)
 	valueOf = valueOf.Elem()
 
-	for i := 0; i < valueOf.NumField(); i++ {
-		if !valueOf.Field(i).IsNil() {
-			dbTarget = (reflect.New(valueOf.Field(i).Type().Elem()).Interface()).(*DB)
-		}
-	}
 	dbTarget.addrMap = make(map[uintptr]field)
 
 	for i := 0; i < valueOf.NumField(); i++ {
