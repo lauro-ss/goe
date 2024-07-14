@@ -247,7 +247,7 @@ func (s *stateInsertIn) Values(v ...any) (string, error) {
 		if value.Kind() == reflect.Pointer {
 			value = value.Elem()
 		}
-		if value.Kind() != reflect.Slice || value.Len() < 2 {
+		if value.Kind() != reflect.Slice || value.Len() < 2 || value.Len()%2 != 0 {
 			return "", ErrInvalidInsertInValue
 		}
 
