@@ -274,15 +274,15 @@ func (db *DB) DeleteInContext(ctx context.Context, table1 any, table2 any) *stat
 	return state.queryDeleteIn(stringArgs, db.addrMap)
 }
 
-func (db *DB) getArg(arg any) field {
+func getArg(arg any, addrMap map[uintptr]field) field {
 	v := reflect.ValueOf(arg)
 	if v.Kind() != reflect.Pointer {
 		return nil
 	}
 
 	addr := uintptr(v.UnsafePointer())
-	if db.addrMap[addr] != nil {
-		return db.addrMap[addr]
+	if addrMap[addr] != nil {
+		return addrMap[addr]
 	}
 	return nil
 }
@@ -294,7 +294,7 @@ func (db *DB) getArg(arg any) field {
 //	// delete all rows from AnimalFood that matches the idFood
 //	db.DeleteIn(db.Animal, db.Food).Where(db.Equals(&db.Food.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4"))
 func (db *DB) Equals(arg any, value any) operator {
-	if a := db.getArg(arg); a != nil {
+	if a := getArg(arg, db.addrMap); a != nil {
 		return a.buildComplexOperator("=", value)
 	}
 	return nil
@@ -307,7 +307,7 @@ func (db *DB) Equals(arg any, value any) operator {
 //	// get all foods that name are not cookie
 //	db.Select(db.Food).Where(db.NotEquals(&db.Food.Name, "Cookie")).Scan(&f)
 func (db *DB) NotEquals(arg any, value any) operator {
-	if a := db.getArg(arg); a != nil {
+	if a := getArg(arg, db.addrMap); a != nil {
 		return a.buildComplexOperator("<>", value)
 	}
 	return nil
@@ -320,7 +320,7 @@ func (db *DB) NotEquals(arg any, value any) operator {
 //	// get all animals that was created after 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).Where(db.Greater(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) Greater(arg any, value any) operator {
-	if a := db.getArg(arg); a != nil {
+	if a := getArg(arg, db.addrMap); a != nil {
 		return a.buildComplexOperator(">", value)
 	}
 	return nil
@@ -333,7 +333,7 @@ func (db *DB) Greater(arg any, value any) operator {
 //	// get all animals that was created in or after 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).Where(db.GreaterEquals(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) GreaterEquals(arg any, value any) operator {
-	if a := db.getArg(arg); a != nil {
+	if a := getArg(arg, db.addrMap); a != nil {
 		return a.buildComplexOperator(">=", value)
 	}
 	return nil
@@ -346,7 +346,7 @@ func (db *DB) GreaterEquals(arg any, value any) operator {
 //	// get all animals that was updated before 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).Where(db.Less(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) Less(arg any, value any) operator {
-	if a := db.getArg(arg); a != nil {
+	if a := getArg(arg, db.addrMap); a != nil {
 		return a.buildComplexOperator("<", value)
 	}
 	return nil
@@ -359,7 +359,7 @@ func (db *DB) Less(arg any, value any) operator {
 //	// get all animals that was updated in or before 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).Where(db.LessEquals(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) LessEquals(arg any, value any) operator {
-	if a := db.getArg(arg); a != nil {
+	if a := getArg(arg, db.addrMap); a != nil {
 		return a.buildComplexOperator("<=", value)
 	}
 	return nil
@@ -372,7 +372,7 @@ func (db *DB) LessEquals(arg any, value any) operator {
 //	// get all animals that has a "at" in his name
 //	db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%at%")).Scan(&a)
 func (db *DB) Like(arg any, value any) operator {
-	if a := db.getArg(arg); a != nil {
+	if a := getArg(arg, db.addrMap); a != nil {
 		return a.buildComplexOperator("LIKE", value)
 	}
 	return nil

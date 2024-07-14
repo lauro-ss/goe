@@ -173,3 +173,15 @@ func (a *att) buildComplexOperator(o string, v any) operator {
 func (m *manyToOne) buildComplexOperator(o string, v any) operator {
 	return createComplexOperator(m.selectName, o, v, m.pk)
 }
+
+func (p *pk) getSelect() string {
+	return p.selectName
+}
+
+func (a *att) getSelect() string {
+	return a.selectName
+}
+
+func (m *manyToOne) getSelect() string {
+	return m.selectName
+}

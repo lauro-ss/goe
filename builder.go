@@ -18,6 +18,7 @@ type builder struct {
 	structColumns  []string          //select and update
 	attrNames      []string          //insert and update
 	targetFksNames map[string]string //insert and update
+	orderBy        string
 	limit          uint
 	offset         uint
 	joins          []string
@@ -72,6 +73,7 @@ func (b *builder) buildSqlSelect() (err error) {
 		return err
 	}
 	err = b.buildWhere()
+	b.sql.WriteString(b.orderBy)
 	b.buildPage()
 	b.sql.WriteByte(59)
 	return err

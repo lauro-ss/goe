@@ -2,10 +2,12 @@ package goe
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
 var ErrInvalidScan = errors.New("goe: invalid scan target. try sending a pointer for scan")
+var ErrInvalidOrderBy = errors.New("goe: invalid order by target. try sending a pointer")
 
 var ErrInvalidInsertValue = errors.New("goe: invalid insert value. try sending a pointer to a struct as value")
 var ErrInvalidInsertBatchValue = errors.New("goe: invalid insert value. try sending a pointer to a slice of struct as value")
@@ -150,6 +152,44 @@ func (s *stateSelect) LeftJoin(t1 any, t2 any) *stateSelect {
 		return s
 	}
 	s.builder.buildSelectJoins(s.addrMap, "LEFT JOIN", args)
+	return s
+}
+
+// OrderByAsc makes a ordained by arg ascending query
+//
+// # Example
+//
+//	// select first page of habitats orderning by name
+//	db.Select(db.Habitat).Page(1, 20).OrderByAsc(&db.Habitat.Name).Scan(&h)
+//
+//	// same query
+//	db.Select(db.Habitat).OrderByAsc(&db.Habitat.Name).Page(1, 20).Scan(&h)
+func (s *stateSelect) OrderByAsc(arg any) *stateSelect {
+	field := getArg(arg, s.addrMap)
+	if field == nil {
+		s.err = ErrInvalidOrderBy
+		return s
+	}
+	s.builder.orderBy = fmt.Sprintf("\nORDER BY %v ASC", field.getSelect())
+	return s
+}
+
+// OrderByDesc makes a ordained by arg descending query
+//
+// # Example
+//
+//	// select last inserted habitat
+//	db.Select(db.Habitat).Take(1).OrderByDesc(&db.Habitat.Id).Scan(&h)
+//
+//	// same query
+//	db.Select(db.Habitat).OrderByDesc(&db.Habitat.Id).Take(1).Scan(&h)
+func (s *stateSelect) OrderByDesc(arg any) *stateSelect {
+	field := getArg(arg, s.addrMap)
+	if field == nil {
+		s.err = ErrInvalidOrderBy
+		return s
+	}
+	s.builder.orderBy = fmt.Sprintf("\nORDER BY %v DESC", field.getSelect())
 	return s
 }
 

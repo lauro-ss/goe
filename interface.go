@@ -12,6 +12,7 @@ type operator interface {
 
 type field interface {
 	getPrimaryKey() *pk
+	getSelect() string
 	buildAttributeSelect(*builder, int)
 	buildAttributeInsert(*builder)
 	buildAttributeUpdate(*builder)
