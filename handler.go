@@ -47,15 +47,15 @@ func handlerValuesReturningBatch(conn Connection, sqlQuery string, value reflect
 	return nil
 }
 
-func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) error {
+func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string, limit uint) error {
 	defer conn.Close()
 
 	switch value.Kind() {
 	case reflect.Slice:
 		if value.Type().Elem().Kind() == reflect.Struct {
-			return handlerStructQuery(conn, sqlQuery, value, args, structColumns)
+			return handlerStructQuery(conn, sqlQuery, value, args, structColumns, limit)
 		}
-		return handlerQuery(conn, sqlQuery, value, args)
+		return handlerQuery(conn, sqlQuery, value, args, limit)
 	case reflect.Struct:
 		return handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
 	default:
@@ -93,7 +93,7 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 	return nil
 }
 
-func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any) error {
+func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, limit uint) error {
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
 	if err != nil {
@@ -106,7 +106,7 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 		dest[i] = reflect.New(value.Type().Elem()).Interface()
 	}
 
-	err = mapQuery(rows, dest, value)
+	err = mapQuery(rows, dest, value, limit)
 
 	if err != nil {
 		return err
@@ -114,25 +114,20 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 	return nil
 }
 
-func mapQuery(rows *sql.Rows, dest []any, value reflect.Value) (err error) {
-	//TODO: Len of slice be the size of the query
-	value.Set(reflect.MakeSlice(value.Type(), 0, 0))
+func mapQuery(rows *sql.Rows, dest []any, value reflect.Value, limit uint) (err error) {
+	value.Set(reflect.MakeSlice(value.Type(), 0, int(limit)))
 
-	for i := 0; rows.Next(); i++ {
+	for rows.Next() {
 		err = rows.Scan(dest...)
 		if err != nil {
 			return err
 		}
-		s := reflect.New(value.Type().Elem()).Elem()
-		for _, a := range dest {
-			s.Set(reflect.ValueOf(a).Elem())
-		}
-		value.Set(reflect.Append(value, s))
+		value.Set(reflect.Append(value, reflect.ValueOf(dest[0]).Elem()))
 	}
 	return err
 }
 
-func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string) error {
+func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string, limit uint) error {
 	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
 
 	if err != nil {
@@ -147,7 +142,7 @@ func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, a
 		}
 	}
 
-	err = mapStructQuery(rows, dest, value, structColumns)
+	err = mapStructQuery(rows, dest, value, structColumns, limit)
 
 	if err != nil {
 		return err
@@ -155,10 +150,9 @@ func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, a
 	return nil
 }
 
-func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value, columns []string) (err error) {
-	//TODO: add count for slices
-	value.Set(reflect.MakeSlice(value.Type(), 0, 0))
-	for i := 0; rows.Next(); i++ {
+func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value, columns []string, limit uint) (err error) {
+	value.Set(reflect.MakeSlice(value.Type(), 0, int(limit)))
+	for rows.Next() {
 		err = rows.Scan(dest...)
 		if err != nil {
 			return err

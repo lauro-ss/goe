@@ -199,7 +199,7 @@ func (s *stateSelect) Scan(target any) (string, error) {
 	}
 
 	sql := s.builder.sql.String()
-	return sql, handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns)
+	return sql, handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit)
 }
 
 /*
