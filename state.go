@@ -27,11 +27,22 @@ func createSelectState(conn Connection, e error) *stateSelect {
 	return &stateSelect{conn: conn, builder: createBuilder(), err: e}
 }
 
+// Where creates a where SQL using the operations
 func (s *stateSelect) Where(brs ...operator) *stateSelect {
 	s.builder.brs = brs
 	return s
 }
 
+// Join makes a join betwent the tables
+//
+// If the tables don't have a many to many or many to one
+// relationship Scan returns [ErrNoMatchesTables]
+//
+// # Example
+//
+//	// get all foods columns by id animal makeing a join betwent animal and food
+//	db.Select(db.Food).Join(db.Animal, db.Food).
+//		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) Join(t1 any, t2 any) *stateSelect {
 	args, err := getArgsIn(t1, t2)
 	if err != nil {
@@ -42,6 +53,16 @@ func (s *stateSelect) Join(t1 any, t2 any) *stateSelect {
 	return s
 }
 
+// InnerJoin makes a inner join betwent the tables
+//
+// If the tables don't have a many to many or many to one
+// relationship Scan returns [ErrNoMatchesTables]
+//
+// # Example
+//
+//	// get all foods columns by id animal makeing a inner join betwent animal and food
+//	db.Select(db.Food).InnerJoin(db.Animal, db.Food).
+//		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) InnerJoin(t1 any, t2 any) *stateSelect {
 	args, err := getArgsIn(t1, t2)
 	if err != nil {
@@ -52,6 +73,16 @@ func (s *stateSelect) InnerJoin(t1 any, t2 any) *stateSelect {
 	return s
 }
 
+// RightJoin makes a right join betwent the tables
+//
+// If the tables don't have a many to many or many to one
+// relationship Scan returns [ErrNoMatchesTables]
+//
+// # Example
+//
+//	// get all foods columns by id animal makeing a right join betwent animal and food
+//	db.Select(db.Food).RightJoin(db.Animal, db.Food).
+//		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) RightJoin(t1 any, t2 any) *stateSelect {
 	args, err := getArgsIn(t1, t2)
 	if err != nil {
@@ -62,6 +93,16 @@ func (s *stateSelect) RightJoin(t1 any, t2 any) *stateSelect {
 	return s
 }
 
+// LeftJoin makes a left join betwent the tables
+//
+// If the tables don't have a many to many or many to one
+// relationship Scan returns [ErrNoMatchesTables]
+//
+// # Example
+//
+//	// get all foods columns by id animal makeing a left join betwent animal and food
+//	db.Select(db.Food).LeftJoin(db.Animal, db.Food).
+//		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) LeftJoin(t1 any, t2 any) *stateSelect {
 	args, err := getArgsIn(t1, t2)
 	if err != nil {

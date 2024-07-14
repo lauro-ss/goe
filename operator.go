@@ -33,3 +33,7 @@ func (co *complexOperator) setValueFlag(f string) {
 func (co *complexOperator) setArgument(s string) {
 	co.argument = s
 }
+
+func (co *complexOperator) setNot() {
+	co.operator = "NOT " + co.operator
+}
