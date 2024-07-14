@@ -52,12 +52,18 @@ func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args [
 
 	switch value.Kind() {
 	case reflect.Slice:
-		if value.Type().Elem().Kind() == reflect.Struct {
+		if value.Type().Elem().Kind() == reflect.Struct && value.Type().Elem().Name() != "Time" {
 			return handlerStructQuery(conn, sqlQuery, value, args, structColumns, limit)
+		}
+		if value.Type().Elem().Kind() == reflect.Uint8 {
+			return handlerQueryRow(conn, sqlQuery, value, args)
 		}
 		return handlerQuery(conn, sqlQuery, value, args, limit)
 	case reflect.Struct:
-		return handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
+		if value.Type().Name() != "Time" {
+			return handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
+		}
+		return handlerQueryRow(conn, sqlQuery, value, args)
 	default:
 		return handlerQueryRow(conn, sqlQuery, value, args)
 	}
