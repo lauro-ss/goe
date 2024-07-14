@@ -18,6 +18,8 @@ type builder struct {
 	structColumns  []string          //select and update
 	attrNames      []string          //insert and update
 	targetFksNames map[string]string //insert and update
+	limit          uint
+	offset         uint
 	joins          []string
 	brs            []operator
 	table          string
@@ -55,12 +57,22 @@ func (b *builder) buildSelectJoins(addrMap map[uintptr]field, join string, argsJ
 	b.tablesPk[c+1] = addrMap[argsJoins[1]].getPrimaryKey()
 }
 
+func (b *builder) buildPage() {
+	if b.limit != 0 {
+		b.sql.WriteString(fmt.Sprintf(" LIMIT %v", b.limit))
+	}
+	if b.offset != 0 {
+		b.sql.WriteString(fmt.Sprintf(" OFFSET %v", b.offset))
+	}
+}
+
 func (b *builder) buildSqlSelect() (err error) {
 	err = b.buildTables()
 	if err != nil {
 		return err
 	}
 	err = b.buildWhere()
+	b.buildPage()
 	b.sql.WriteByte(59)
 	return err
 }

@@ -33,6 +33,46 @@ func (s *stateSelect) Where(brs ...operator) *stateSelect {
 	return s
 }
 
+// Take takes i elements
+//
+// # Example
+//
+//	// takes frist 20 elements
+//	db.Select(db.Habitat).Take(20)
+//
+//	// skips 20 and takes next 20 elements
+//	db.Select(db.Habitat).Skip(20).Take(20).Scan(&h)
+func (s *stateSelect) Take(i uint) *stateSelect {
+	s.builder.limit = i
+	return s
+}
+
+// Skip skips i elements
+//
+// # Example
+//
+//	// skips frist 20 elements
+//	db.Select(db.Habitat).Skip(20)
+//
+//	// skips 20 and takes next 20 elements
+//	db.Select(db.Habitat).Skip(20).Take(20).Scan(&h)
+func (s *stateSelect) Skip(i uint) *stateSelect {
+	s.builder.offset = i
+	return s
+}
+
+// Page returns page p with i elements
+//
+// # Example
+//
+//	// returns first 20 elements
+//	db.Select(db.Habitat).Page(1, 20).Scan(&h)
+func (s *stateSelect) Page(p uint, i uint) *stateSelect {
+	s.builder.offset = i * (p - 1)
+	s.builder.limit = i
+	return s
+}
+
 // Join makes a join betwent the tables
 //
 // If the tables don't have a many to many or many to one
