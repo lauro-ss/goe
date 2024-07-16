@@ -41,8 +41,9 @@ type manyToOne struct {
 	pk          *pk
 	targetTable string
 	attributeStrings
-	targetPkName string
-	hasMany      bool
+	targetPkName   string
+	idFkStructName string //id + targetTable
+	hasMany        bool
 }
 
 func (m *manyToOne) getPrimaryKey() *pk {
@@ -59,6 +60,7 @@ func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany boo
 	mto.hasMany = hasMany
 	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
 	mto.structAttributeName = typeOf.Name()
+	mto.idFkStructName = targetPkName + typeOf.Name()
 	mto.targetPkName = targetPkName
 	return mto
 }
@@ -123,7 +125,7 @@ func (a *att) buildAttributeSelect(b *builder, i int) {
 
 func (m *manyToOne) buildAttributeSelect(b *builder, i int) {
 	b.sql.WriteString(m.selectName)
-	b.structColumns[i] = m.structAttributeName
+	b.structColumns[i] = m.idFkStructName
 }
 
 func (p *pk) buildAttributeInsert(b *builder) {

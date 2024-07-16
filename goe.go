@@ -3,6 +3,7 @@ package goe
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/lauro-ss/goe/utils"
@@ -36,17 +37,31 @@ func initField(valueOf reflect.Value, db *DB, driver Driver) {
 	db.addrMap[uintptr(valueOf.FieldByName(fieldName).Addr().UnsafePointer())] = p
 	var field reflect.StructField
 
+	manyToOnes := make([]string, 0)
 	for i := 0; i < valueOf.NumField(); i++ {
 		field = valueOf.Type().Field(i)
 		//skip primary key
 		if field.Name == fieldName {
 			continue
 		}
+		//skips many to one field
+		if slices.Contains(manyToOnes, field.Name) {
+			continue
+		}
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
 			handlerSlice(valueOf.Field(i).Type().Elem(), valueOf, i, p, db, driver)
 		case reflect.Struct:
-			handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db, driver)
+			fk := handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db, driver)
+			if fk != "" {
+				manyToOnes = append(manyToOnes, fk)
+				// remove fk field from attribute
+				for k, v := range db.addrMap {
+					if a, ok := v.(*att); ok && a.structAttributeName == fk {
+						delete(db.addrMap, k)
+					}
+				}
+			}
 		case reflect.Ptr:
 			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
 				if mto := isManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type(), driver); mto != nil {
@@ -54,6 +69,13 @@ func initField(valueOf reflect.Value, db *DB, driver Driver) {
 					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = mto
 					mto.pk = p
 					p.fks[key] = mto
+					manyToOnes = append(manyToOnes, mto.idFkStructName)
+					// remove fk field from attribute
+					for k, v := range db.addrMap {
+						if a, ok := v.(*att); ok && a.structAttributeName == mto.idFkStructName {
+							delete(db.addrMap, k)
+						}
+					}
 				}
 			} else {
 				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
@@ -64,7 +86,7 @@ func initField(valueOf reflect.Value, db *DB, driver Driver) {
 	}
 }
 
-func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB, driver Driver) {
+func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB, driver Driver) string {
 	switch targetTypeOf.Name() {
 	case "Time":
 		newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
@@ -74,8 +96,10 @@ func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *p
 			db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = mto
 			mto.pk = p
 			p.fks[key] = mto
+			return mto.idFkStructName
 		}
 	}
+	return ""
 }
 
 func handlerSlice(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB, driver Driver) {
