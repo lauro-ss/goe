@@ -179,12 +179,20 @@ func (b *builder) buildTables() (err error) {
 func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks []*pk) error {
 	switch fk := pk1.fks[pk2.table].(type) {
 	case *manyToOne:
+		for c := range pks[:i] {
+			//switch pks if pk2 is priority
+			if pks[c].table == pk2.table {
+				pk2 = pk1
+				pk1 = pks[c]
+				break
+			}
+		}
 		if fk.hasMany {
 			sql.WriteByte(10)
 			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk1.selectName, fk.selectName))
 		} else {
 			sql.WriteByte(10)
-			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, fk.selectName, pk2.selectName))
+			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk2.selectName, fk.selectName))
 		}
 	case *manyToMany:
 		for c := range pks[:i] {
@@ -246,12 +254,12 @@ func (b *builder) buildValues(value reflect.Value) string {
 
 	c := 2
 	b.sql.WriteString("$1")
-	buildValueField(value.FieldByName(b.attrNames[0]), b.attrNames[0], b)
+	buildValueField(value.FieldByName(b.attrNames[0]), b)
 	a := b.attrNames[1:]
 	for i := range a {
 		b.sql.WriteByte(44)
 		b.sql.WriteString(fmt.Sprintf("$%v", c))
-		buildValueField(value.FieldByName(a[i]), a[i], b)
+		buildValueField(value.FieldByName(a[i]), b)
 		c++
 	}
 	pk := b.tablesPk[0]
@@ -285,30 +293,18 @@ func (b *builder) buildBatchValues(value reflect.Value) string {
 func buildBatchValues(value reflect.Value, b *builder, c *int) {
 	b.sql.WriteByte(40)
 	b.sql.WriteString(fmt.Sprintf("$%v", *c))
-	buildValueField(value.FieldByName(b.attrNames[0]), b.attrNames[0], b)
+	buildValueField(value.FieldByName(b.attrNames[0]), b)
 	a := b.attrNames[1:]
 	for i := range a {
 		b.sql.WriteByte(44)
 		b.sql.WriteString(fmt.Sprintf("$%v", *c+1))
-		buildValueField(value.FieldByName(a[i]), a[i], b)
+		buildValueField(value.FieldByName(a[i]), b)
 		*c++
 	}
 	b.sql.WriteString(")")
 }
 
-func buildValueField(valueField reflect.Value, fieldName string, b *builder) {
-	switch valueField.Kind() {
-	case reflect.Struct:
-		if valueField.Type().Name() != "Time" {
-			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[fieldName]).Interface())
-			return
-		}
-	case reflect.Pointer:
-		if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
-			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[fieldName]).Interface())
-			return
-		}
-	}
+func buildValueField(valueField reflect.Value, b *builder) {
 	b.argsAny = append(b.argsAny, valueField.Interface())
 }
 
@@ -406,40 +402,18 @@ func (b *builder) buildUpdate(addrMap map[uintptr]field) {
 func (b *builder) buildSet(value reflect.Value) {
 	b.argsAny = make([]any, 0, len(b.attrNames))
 	var c uint16 = 1
-	buildSetField(value.FieldByName(b.structColumns[0]), b.structColumns[0], b.attrNames[0], b, c)
+	buildSetField(value.FieldByName(b.structColumns[0]), b.attrNames[0], b, c)
 
 	a := b.attrNames[1:]
 	s := b.structColumns[1:]
 	for i := range a {
 		b.sql.WriteByte(44)
 		c++
-		buildSetField(value.FieldByName(s[i]), s[i], a[i], b, c)
+		buildSetField(value.FieldByName(s[i]), a[i], b, c)
 	}
 }
 
-func buildSetField(valueField reflect.Value, structFieldName, fieldName string, b *builder, c uint16) {
-	switch valueField.Kind() {
-	case reflect.Struct:
-		if valueField.Type().Name() == "Time" {
-			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
-			b.argsAny = append(b.argsAny, valueField.Interface())
-			c++
-			return
-		}
-		if !valueField.FieldByName(b.targetFksNames[structFieldName]).IsZero() {
-			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
-			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[structFieldName]).Interface())
-			c++
-		}
-		return
-	case reflect.Pointer:
-		if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
-			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
-			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[structFieldName]).Interface())
-			c++
-			return
-		}
-	}
+func buildSetField(valueField reflect.Value, fieldName string, b *builder, c uint16) {
 	b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
 	b.argsAny = append(b.argsAny, valueField.Interface())
 	c++

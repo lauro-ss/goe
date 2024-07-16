@@ -19,14 +19,14 @@ func MigrateFrom(db any) *Migrator {
 	migrator.Tables = make([]any, 0)
 	for i := 0; i < valueOf.NumField(); i++ {
 		if valueOf.Field(i).Type().Elem().Name() != "DB" {
-			typeField(valueOf.Field(i).Elem(), migrator)
+			typeField(valueOf, valueOf.Field(i).Elem(), migrator)
 		}
 	}
 
 	return migrator
 }
 
-func typeField(valueOf reflect.Value, migrator *Migrator) {
+func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) {
 	p, fieldName := migratePk(valueOf.Type())
 
 	migrator.Tables = append(migrator.Tables, p)
@@ -40,19 +40,30 @@ func typeField(valueOf reflect.Value, migrator *Migrator) {
 		}
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
-			handlerSliceMigrate(field, valueOf.Field(i).Type().Elem(), valueOf, i, p, migrator)
+			handlerSliceMigrate(tables, field, valueOf.Field(i).Type().Elem(), valueOf, i, p, migrator)
 		case reflect.Struct:
 			handlerStructMigrate(field, valueOf.Field(i).Type(), valueOf, i, p, migrator)
 		case reflect.Ptr:
-			if valueOf.Field(i).Type().Elem().Kind() == reflect.Struct {
-				if mto := isMigrateManyToOne(valueOf.Field(i).Type().Elem(), valueOf.Type(), true); mto != nil {
-					key := utils.TableNamePattern(valueOf.Field(i).Type().Elem().Name())
+			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+			if table != "" {
+				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), true); mto != nil {
+					key := utils.TableNamePattern(table)
 					p.Fks[key] = mto
 				}
-			} else {
-				migrateAtt(valueOf, field, i, p, migrator)
+				//TODO: Add fk error
+				continue
 			}
+			migrateAtt(valueOf, field, i, p, migrator)
 		default:
+			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+			if table != "" {
+				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
+					key := utils.TableNamePattern(table)
+					p.Fks[key] = mto
+				}
+				//TODO: Add fk error
+				continue
+			}
 			migrateAtt(valueOf, field, i, p, migrator)
 		}
 	}
@@ -62,17 +73,21 @@ func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, 
 	switch targetTypeOf.Name() {
 	case "Time":
 		migrateAtt(valueOf, field, i, p, migrator)
-	default:
-		if mto := isMigrateManyToOne(valueOf.Field(i).Type(), valueOf.Type(), false); mto != nil {
-			key := utils.TableNamePattern(valueOf.Field(i).Type().Name())
-			p.Fks[key] = mto
-		}
 	}
 }
 
-func handlerSliceMigrate(field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) {
+func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
+		table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+		if table != "" {
+			if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
+				key := utils.TableNamePattern(table)
+				p.Fks[key] = mto
+			}
+			//TODO: Add fk error
+			return
+		}
 		migrateAtt(valueOf, field, i, p, migrator)
 	default:
 		if mtm := isMigrateManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
@@ -83,16 +98,12 @@ func handlerSliceMigrate(field reflect.StructField, targetTypeOf reflect.Type, v
 
 }
 
-func isMigrateManyToOne(targetTypeOf reflect.Type, typeOf reflect.Type, nullable bool) *MigrateManyToOne {
-	for i := 0; i < targetTypeOf.NumField(); i++ {
-		switch targetTypeOf.Field(i).Type.Kind() {
-		case reflect.Slice:
-			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				return createMigrateManyToOne(targetTypeOf, typeOf, false, nullable)
-			}
+func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type, nullable bool) *MigrateManyToOne {
+	for c := 0; c < tables.NumField(); c++ {
+		if tables.Field(c).Elem().Type().Name() == table {
+			return createMigrateManyToOne(tables.Field(c).Elem().Type(), typeOf, false, nullable)
 		}
 	}
-
 	return nil
 }
 
@@ -159,7 +170,7 @@ func createMigrateManyToMany(tag string, typeOf reflect.Type, targetTypeOf refle
 func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool) *MigrateManyToOne {
 	mto := new(MigrateManyToOne)
 	mto.TargetTable = utils.TableNamePattern(typeOf.Name())
-	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(primaryKeys(typeOf)[0].Name, typeOf.Name())) //TODO: Add a pattern for fk id
+	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(primaryKeys(typeOf)[0].Name, typeOf.Name()))
 	mto.HasMany = hasMany
 	mto.Nullable = nullable
 	return mto

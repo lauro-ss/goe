@@ -59,7 +59,7 @@ func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany boo
 		driver.KeywordHandler(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
 	mto.hasMany = hasMany
 	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
-	mto.structAttributeName = typeOf.Name()
+	mto.structAttributeName = targetPkName + typeOf.Name()
 	mto.idFkStructName = targetPkName + typeOf.Name()
 	mto.targetPkName = targetPkName
 	return mto
