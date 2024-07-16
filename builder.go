@@ -406,18 +406,18 @@ func (b *builder) buildUpdate(addrMap map[uintptr]field) {
 func (b *builder) buildSet(value reflect.Value) {
 	b.argsAny = make([]any, 0, len(b.attrNames))
 	var c uint16 = 1
-	buildSetField(value.FieldByName(b.structColumns[0]), b.attrNames[0], b, c)
+	buildSetField(value.FieldByName(b.structColumns[0]), b.structColumns[0], b.attrNames[0], b, c)
 
 	a := b.attrNames[1:]
 	s := b.structColumns[1:]
 	for i := range a {
 		b.sql.WriteByte(44)
 		c++
-		buildSetField(value.FieldByName(s[i]), a[i], b, c)
+		buildSetField(value.FieldByName(s[i]), s[i], a[i], b, c)
 	}
 }
 
-func buildSetField(valueField reflect.Value, fieldName string, b *builder, c uint16) {
+func buildSetField(valueField reflect.Value, structFieldName, fieldName string, b *builder, c uint16) {
 	switch valueField.Kind() {
 	case reflect.Struct:
 		if valueField.Type().Name() == "Time" {
@@ -426,16 +426,16 @@ func buildSetField(valueField reflect.Value, fieldName string, b *builder, c uin
 			c++
 			return
 		}
-		if !valueField.FieldByName(b.targetFksNames[fieldName]).IsZero() {
+		if !valueField.FieldByName(b.targetFksNames[structFieldName]).IsZero() {
 			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
-			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[fieldName]).Interface())
+			b.argsAny = append(b.argsAny, valueField.FieldByName(b.targetFksNames[structFieldName]).Interface())
 			c++
 		}
 		return
 	case reflect.Pointer:
 		if !valueField.IsNil() && valueField.Elem().Kind() == reflect.Struct {
 			b.sql.WriteString(fmt.Sprintf("%v = $%v", fieldName, c))
-			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[fieldName]).Interface())
+			b.argsAny = append(b.argsAny, valueField.Elem().FieldByName(b.targetFksNames[structFieldName]).Interface())
 			c++
 			return
 		}
