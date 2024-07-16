@@ -101,7 +101,14 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type, nullable bool) *MigrateManyToOne {
 	for c := 0; c < tables.NumField(); c++ {
 		if tables.Field(c).Elem().Type().Name() == table {
-			return createMigrateManyToOne(tables.Field(c).Elem().Type(), typeOf, false, nullable)
+			for i := 0; i < tables.Field(c).Elem().NumField(); i++ {
+				// check if there is a slice to typeOf
+				if tables.Field(c).Elem().Field(i).Kind() == reflect.Slice {
+					if tables.Field(c).Elem().Field(i).Type().Elem().Name() == typeOf.Name() {
+						return createMigrateManyToOne(tables.Field(c).Elem().Type(), typeOf, false, nullable)
+					}
+				}
+			}
 		}
 	}
 	return nil
