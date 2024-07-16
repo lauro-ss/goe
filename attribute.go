@@ -143,7 +143,6 @@ func (a *att) buildAttributeInsert(b *builder) {
 func (m *manyToOne) buildAttributeInsert(b *builder) {
 	b.sql.WriteString(m.attributeName)
 	b.attrNames = append(b.attrNames, m.structAttributeName)
-	b.targetFksNames[m.structAttributeName] = m.targetPkName
 }
 
 func (p *pk) buildAttributeUpdate(b *builder) {
@@ -161,7 +160,6 @@ func (a *att) buildAttributeUpdate(b *builder) {
 func (m *manyToOne) buildAttributeUpdate(b *builder) {
 	b.attrNames = append(b.attrNames, m.attributeName)
 	b.structColumns = append(b.structColumns, m.structAttributeName)
-	b.targetFksNames[m.structAttributeName] = m.targetPkName
 }
 
 func (p *pk) buildComplexOperator(o string, v any) operator {

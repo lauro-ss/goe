@@ -12,19 +12,18 @@ var ErrNoMatchesTables = errors.New("don't have any many to one or many to many 
 var ErrNotManyToMany = errors.New("don't have a many to many relationship")
 
 type builder struct {
-	sql            *strings.Builder
-	args           []uintptr
-	argsAny        []any
-	structColumns  []string          //select and update
-	attrNames      []string          //insert and update
-	targetFksNames map[string]string //insert and update
-	orderBy        string
-	limit          uint
-	offset         uint
-	joins          []string
-	brs            []operator
-	table          string
-	tablesPk       []*pk
+	sql           *strings.Builder
+	args          []uintptr
+	argsAny       []any
+	structColumns []string //select and update
+	attrNames     []string //insert and update
+	orderBy       string
+	limit         uint
+	offset        uint
+	joins         []string
+	brs           []operator
+	table         string
+	tablesPk      []*pk
 }
 
 func createBuilder() *builder {
@@ -222,7 +221,6 @@ func (b *builder) buildInsert(addrMap map[uintptr]field) {
 	b.sql.WriteString("INSERT ")
 	b.sql.WriteString("INTO ")
 
-	b.targetFksNames = make(map[string]string)
 	b.attrNames = make([]string, 0, len(b.args))
 	b.tablesPk = make([]*pk, 1)
 
@@ -385,7 +383,6 @@ func (b *builder) buildUpdate(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("UPDATE ")
 
-	b.targetFksNames = make(map[string]string)
 	b.structColumns = make([]string, 0, len(b.args))
 	b.attrNames = make([]string, 0, len(b.args))
 
