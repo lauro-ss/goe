@@ -60,7 +60,7 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 		case reflect.Slice:
 			err := handlerSlice(tables, valueOf.Field(i).Type().Elem(), valueOf, i, p, db, driver)
 			if err != nil {
-				return ErrInvalidManyToOne
+				return err
 			}
 		case reflect.Struct:
 			handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db, driver)
@@ -68,12 +68,25 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
 			if table != "" {
 				if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
-					key := driver.KeywordHandler(utils.TableNamePattern(table))
-					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = mto
-					mto.pk = p
-					p.fks[key] = mto
+					switch v := mto.(type) {
+					case *manyToOne:
+						key := driver.KeywordHandler(utils.TableNamePattern(table))
+						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
+						v.pk = p
+						p.fks[key] = v
+					case *oneToOne:
+						key := driver.KeywordHandler(utils.TableNamePattern(table))
+						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
+						v.pk = p
+						p.fks[key] = v
+					}
+
 				} else {
-					return fmt.Errorf("%w: field %q has table %q specified but target don't have a slice to %q", ErrInvalidManyToOne, valueOf.Type().Field(i).Name, table, valueOf.Type().Name())
+					return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
+						ErrInvalidManyToOne,
+						valueOf.Type().Field(i).Name,
+						valueOf.Type().Name(),
+						table)
 				}
 			} else {
 				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
@@ -83,12 +96,24 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
 			if table != "" {
 				if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
-					key := driver.KeywordHandler(utils.TableNamePattern(table))
-					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = mto
-					mto.pk = p
-					p.fks[key] = mto
+					switch v := mto.(type) {
+					case *manyToOne:
+						key := driver.KeywordHandler(utils.TableNamePattern(table))
+						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
+						v.pk = p
+						p.fks[key] = v
+					case *oneToOne:
+						key := driver.KeywordHandler(utils.TableNamePattern(table))
+						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
+						v.pk = p
+						p.fks[key] = v
+					}
 				} else {
-					return fmt.Errorf("%w: field  %q has table %q specified but target don't have a slice to %q", ErrInvalidManyToOne, valueOf.Type().Field(i).Name, table, valueOf.Type().Name())
+					return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
+						ErrInvalidManyToOne,
+						valueOf.Type().Field(i).Name,
+						valueOf.Type().Name(),
+						table)
 				}
 			} else {
 				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
@@ -111,12 +136,24 @@ func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf refle
 		table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
 		if table != "" {
 			if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
-				key := driver.KeywordHandler(utils.TableNamePattern(table))
-				db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = mto
-				mto.pk = p
-				p.fks[key] = mto
+				switch v := mto.(type) {
+				case *manyToOne:
+					key := driver.KeywordHandler(utils.TableNamePattern(table))
+					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
+					v.pk = p
+					p.fks[key] = v
+				case *oneToOne:
+					key := driver.KeywordHandler(utils.TableNamePattern(table))
+					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
+					v.pk = p
+					p.fks[key] = v
+				}
 			} else {
-				return fmt.Errorf("%w: field  %q has table %q specified but target don't have a slice to %q", ErrInvalidManyToOne, valueOf.Type().Field(i).Name, table, valueOf.Type().Name())
+				return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
+					ErrInvalidManyToOne,
+					valueOf.Type().Field(i).Name,
+					valueOf.Type().Name(),
+					table)
 			}
 		}
 		valueOf.Field(i).SetBytes([]byte{})
@@ -192,7 +229,7 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 	return nil
 }
 
-func isManyToOne(tables reflect.Value, typeOf reflect.Type, table string, driver Driver) *manyToOne {
+func isManyToOne(tables reflect.Value, typeOf reflect.Type, table string, driver Driver) field {
 	for c := 0; c < tables.NumField(); c++ {
 		if tables.Field(c).Elem().Type().Name() == table {
 			for i := 0; i < tables.Field(c).Elem().NumField(); i++ {
@@ -203,6 +240,7 @@ func isManyToOne(tables reflect.Value, typeOf reflect.Type, table string, driver
 					}
 				}
 			}
+			return createOneToOne(tables.Field(c).Elem().Type(), typeOf, driver)
 		}
 	}
 

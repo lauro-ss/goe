@@ -98,7 +98,7 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 
 }
 
-func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type, nullable bool) *MigrateManyToOne {
+func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type, nullable bool) any {
 	for c := 0; c < tables.NumField(); c++ {
 		if tables.Field(c).Elem().Type().Name() == table {
 			for i := 0; i < tables.Field(c).Elem().NumField(); i++ {
@@ -109,6 +109,7 @@ func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type,
 					}
 				}
 			}
+			return createMigrateOneToOne(tables.Field(c).Elem().Type(), typeOf, nullable)
 		}
 	}
 	return nil
@@ -183,6 +184,14 @@ func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasM
 	return mto
 }
 
+func createMigrateOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, nullable bool) *MigrateOneToOne {
+	mto := new(MigrateOneToOne)
+	mto.TargetTable = utils.TableNamePattern(typeOf.Name())
+	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(primaryKeys(typeOf)[0].Name, typeOf.Name()))
+	mto.Nullable = nullable
+	return mto
+}
+
 type MigratePk struct {
 	Table         string
 	AutoIncrement bool
@@ -197,6 +206,12 @@ type MigrateAtt struct {
 	Pk            *MigratePk
 	AttributeName string
 	DataType      string
+}
+
+type MigrateOneToOne struct {
+	TargetTable string
+	Nullable    bool
+	Id          string
 }
 
 type MigrateManyToOne struct {

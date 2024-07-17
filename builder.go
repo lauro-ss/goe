@@ -210,7 +210,18 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 			join,
 			pk2.table, fk.ids[pk2.table].selectName,
 			pk2.selectName))
+	case *oneToOne:
+		sql.WriteByte(10)
+		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk2.selectName, fk.selectName))
 	default:
+		if fk = pk2.fks[pk1.table]; fk != nil {
+			fk, ok := fk.(*oneToOne)
+			if ok {
+				sql.WriteByte(10)
+				sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, pk1.selectName, fk.selectName))
+				return nil
+			}
+		}
 		return fmt.Errorf("goe: the tables %s and %s %w", pk1.table, pk2.table, ErrNoMatchesTables)
 	}
 	return nil

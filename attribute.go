@@ -37,13 +37,30 @@ func createManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type
 	return mtm
 }
 
-type manyToOne struct {
-	pk          *pk
-	targetTable string
+type oneToOne struct {
+	pk *pk
 	attributeStrings
-	targetPkName   string
-	idFkStructName string //id + targetTable
-	hasMany        bool
+}
+
+func (o *oneToOne) getPrimaryKey() *pk {
+	return o.pk
+}
+
+func createOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, driver Driver) *oneToOne {
+	mto := new(oneToOne)
+	targetPkName := primaryKeys(typeOf)[0].Name
+	mto.selectName = fmt.Sprintf("%v.%v",
+		driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())),
+		driver.KeywordHandler(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
+	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
+	mto.structAttributeName = targetPkName + typeOf.Name()
+	return mto
+}
+
+type manyToOne struct {
+	pk *pk
+	attributeStrings
+	hasMany bool
 }
 
 func (m *manyToOne) getPrimaryKey() *pk {
@@ -53,15 +70,12 @@ func (m *manyToOne) getPrimaryKey() *pk {
 func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, driver Driver) *manyToOne {
 	mto := new(manyToOne)
 	targetPkName := primaryKeys(typeOf)[0].Name
-	mto.targetTable = driver.KeywordHandler(utils.TableNamePattern(typeOf.Name()))
 	mto.selectName = fmt.Sprintf("%v.%v",
 		driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())),
 		driver.KeywordHandler(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
 	mto.hasMany = hasMany
 	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
 	mto.structAttributeName = targetPkName + typeOf.Name()
-	mto.idFkStructName = targetPkName + typeOf.Name()
-	mto.targetPkName = targetPkName
 	return mto
 }
 
@@ -125,7 +139,12 @@ func (a *att) buildAttributeSelect(b *builder, i int) {
 
 func (m *manyToOne) buildAttributeSelect(b *builder, i int) {
 	b.sql.WriteString(m.selectName)
-	b.structColumns[i] = m.idFkStructName
+	b.structColumns[i] = m.structAttributeName
+}
+
+func (o *oneToOne) buildAttributeSelect(b *builder, i int) {
+	b.sql.WriteString(o.selectName)
+	b.structColumns[i] = o.structAttributeName
 }
 
 func (p *pk) buildAttributeInsert(b *builder) {
@@ -145,6 +164,11 @@ func (m *manyToOne) buildAttributeInsert(b *builder) {
 	b.attrNames = append(b.attrNames, m.structAttributeName)
 }
 
+func (o *oneToOne) buildAttributeInsert(b *builder) {
+	b.sql.WriteString(o.attributeName)
+	b.attrNames = append(b.attrNames, o.structAttributeName)
+}
+
 func (p *pk) buildAttributeUpdate(b *builder) {
 	if !p.autoIncrement {
 		b.attrNames = append(b.attrNames, p.attributeName)
@@ -162,6 +186,11 @@ func (m *manyToOne) buildAttributeUpdate(b *builder) {
 	b.structColumns = append(b.structColumns, m.structAttributeName)
 }
 
+func (o *oneToOne) buildAttributeUpdate(b *builder) {
+	b.attrNames = append(b.attrNames, o.attributeName)
+	b.structColumns = append(b.structColumns, o.structAttributeName)
+}
+
 func (p *pk) buildComplexOperator(o string, v any) operator {
 	return createComplexOperator(p.selectName, o, v, p)
 }
@@ -174,6 +203,10 @@ func (m *manyToOne) buildComplexOperator(o string, v any) operator {
 	return createComplexOperator(m.selectName, o, v, m.pk)
 }
 
+func (ot *oneToOne) buildComplexOperator(o string, v any) operator {
+	return createComplexOperator(ot.selectName, o, v, ot.pk)
+}
+
 func (p *pk) getSelect() string {
 	return p.selectName
 }
@@ -184,4 +217,8 @@ func (a *att) getSelect() string {
 
 func (m *manyToOne) getSelect() string {
 	return m.selectName
+}
+
+func (o *oneToOne) getSelect() string {
+	return o.selectName
 }
