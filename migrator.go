@@ -3,7 +3,6 @@ package goe
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/lauro-ss/goe/utils"
 )
@@ -234,7 +233,7 @@ type AttributeStrings struct {
 func setAttributeStrings(attributeName string, dataType string) AttributeStrings {
 	return AttributeStrings{
 		AttributeName: attributeName,
-		DataType:      strings.ToLower(dataType)}
+		DataType:      dataType}
 }
 
 func migratePk(typeOf reflect.Type) (*MigratePk, string) {
