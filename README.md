@@ -15,6 +15,18 @@
 - [How to Use](#how-to-use)
     - [Quick Start](#quick-start-⚡)
     - [Database](#database-📦)
+		- [Struct Mapping](#struct-mapping)
+		- [Setting primary key](#setting-primary-key)
+		- [Setting type](#setting-type)
+		- [Relationship](#relationship)
+			- [One to One](#one-to-one)
+			- [Many to One](#many-to-one)
+			- [Many to Many](#many-to-many)
+		- [Index](#index)
+			- [Create Index](#create-index)
+			- [Unique Index](#unique-index)
+			- [Function Index](#function-index)
+			- [Two Columns Index](#two-columns-index)
     - [Select](#select-🏷️)
         - [Select From](#select-from)
         - [Select Specific Fields](#select-specific-fields)
@@ -79,7 +91,7 @@ func main() {
 		return
 	}
 
-	// Auto migrate all the database tables and print SQL
+	// migrate all the database tables and print SQL
 	db.Migrate(goe.MigrateFrom(db))
 
 	var a Animal
@@ -89,8 +101,8 @@ func main() {
 		return
 	}
 	if a.Id == 0 {
-		a.Name = "Beaver"
-		a.Emoji = "🦫"
+		a.Name = "Elephant"
+		a.Emoji = "🐘"
 		_, err := db.Insert(db.Animal).Value(&a)
 		if err != nil {
 			fmt.Println("A error occurred when inserting animal", err)
@@ -105,45 +117,149 @@ func main() {
 ```
 ### Database 📦
 ```
-// By default field "Id" is primary key
-// By default all integers types are auto incremeted
-type User struct {
-	Id       uint
-	Name     string
-	Password string
-	Roles    []Role `goe:"table:UserRole"`
-	UserLogs []UserLog
-}
-
-// Many to one relantionship with User
-// IdUser points to the user id in User table
-type UserLog struct {
-	Id       uint
-	Action   string
-	DateTime time.Time
-	IdUser   User
-}
-
-// For now, in a many to many relationship
-// it's necessary specify the table in goe tag
-type Role struct {
-	Id    uint
-	Name  string
-	Users []User `goe:"table:UserRole"`
-}
-
-// In goe, it's necessary to define a Database struct
-// the Database struct implements *goe.DB and all
-// the structs that's it's to be mappend
-//
-// It's through the Database struct that you will
-// interact with your database
 type Database struct {
 	User    *User
 	Role    *Role
 	UserLog *UserLog
 	*goe.DB
 }
+```
+> In goe, it's necessary to define a Database struct,
+this struct implements *goe.DB and a pointer to all
+the structs that's it's to be mappend
+
+> It's through the Database struct that you will
+interact with your database
+#### Struct mapping
+```
+type User struct {
+	Id       uint
+	Name     string
+	Password string
+}
+```
+> By default the field "Id" is primary key and all ids of integers are auto increment
+#### Setting primary key
+```
+type User struct {
+	Id       uint `goe:"pk"`
+	Name     string
+	Password string
+}
+```
+> In case you want to specify 
+a primary key use the tag value "pk"
+#### Setting type
+```
+type User struct {
+	Id       string `goe:"pk;type:uuid"`
+	Name     string `goe:"type:varchar(50)"`
+	Password string
+}
+```
+> You can specify a type using the tag value "type"
+#### Relationship
+##### One To One
+```
+type User struct {
+	Id       uint
+	Name     string
+	Password string
+}
+
+type UserLog struct {
+	Id       uint
+	Action   string
+	DateTime time.Time
+	IdUser   uint `goe:"table:User"`
+}
+```
+> User has one UserLog
+
+> In goe it's necessary to use the tag value "table" in a field named with the pattern "Id + Table"
+##### Many To One
+```
+type User struct {
+	Id       uint
+	Name     string
+	Password string
+	UserLogs []UserLog
+}
+
+type UserLog struct {
+	Id       uint
+	Action   string
+	DateTime time.Time
+	IdUser   uint `goe:"table:User"`
+}
+```
+> User has many UserLog
+
+> The difference from one to one and many to one it's the add of a slice field on the "many" struct
+
+> In goe it's necessary to use the tag value "table" in a field named with the pattern "Id + Table"
+##### Many to Many
+```
+type User struct {
+	Id       uint
+	Name     string
+	Password string
+	Roles    []Role `goe:"table:UserRole"`
+}
+
+type Role struct {
+	Id    uint
+	Name  string
+	Users []User `goe:"table:UserRole"`
+}
+```
+> One user has many roles and one role has many users
+
+> In goe it's necessary to use the tag value "table" in both slice fields, over the hood goe will create a table "UserRole"
+
+> To manipulete the table "UserRole" use the methods with signature "In", like "InsertIn", "UpdateIn" and "DeleteIn"
+#### Index
+##### Create Index
+```
+type User struct {
+	Id       uint
+	Name     string
+	Email 	 string `goe:"index(n:idx_email)"`
+}
+```
+> To create a index you need to use the function tag index(), "n" is the parameter for name
+##### Unique Index
+```
+type User struct {
+	Id       uint
+	Name     string
+	Email    string `goe:"index(unique n:idx_email)"`
+}
+```
+> To create a unique index you need to pass the "unique" word inside index()
+##### Function Index
+```
+type User struct {
+	Id       uint
+	Name     string
+	Email    string `goe:"index(n:idx_email f:lower)"`
+}
+```
+> To create a function index you need to pass the "f" parameter with the function name
+##### Two Columns Index
+```
+type User struct {
+	Id       uint
+	Name    string `goe:"index(unique n:idx_name_email f:lower)"`
+	Email   string `goe:"index(unique n:idx_name_email f:lower)"`
+}
+```
+> To create a two columns index it's necessary to inform the index name in both columns
+
+> If you want to create a index for email and mantain the two columns index, just write a comma and you can create a index in the way you want.
+
+```
+`goe:"index(unique n:idx_name_email f:lower, n:idx_email)"`
 ```
 ### Select 🏷️
 #### Select From
