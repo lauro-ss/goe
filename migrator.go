@@ -9,6 +9,7 @@ import (
 
 type Migrator struct {
 	Tables []any
+	Error  error
 }
 
 func MigrateFrom(db any) *Migrator {
@@ -18,16 +19,21 @@ func MigrateFrom(db any) *Migrator {
 	migrator.Tables = make([]any, 0)
 	for i := 0; i < valueOf.NumField(); i++ {
 		if valueOf.Field(i).Type().Elem().Name() != "DB" {
-			typeField(valueOf, valueOf.Field(i).Elem(), migrator)
+			migrator.Error = typeField(valueOf, valueOf.Field(i).Elem(), migrator)
+			if migrator.Error != nil {
+				return migrator
+			}
 		}
 	}
 
 	return migrator
 }
 
-func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) {
-	p, fieldName := migratePk(valueOf.Type())
-
+func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) error {
+	p, fieldName, err := migratePk(valueOf.Type())
+	if err != nil {
+		return err
+	}
 	migrator.Tables = append(migrator.Tables, p)
 	var field reflect.StructField
 
@@ -39,7 +45,10 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 		}
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
-			handlerSliceMigrate(tables, field, valueOf.Field(i).Type().Elem(), valueOf, i, p, migrator)
+			err = handlerSliceMigrate(tables, field, valueOf.Field(i).Type().Elem(), valueOf, i, p, migrator)
+			if err != nil {
+				return err
+			}
 		case reflect.Struct:
 			handlerStructMigrate(field, valueOf.Field(i).Type(), valueOf, i, p, migrator)
 		case reflect.Ptr:
@@ -48,9 +57,13 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), true); mto != nil {
 					key := utils.TableNamePattern(table)
 					p.Fks[key] = mto
+					continue
 				}
-				//TODO: Add fk error
-				continue
+				return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
+					ErrInvalidManyToOne,
+					valueOf.Type().Field(i).Name,
+					valueOf.Type().Name(),
+					table)
 			}
 			migrateAtt(valueOf, field, i, p, migrator)
 		default:
@@ -59,13 +72,18 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
 					key := utils.TableNamePattern(table)
 					p.Fks[key] = mto
+					continue
 				}
-				//TODO: Add fk error
-				continue
+				return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
+					ErrInvalidManyToOne,
+					valueOf.Type().Field(i).Name,
+					valueOf.Type().Name(),
+					table)
 			}
 			migrateAtt(valueOf, field, i, p, migrator)
 		}
 	}
+	return nil
 }
 
 func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) {
@@ -75,7 +93,7 @@ func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, 
 	}
 }
 
-func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) {
+func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) error {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
 		table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
@@ -83,9 +101,13 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 			if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
 				key := utils.TableNamePattern(table)
 				p.Fks[key] = mto
+				return nil
 			}
-			//TODO: Add fk error
-			return
+			return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
+				ErrInvalidManyToOne,
+				valueOf.Type().Field(i).Name,
+				valueOf.Type().Name(),
+				table)
 		}
 		migrateAtt(valueOf, field, i, p, migrator)
 	default:
@@ -94,7 +116,7 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 			p.Fks[key] = mtm
 		}
 	}
-
+	return nil
 }
 
 func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type, nullable bool) any {
@@ -236,21 +258,20 @@ func setAttributeStrings(attributeName string, dataType string) AttributeStrings
 		DataType:      dataType}
 }
 
-func migratePk(typeOf reflect.Type) (*MigratePk, string) {
+func migratePk(typeOf reflect.Type) (*MigratePk, string, error) {
 	var p *MigratePk
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
 		p = createMigratePk(typeOf.Name(), id.Name, isAutoIncrement(id), getType(id))
-		return p, id.Name
+		return p, id.Name, nil
 	}
 
 	fields := fieldsByTags("pk", typeOf)
 	if len(fields) == 0 {
-		//Set anonymous pk
-		return nil, ""
+		return nil, "", fmt.Errorf("%w: struct %q don't have a primary key setted", ErrStructWithoutPrimaryKey, typeOf.Name())
 	}
 	p = createMigratePk(typeOf.Name(), fields[0].Name, isAutoIncrement(fields[0]), getType(fields[0]))
-	return p, fields[0].Name
+	return p, fields[0].Name, nil
 }
 
 func migrateAtt(valueOf reflect.Value, field reflect.StructField, i int, pk *MigratePk, m *Migrator) {

@@ -3,7 +3,6 @@ package goe
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 )
 
@@ -15,14 +14,16 @@ type DB struct {
 	driver   Driver
 }
 
-func (db *DB) Migrate(m *Migrator) {
+func (db *DB) Migrate(m *Migrator) error {
 	c, err := db.ConnPool.Conn(context.Background())
 	if err != nil {
-		//TODO: Add Error handler
-		fmt.Println(err)
-		return
+		return err
+	}
+	if m.Error != nil {
+		return m.Error
 	}
 	db.driver.Migrate(m, c)
+	return nil
 }
 
 // Select creates a select state with passed args

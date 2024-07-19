@@ -10,6 +10,7 @@ import (
 )
 
 var ErrInvalidManyToOne = errors.New("goe")
+var ErrStructWithoutPrimaryKey = errors.New("goe")
 
 func Open(db any, driver Driver) error {
 	valueOf := reflect.ValueOf(db)
@@ -46,7 +47,10 @@ func Open(db any, driver Driver) error {
 }
 
 func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Driver) error {
-	p, fieldName := getPk(valueOf.Type(), driver)
+	p, fieldName, err := getPk(valueOf.Type(), driver)
+	if err != nil {
+		return err
+	}
 	db.addrMap[uintptr(valueOf.FieldByName(fieldName).Addr().UnsafePointer())] = p
 	var field reflect.StructField
 
@@ -176,21 +180,20 @@ func newAttr(valueOf reflect.Value, i int, p *pk, addr uintptr, db *DB, d Driver
 	db.addrMap[addr] = at
 }
 
-func getPk(typeOf reflect.Type, driver Driver) (*pk, string) {
+func getPk(typeOf reflect.Type, driver Driver) (*pk, string, error) {
 	var p *pk
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
 		p = createPk(typeOf.Name(), id.Name, isAutoIncrement(id), driver)
-		return p, id.Name
+		return p, id.Name, nil
 	}
 
 	fields := fieldsByTags("pk", typeOf)
 	if len(fields) == 0 {
-		//TODO: Set anonymous pk
-		return nil, ""
+		return nil, "", fmt.Errorf("%w: struct %q don't have a primary key setted", ErrStructWithoutPrimaryKey, typeOf.Name())
 	}
 	p = createPk(typeOf.Name(), fields[0].Name, isAutoIncrement(fields[0]), driver)
-	return p, fields[0].Name
+	return p, fields[0].Name, nil
 }
 
 func isAutoIncrement(id reflect.StructField) bool {
