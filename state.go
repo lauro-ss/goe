@@ -3,7 +3,6 @@ package goe
 import (
 	"errors"
 	"fmt"
-	"math"
 	"reflect"
 )
 
@@ -20,11 +19,10 @@ var ErrInvalidInsertInValue = errors.New("goe: invalid insertIn value. try sendi
 var ErrInvalidUpdateValue = errors.New("goe: invalid update value. try sending a struct or a pointer to struct as value")
 
 type stateSelect struct {
-	BuildPage bool
-	conn      Connection
-	addrMap   map[uintptr]field
-	builder   *builder
-	err       error
+	conn    Connection
+	addrMap map[uintptr]field
+	builder *builder
+	err     error
 }
 
 func createSelectState(conn Connection, e error) *stateSelect {
@@ -72,7 +70,6 @@ func (s *stateSelect) Skip(i uint) *stateSelect {
 //	// returns first 20 elements
 //	db.Select(db.Habitat).Page(1, 20).Scan(&h)
 func (s *stateSelect) Page(p uint, i uint) *stateSelect {
-	s.BuildPage = true
 	s.builder.offset = i * (p - 1)
 	s.builder.limit = i
 	return s
@@ -224,51 +221,25 @@ func (s *stateSelect) querySelect(args []uintptr) *stateSelect {
 //	// using slice
 //	var a []Animal
 //	db.Select(db.Animal).Scan(&a)
-func (s *stateSelect) Scan(target any) QueryResult {
-	var qr QueryResult
+func (s *stateSelect) Scan(target any) (string, error) {
 	if s.err != nil {
-		qr.Error = s.err
-		return qr
+		return "", s.err
 	}
 
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
-		qr.Error = ErrInvalidScan
-		return qr
+		return "", ErrInvalidScan
 	}
 
 	//generate query
-	s.err = s.builder.buildSqlSelect(s.BuildPage)
+	s.err = s.builder.buildSqlSelect()
 	if s.err != nil {
-		qr.Error = s.err
-		return qr
+		return "", s.err
 	}
 
-	if s.BuildPage {
-		var count float64
-		s.err = handlerCount(s.conn, s.builder.sqlCount.String(), s.builder.argsAny, &count)
-		if s.err != nil {
-			qr.Error = s.err
-			return qr
-		}
-		qr.Pages = int(math.Ceil(count / float64(s.builder.limit)))
-	}
-
-	s.builder.sqlSelect.WriteString(s.builder.sql.String())
-	sql := s.builder.sqlSelect.String()
-	qr.Error = handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit)
-	qr.Sql = sql
-	return qr
-}
-
-// QueryResult is the return value from select
-//
-// If you call a Page() method, Pages will be the number of pages
-type QueryResult struct {
-	Pages int
-	Sql   string
-	Error error
+	sql := s.builder.sql.String()
+	return sql, handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit)
 }
 
 /*
