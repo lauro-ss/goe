@@ -128,22 +128,22 @@ func createAtt(attributeName string, pk *pk, d Driver) *att {
 }
 
 func (p *pk) buildAttributeSelect(b *builder, i int) {
-	b.sql.WriteString(p.selectName)
+	b.sqlSelect.WriteString(p.selectName)
 	b.structColumns[i] = p.structAttributeName
 }
 
 func (a *att) buildAttributeSelect(b *builder, i int) {
-	b.sql.WriteString(a.selectName)
+	b.sqlSelect.WriteString(a.selectName)
 	b.structColumns[i] = a.structAttributeName
 }
 
 func (m *manyToOne) buildAttributeSelect(b *builder, i int) {
-	b.sql.WriteString(m.selectName)
+	b.sqlSelect.WriteString(m.selectName)
 	b.structColumns[i] = m.structAttributeName
 }
 
 func (o *oneToOne) buildAttributeSelect(b *builder, i int) {
-	b.sql.WriteString(o.selectName)
+	b.sqlSelect.WriteString(o.selectName)
 	b.structColumns[i] = o.structAttributeName
 }
 

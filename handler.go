@@ -6,6 +6,11 @@ import (
 	"reflect"
 )
 
+func handlerCount(conn Connection, sqlQuery string, args []any, count *float64) error {
+	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
+	return row.Scan(count)
+}
+
 func handlerValues(conn Connection, sqlQuery string, args []any) error {
 	defer conn.Close()
 

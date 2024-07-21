@@ -12,6 +12,8 @@ var ErrNoMatchesTables = errors.New("don't have any many to one or many to many 
 var ErrNotManyToMany = errors.New("don't have a many to many relationship")
 
 type builder struct {
+	sqlSelect     *strings.Builder
+	sqlCount      *strings.Builder
 	sql           *strings.Builder
 	args          []uintptr
 	argsAny       []any
@@ -28,24 +30,24 @@ type builder struct {
 
 func createBuilder() *builder {
 	return &builder{
-		sql: &strings.Builder{}}
+		sql: &strings.Builder{}, sqlSelect: &strings.Builder{}, sqlCount: &strings.Builder{}}
 }
 
 func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
-	b.sql.WriteString("SELECT ")
+	b.sqlSelect.WriteString("SELECT ")
 
 	b.structColumns = make([]string, len(b.args))
 	b.tablesPk = make([]*pk, 1)
 
 	for i := range b.args[:len(b.args)-1] {
 		addrMap[b.args[i]].buildAttributeSelect(b, i)
-		b.sql.WriteByte(44)
+		b.sqlSelect.WriteByte(44)
 	}
 
 	addrMap[b.args[len(b.args)-1]].buildAttributeSelect(b, len(b.args)-1)
-	b.sql.WriteString(" FROM ")
-	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
+	b.sqlSelect.WriteString(" FROM ")
+	b.sqlSelect.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 }
 
@@ -66,12 +68,20 @@ func (b *builder) buildPage() {
 	}
 }
 
-func (b *builder) buildSqlSelect() (err error) {
+func (b *builder) getCount() {
+	b.sqlCount.WriteString("SELECT COUNT(*) FROM " + b.tablesPk[0].table)
+	b.sqlCount.WriteString(b.sql.String())
+}
+
+func (b *builder) buildSqlSelect(pageCount bool) (err error) {
 	err = b.buildTables()
 	if err != nil {
 		return err
 	}
 	err = b.buildWhere()
+	if pageCount {
+		b.getCount()
+	}
 	b.sql.WriteString(b.orderBy)
 	b.buildPage()
 	b.sql.WriteByte(59)
