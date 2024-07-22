@@ -222,3 +222,16 @@ func (m *manyToOne) getSelect() string {
 func (o *oneToOne) getSelect() string {
 	return o.selectName
 }
+
+type aggregate struct {
+	function string
+	field    field
+}
+
+func createAggregate(function string, f field) aggregate {
+	return aggregate{function: function, field: f}
+}
+
+func (a aggregate) String() string {
+	return fmt.Sprintf("%v(%v)", a.function, a.field.getSelect())
+}

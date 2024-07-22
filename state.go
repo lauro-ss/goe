@@ -86,6 +86,9 @@ func (s *stateSelect) Page(p uint, i uint) *stateSelect {
 //	db.Select(db.Food).Join(db.Animal, db.Food).
 //		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) Join(t1 any, t2 any) *stateSelect {
+	if s.err != nil {
+		return s
+	}
 	args, err := getArgsIn(t1, t2)
 	if err != nil {
 		s.err = err
@@ -106,6 +109,9 @@ func (s *stateSelect) Join(t1 any, t2 any) *stateSelect {
 //	db.Select(db.Food).InnerJoin(db.Animal, db.Food).
 //		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) InnerJoin(t1 any, t2 any) *stateSelect {
+	if s.err != nil {
+		return s
+	}
 	args, err := getArgsIn(t1, t2)
 	if err != nil {
 		s.err = err
@@ -126,6 +132,9 @@ func (s *stateSelect) InnerJoin(t1 any, t2 any) *stateSelect {
 //	db.Select(db.Food).RightJoin(db.Animal, db.Food).
 //		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) RightJoin(t1 any, t2 any) *stateSelect {
+	if s.err != nil {
+		return s
+	}
 	args, err := getArgsIn(t1, t2)
 	if err != nil {
 		s.err = err
@@ -146,6 +155,9 @@ func (s *stateSelect) RightJoin(t1 any, t2 any) *stateSelect {
 //	db.Select(db.Food).LeftJoin(db.Animal, db.Food).
 //		Where(db.Equals(&db.Animal.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")).Scan(&a)
 func (s *stateSelect) LeftJoin(t1 any, t2 any) *stateSelect {
+	if s.err != nil {
+		return s
+	}
 	args, err := getArgsIn(t1, t2)
 	if err != nil {
 		s.err = err
@@ -193,9 +205,13 @@ func (s *stateSelect) OrderByDesc(arg any) *stateSelect {
 	return s
 }
 
-func (s *stateSelect) querySelect(args []uintptr) *stateSelect {
+func (s *stateSelect) querySelect(args []uintptr, aggregates []aggregate) *stateSelect {
+	if len(args) == 0 && len(aggregates) == 0 {
+		s.err = ErrInvalidArg
+	}
 	if s.err == nil {
 		s.builder.args = args
+		s.builder.aggregates = aggregates
 		s.builder.buildSelect(s.addrMap)
 	}
 	return s

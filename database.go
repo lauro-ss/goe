@@ -54,19 +54,27 @@ func (db *DB) Select(args ...any) *stateSelect {
 
 // SelectContext creates a select state with passed args
 func (db *DB) SelectContext(ctx context.Context, args ...any) *stateSelect {
-	stringArgs, err := getArgs(db.addrMap, args...)
+	uintArgs, aggregates, err := getArgsSelect(db.addrMap, args...)
 
 	var state *stateSelect
 	if err != nil {
 		state = createSelectState(nil, err)
-		return state.querySelect(nil)
+		return state.querySelect(nil, nil)
 	}
 
 	conn, err := db.ConnPool.Conn(ctx)
 	state = createSelectState(conn, err)
 
 	state.addrMap = db.addrMap
-	return state.querySelect(stringArgs)
+	return state.querySelect(uintArgs, aggregates)
+}
+
+func (db *DB) Count(arg any) any {
+	f := getArg(arg, db.addrMap)
+	if f == nil {
+		return nil
+	}
+	return createAggregate("COUNT", f)
 }
 
 // Insert creates a insert state for table
@@ -419,6 +427,38 @@ func (db *DB) And() operator {
 //	)
 func (db *DB) Or() operator {
 	return simpleOperator{operator: "OR"}
+}
+
+func getArgsSelect(addrMap map[uintptr]field, args ...any) ([]uintptr, []aggregate, error) {
+	uintArgs := make([]uintptr, 0)
+	aggregates := make([]aggregate, 0)
+	for i := range args {
+		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
+			valueOf := reflect.ValueOf(args[i]).Elem()
+			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
+				var fieldOf reflect.Value
+				for i := 0; i < valueOf.NumField(); i++ {
+					fieldOf = valueOf.Field(i)
+					if fieldOf.Kind() == reflect.Slice && fieldOf.Type().Elem().Kind() == reflect.Struct {
+						continue
+					}
+					addr := uintptr(fieldOf.Addr().UnsafePointer())
+					if addrMap[addr] != nil {
+						uintArgs = append(uintArgs, addr)
+					}
+				}
+			} else {
+				uintArgs = append(uintArgs, uintptr(valueOf.Addr().UnsafePointer()))
+			}
+		} else {
+			if a, ok := args[i].(aggregate); ok {
+				aggregates = append(aggregates, a)
+				continue
+			}
+			return nil, nil, ErrInvalidArg
+		}
+	}
+	return uintArgs, aggregates, nil
 }
 
 func getArgs(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {

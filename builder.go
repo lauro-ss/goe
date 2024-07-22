@@ -14,6 +14,7 @@ var ErrNotManyToMany = errors.New("don't have a many to many relationship")
 type builder struct {
 	sql           *strings.Builder
 	args          []uintptr
+	aggregates    []aggregate
 	argsAny       []any
 	structColumns []string //select and update
 	attrNames     []string //insert and update
@@ -35,18 +36,41 @@ func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("SELECT ")
 
-	b.structColumns = make([]string, len(b.args))
+	if len(b.aggregates) > 0 {
+		b.buildAggregates()
+	}
+
+	lenArgs := len(b.args)
+	if lenArgs == 0 {
+		return
+	}
+
+	b.structColumns = make([]string, lenArgs)
 	b.tablesPk = make([]*pk, 1)
 
-	for i := range b.args[:len(b.args)-1] {
+	for i := range b.args[:lenArgs-1] {
 		addrMap[b.args[i]].buildAttributeSelect(b, i)
 		b.sql.WriteByte(44)
 	}
 
-	addrMap[b.args[len(b.args)-1]].buildAttributeSelect(b, len(b.args)-1)
+	addrMap[b.args[lenArgs-1]].buildAttributeSelect(b, lenArgs-1)
 	b.sql.WriteString(" FROM ")
 	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
+}
+
+func (b *builder) buildAggregates() {
+	for i := range b.aggregates[:len(b.aggregates)-1] {
+		b.sql.WriteString(b.aggregates[i].String())
+		b.sql.WriteByte(44)
+	}
+	b.sql.WriteString(b.aggregates[len(b.aggregates)-1].String())
+	if len(b.args) == 0 {
+		b.tablesPk = make([]*pk, 1)
+		b.sql.WriteString(" FROM ")
+		b.sql.WriteString(b.aggregates[0].field.getPrimaryKey().table)
+		b.tablesPk[0] = b.aggregates[0].field.getPrimaryKey()
+	}
 }
 
 func (b *builder) buildSelectJoins(addrMap map[uintptr]field, join string, argsJoins []uintptr) {
