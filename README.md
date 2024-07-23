@@ -33,8 +33,17 @@
 	- [Select Join](#select-join)
 	- [Pagination](#pagination)
 - [Insert](#insert)
+	- [Insert Table](#insert-table)
+	- [Insert Batch Table](#insert-batch-table)
+	- [Insert With Foreign Key](#insert-with-foreign-key)
+	- [Insert Many to Many Table](#insert-many-to-many-table)
+	- [Insert Batch Many to Many Table](#insert-batch-many-to-many-table)
 - [Update](#update)
+	- [Update Table](#update-table)
+	- [Update Many to Many Table](#update-many-to-many-table)
 - [Delete](#delete)
+	- [Delete Table](#delete-table)
+	- [Delete Many To Many Table](#delete-many-to-many-table)
 
 ## Install
 ```
@@ -335,4 +344,55 @@ db.InsertIn(db.User, db.Role).Values(&ids)
 
 > If the ids are of diffrent type, use a slice of type any
 ## Update
+### Update Table
+```
+var animal Animal
+animal.Name = "Cat"
+
+db.Update(db.Animal).Value(animal)
+```
+> Update all rows with animal value
+```
+var animal Animal
+animal.Name = "Cat"
+animal.Id = 10
+
+db.Update(db.Animal).Where(db.Equals(&db.Animal.Id, animal.Id)).Value(animal)
+```
+> Update single row by where id
+
+> For update you can pass a pointer to struct or a value to struct
+
+### Update Many To Many Table
+```
+db.UpdateIn(db.Animal, db.Food).Where(
+		db.Equals(&db.Animal.Id, 10),
+		db.And(),
+		db.Equals(&db.Food.Id, 20)).
+		Value(25)
+```
+> Update one row in a many to many table (AnimalFood) where the id of animal is 10 and food is 20 set the value 25 for IdFood.
+
+> If you want to change the value of IdAnimal, just switch from "db.UpdateIn(db.Animal, db.Food)" to "db.UpdateIn(db.Food, db.Animal)"
+
+> As in a many to many table, the pair of ids is the primary key, so if you try to update more then one row a primary key constraint error will be raised
 ## Delete
+### Delete Table
+```
+db.Delete(db.Animal).Where()
+```
+> Delete all records from Animal
+
+```
+db.Delete(db.Animal).Where(db.Equals(&db.Animal.Id, 10))
+```
+> Delete the record of id 10 in Animal
+### Delete Many to Many Table
+```
+db.DeleteIn(db.Animal, db.Food).Where()
+```
+> Delete all records from AnimalFood
+```
+db.DeleteIn(db.Animal, db.Food).Where(db.Equals(&db.Food.Id, 20))
+```
+> Delete all records of id 20 from AnimalFood
