@@ -202,20 +202,20 @@ func (b *builder) buildTables() (err error) {
 func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks []*pk) error {
 	switch fk := pk1.fks[pk2.table].(type) {
 	case *manyToOne:
+		table := pk2.table
 		for c := range pks[:i] {
-			//switch pks if pk2 is priority
+			//switch table if pk2 is priority
 			if pks[c].table == pk2.table {
-				pk2 = pk1
-				pk1 = pks[c]
+				table = pk1.table
 				break
 			}
 		}
 		if fk.hasMany {
 			sql.WriteByte(10)
-			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk1.selectName, fk.selectName))
+			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk1.selectName, fk.selectName))
 		} else {
 			sql.WriteByte(10)
-			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk2.selectName, fk.selectName))
+			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk2.selectName, fk.selectName))
 		}
 	case *manyToMany:
 		for c := range pks[:i] {
