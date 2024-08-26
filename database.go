@@ -8,7 +8,12 @@ import (
 
 var ErrInvalidArg = errors.New("goe: invalid argument. try sending a pointer as argument")
 
+type Config struct {
+	LogQuery bool
+}
+
 type DB struct {
+	config   *Config
 	ConnPool ConnectionPool
 	addrMap  map[uintptr]field
 	driver   Driver
@@ -58,12 +63,12 @@ func (db *DB) SelectContext(ctx context.Context, args ...any) *stateSelect {
 
 	var state *stateSelect
 	if err != nil {
-		state = createSelectState(nil, err)
+		state = createSelectState(nil, db.config, err)
 		return state.querySelect(nil, nil)
 	}
 
 	conn, err := db.ConnPool.Conn(ctx)
-	state = createSelectState(conn, err)
+	state = createSelectState(conn, db.config, err)
 
 	state.addrMap = db.addrMap
 	return state.querySelect(uintArgs, aggregates)
@@ -105,12 +110,12 @@ func (db *DB) InsertContext(ctx context.Context, table any) *stateInsert {
 
 	var state *stateInsert
 	if err != nil {
-		state = createInsertState(nil, err)
+		state = createInsertState(nil, db.config, err)
 		return state.queryInsert(nil, nil)
 	}
 
 	conn, err := db.ConnPool.Conn(ctx)
-	state = createInsertState(conn, err)
+	state = createInsertState(conn, db.config, err)
 
 	return state.queryInsert(stringArgs, db.addrMap)
 }
@@ -146,12 +151,12 @@ func (db *DB) InsertInContext(ctx context.Context, table1 any, table2 any) *stat
 
 	var state *stateInsertIn
 	if err != nil {
-		state = createInsertStateIn(nil, err)
+		state = createInsertStateIn(nil, db.config, err)
 		return state.queryInsertIn(nil, nil)
 	}
 
 	conn, err := db.ConnPool.Conn(ctx)
-	state = createInsertStateIn(conn, err)
+	state = createInsertStateIn(conn, db.config, err)
 
 	return state.queryInsertIn(stringArgs, db.addrMap)
 }
@@ -185,11 +190,11 @@ func (db *DB) UpdateContext(ctx context.Context, table any) *stateUpdate {
 
 	var state *stateUpdate
 	if err != nil {
-		state = createUpdateState(nil, err)
+		state = createUpdateState(nil, db.config, err)
 		return state.queryUpdate(nil, nil)
 	}
 	conn, err := db.ConnPool.Conn(ctx)
-	state = createUpdateState(conn, err)
+	state = createUpdateState(conn, db.config, err)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
@@ -215,11 +220,11 @@ func (db *DB) UpdateInContext(ctx context.Context, table1 any, table2 any) *stat
 
 	var state *stateUpdateIn
 	if err != nil {
-		state = createUpdateInState(nil, err)
+		state = createUpdateInState(nil, db.config, err)
 		return state.queryUpdateIn(nil, nil)
 	}
 	conn, err := db.ConnPool.Conn(ctx)
-	state = createUpdateInState(conn, err)
+	state = createUpdateInState(conn, db.config, err)
 
 	return state.queryUpdateIn(stringArgs, db.addrMap)
 }
@@ -243,11 +248,11 @@ func (db *DB) DeleteContext(ctx context.Context, table any) *stateDelete {
 
 	var state *stateDelete
 	if err != nil {
-		state = createDeleteState(nil, err)
+		state = createDeleteState(nil, db.config, err)
 		return state.queryDelete(nil, nil)
 	}
 	conn, err := db.ConnPool.Conn(ctx)
-	state = createDeleteState(conn, err)
+	state = createDeleteState(conn, db.config, err)
 
 	return state.queryDelete(stringArgs, db.addrMap)
 }
@@ -274,11 +279,11 @@ func (db *DB) DeleteInContext(ctx context.Context, table1 any, table2 any) *stat
 
 	var state *stateDeleteIn
 	if err != nil {
-		state = createDeleteInState(nil, err)
+		state = createDeleteInState(nil, db.config, err)
 		return state.queryDeleteIn(nil, nil)
 	}
 	conn, err := db.ConnPool.Conn(ctx)
-	state = createDeleteInState(conn, err)
+	state = createDeleteInState(conn, db.config, err)
 
 	return state.queryDeleteIn(stringArgs, db.addrMap)
 }

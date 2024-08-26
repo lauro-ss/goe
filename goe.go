@@ -12,7 +12,7 @@ import (
 var ErrInvalidManyToOne = errors.New("goe")
 var ErrStructWithoutPrimaryKey = errors.New("goe")
 
-func Open(db any, driver Driver) error {
+func Open(db any, driver Driver, config Config) error {
 	valueOf := reflect.ValueOf(db)
 	if valueOf.Kind() != reflect.Ptr {
 		return fmt.Errorf("%v: the target value needs to be pass as a pointer", pkg)
@@ -42,6 +42,7 @@ func Open(db any, driver Driver) error {
 
 	dbTarget.driver = driver
 	dbTarget.driver.Init(dbTarget)
+	dbTarget.config = &config
 	valueOf.FieldByName("DB").Set(reflect.ValueOf(dbTarget))
 	return nil
 }

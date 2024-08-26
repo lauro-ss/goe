@@ -3,6 +3,7 @@ package goe
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 )
 
@@ -19,14 +20,15 @@ var ErrInvalidInsertInValue = errors.New("goe: invalid insertIn value. try sendi
 var ErrInvalidUpdateValue = errors.New("goe: invalid update value. try sending a struct or a pointer to struct as value")
 
 type stateSelect struct {
+	config  *Config
 	conn    Connection
 	addrMap map[uintptr]field
 	builder *builder
 	err     error
 }
 
-func createSelectState(conn Connection, e error) *stateSelect {
-	return &stateSelect{conn: conn, builder: createBuilder(), err: e}
+func createSelectState(conn Connection, c *Config, e error) *stateSelect {
+	return &stateSelect{conn: conn, builder: createBuilder(), config: c, err: e}
 }
 
 // Where creates a where SQL using the operations
@@ -237,38 +239,42 @@ func (s *stateSelect) querySelect(args []uintptr, aggregates []aggregate) *state
 //	// using slice
 //	var a []Animal
 //	db.Select(db.Animal).Scan(&a)
-func (s *stateSelect) Scan(target any) (string, error) {
+func (s *stateSelect) Scan(target any) error {
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	value := reflect.ValueOf(target)
 
 	if value.Kind() != reflect.Ptr {
-		return "", ErrInvalidScan
+		return ErrInvalidScan
 	}
 
 	//generate query
 	s.err = s.builder.buildSqlSelect()
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	sql := s.builder.sql.String()
-	return sql, handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit)
+	if s.config.LogQuery {
+		log.Println("\n" + sql)
+	}
+	return handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit)
 }
 
 /*
 State Insert
 */
 type stateInsert struct {
+	config  *Config
 	conn    Connection
 	builder *builder
 	err     error
 }
 
-func createInsertState(conn Connection, e error) *stateInsert {
-	return &stateInsert{conn: conn, builder: createBuilder(), err: e}
+func createInsertState(conn Connection, c *Config, e error) *stateInsert {
+	return &stateInsert{conn: conn, builder: createBuilder(), config: c, err: e}
 }
 
 func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *stateInsert {
@@ -300,15 +306,15 @@ func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *st
 //		{Id: "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4", Name: "Cookie", Emoji: "🍪"},
 //	}
 //	db.Insert(db.Food).Value(&foods)
-func (s *stateInsert) Value(value any) (string, error) {
+func (s *stateInsert) Value(value any) error {
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	v := reflect.ValueOf(value)
 
 	if v.Kind() != reflect.Ptr {
-		return "", ErrInvalidInsertPointer
+		return ErrInvalidInsertPointer
 	}
 
 	v = v.Elem()
@@ -318,37 +324,44 @@ func (s *stateInsert) Value(value any) (string, error) {
 	}
 
 	if v.Kind() != reflect.Struct {
-		return "", ErrInvalidInsertValue
+		return ErrInvalidInsertValue
 	}
 
 	idName := s.builder.buildValues(v)
 
 	sql := s.builder.sql.String()
-	return sql, handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName)
+	if s.config.LogQuery {
+		log.Println("\n" + sql)
+	}
+	return handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName)
 }
 
-func (s *stateInsert) batchValue(value reflect.Value) (string, error) {
+func (s *stateInsert) batchValue(value reflect.Value) error {
 	if value.Len() == 0 {
-		return "", ErrEmptyBatchValue
+		return ErrEmptyBatchValue
 	}
 
 	if value.Index(0).Kind() != reflect.Struct {
-		return "", ErrInvalidInsertBatchValue
+		return ErrInvalidInsertBatchValue
 	}
 	idName := s.builder.buildBatchValues(value)
 
 	sql := s.builder.sql.String()
-	return sql, handlerValuesReturningBatch(s.conn, sql, value, s.builder.argsAny, idName)
+	if s.config.LogQuery {
+		log.Println("\n" + sql)
+	}
+	return handlerValuesReturningBatch(s.conn, sql, value, s.builder.argsAny, idName)
 }
 
 type stateInsertIn struct {
+	config  *Config
 	conn    Connection
 	builder *builder
 	err     error
 }
 
-func createInsertStateIn(conn Connection, e error) *stateInsertIn {
-	return &stateInsertIn{conn: conn, builder: createBuilder(), err: e}
+func createInsertStateIn(conn Connection, c *Config, e error) *stateInsertIn {
+	return &stateInsertIn{conn: conn, builder: createBuilder(), config: c, err: e}
 }
 
 func (s *stateInsertIn) queryInsertIn(args []uintptr, addrMap map[uintptr]field) *stateInsertIn {
@@ -373,9 +386,9 @@ func (s *stateInsertIn) queryInsertIn(args []uintptr, addrMap map[uintptr]field)
 //
 //	// insert into AnimalHabitat, first value is a uuid for idAnimal and second is a int for idHabitat
 //	db.InsertIn(db.Animal, db.Habitat).Values("5ad0e5fc-e9f7-4855-9698-d0c10b996f73", 25)
-func (s *stateInsertIn) Values(v ...any) (string, error) {
+func (s *stateInsertIn) Values(v ...any) error {
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	switch len(v) {
@@ -385,29 +398,35 @@ func (s *stateInsertIn) Values(v ...any) (string, error) {
 			value = value.Elem()
 		}
 		if value.Kind() != reflect.Slice || value.Len() < 2 || value.Len()%2 != 0 {
-			return "", ErrInvalidInsertInValue
+			return ErrInvalidInsertInValue
 		}
 
 		s.err = s.builder.buildValuesInBatch(value)
 		if s.err != nil {
-			return "", s.err
+			return s.err
 		}
 
 		sql := s.builder.sql.String()
-		return sql, handlerValues(s.conn, sql, s.builder.argsAny)
+		if s.config.LogQuery {
+			log.Println("\n" + sql)
+		}
+		return handlerValues(s.conn, sql, s.builder.argsAny)
 	case 2:
 		s.builder.argsAny = append(s.builder.argsAny, v[0])
 		s.builder.argsAny = append(s.builder.argsAny, v[1])
 
 		s.err = s.builder.buildValuesIn()
 		if s.err != nil {
-			return "", s.err
+			return s.err
 		}
 
 		sql := s.builder.sql.String()
-		return sql, handlerValues(s.conn, sql, s.builder.argsAny)
+		if s.config.LogQuery {
+			log.Println("\n" + sql)
+		}
+		return handlerValues(s.conn, sql, s.builder.argsAny)
 	default:
-		return "", ErrInvalidInsertInValue
+		return ErrInvalidInsertInValue
 	}
 }
 
@@ -415,13 +434,14 @@ func (s *stateInsertIn) Values(v ...any) (string, error) {
 State Update
 */
 type stateUpdate struct {
+	config  *Config
 	conn    Connection
 	builder *builder
 	err     error
 }
 
-func createUpdateState(conn Connection, e error) *stateUpdate {
-	return &stateUpdate{conn: conn, builder: createBuilder(), err: e}
+func createUpdateState(conn Connection, c *Config, e error) *stateUpdate {
+	return &stateUpdate{conn: conn, builder: createBuilder(), config: c, err: e}
 }
 
 func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
@@ -450,9 +470,9 @@ func (s *stateUpdate) queryUpdate(args []uintptr, addrMap map[uintptr]field) *st
 //
 //	// updates single row using where
 //	db.Update(db.Animal).Where(db.Equals(&db.Animal.Id, aStruct.Id)).Value(aStruct)
-func (s *stateUpdate) Value(value any) (string, error) {
+func (s *stateUpdate) Value(value any) error {
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	v := reflect.ValueOf(value)
@@ -462,7 +482,7 @@ func (s *stateUpdate) Value(value any) (string, error) {
 	}
 
 	if v.Kind() != reflect.Struct {
-		return "", ErrInvalidUpdateValue
+		return ErrInvalidUpdateValue
 	}
 
 	s.builder.buildSet(v)
@@ -470,21 +490,25 @@ func (s *stateUpdate) Value(value any) (string, error) {
 	//generate query
 	s.err = s.builder.buildSqlUpdate()
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	sql := s.builder.sql.String()
-	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
+	if s.config.LogQuery {
+		log.Println("\n" + sql)
+	}
+	return handlerValues(s.conn, sql, s.builder.argsAny)
 }
 
 type stateUpdateIn struct {
+	config  *Config
 	conn    Connection
 	builder *builder
 	err     error
 }
 
-func createUpdateInState(conn Connection, e error) *stateUpdateIn {
-	return &stateUpdateIn{conn: conn, builder: createBuilder(), err: e}
+func createUpdateInState(conn Connection, c *Config, e error) *stateUpdateIn {
+	return &stateUpdateIn{conn: conn, builder: createBuilder(), config: c, err: e}
 }
 
 func (s *stateUpdateIn) Where(brs ...operator) *stateUpdateIn {
@@ -514,34 +538,38 @@ func (s *stateUpdateIn) queryUpdateIn(args []uintptr, addrMap map[uintptr]field)
 //		db.And(),
 //		db.Equals(&db.Food.Id, "f023a4e7-34e9-4db2-85e0-efe8d67eea1b")).
 //		Value("fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")
-func (s *stateUpdateIn) Value(value any) (string, error) {
+func (s *stateUpdateIn) Value(value any) error {
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 	s.builder.argsAny = append(s.builder.argsAny, value)
 
 	s.err = s.builder.buildSetIn()
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	s.err = s.builder.buildSqlUpdateIn()
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	sql := s.builder.sql.String()
-	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
+	if s.config.LogQuery {
+		log.Println("\n" + sql)
+	}
+	return handlerValues(s.conn, sql, s.builder.argsAny)
 }
 
 type stateDelete struct {
+	config  *Config
 	conn    Connection
 	builder *builder
 	err     error
 }
 
-func createDeleteState(conn Connection, e error) *stateDelete {
-	return &stateDelete{conn: conn, builder: createBuilder(), err: e}
+func createDeleteState(conn Connection, c *Config, e error) *stateDelete {
+	return &stateDelete{conn: conn, builder: createBuilder(), config: c, err: e}
 }
 
 func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *stateDelete {
@@ -563,29 +591,33 @@ func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *st
 //
 //	// delete matched animals
 //	db.Delete(db.Animal).Where(db.Equals(&db.Animal.Id, "906f4f1f-49e7-47ee-8954-2d6e0a3354cf"))
-func (s *stateDelete) Where(brs ...operator) (string, error) {
+func (s *stateDelete) Where(brs ...operator) error {
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 	s.builder.brs = brs
 
 	s.err = s.builder.buildSqlDelete()
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	sql := s.builder.sql.String()
-	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
+	if s.config.LogQuery {
+		log.Println("\n" + sql)
+	}
+	return handlerValues(s.conn, sql, s.builder.argsAny)
 }
 
 type stateDeleteIn struct {
+	config  *Config
 	conn    Connection
 	builder *builder
 	err     error
 }
 
-func createDeleteInState(conn Connection, e error) *stateDeleteIn {
-	return &stateDeleteIn{conn: conn, builder: createBuilder(), err: e}
+func createDeleteInState(conn Connection, c *Config, e error) *stateDeleteIn {
+	return &stateDeleteIn{conn: conn, builder: createBuilder(), config: c, err: e}
 }
 
 func (s *stateDeleteIn) queryDeleteIn(args []uintptr, addrMap map[uintptr]field) *stateDeleteIn {
@@ -611,17 +643,20 @@ func (s *stateDeleteIn) queryDeleteIn(args []uintptr, addrMap map[uintptr]field)
 //		db.Or(),
 //		db.Equals(&db.Animal.Id, "401b5e23-5aa7-435e-ba4d-5c1b2f123596"),
 //	)
-func (s *stateDeleteIn) Where(brs ...operator) (string, error) {
+func (s *stateDeleteIn) Where(brs ...operator) error {
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 	s.builder.brs = brs
 
 	s.err = s.builder.buildSqlDeleteIn()
 	if s.err != nil {
-		return "", s.err
+		return s.err
 	}
 
 	sql := s.builder.sql.String()
-	return sql, handlerValues(s.conn, sql, s.builder.argsAny)
+	if s.config.LogQuery {
+		log.Println("\n" + sql)
+	}
+	return handlerValues(s.conn, sql, s.builder.argsAny)
 }

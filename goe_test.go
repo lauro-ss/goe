@@ -40,7 +40,7 @@ func TestMapDatabase(t *testing.T) {
 	}
 
 	db := &Database{DB: &goe.DB{}}
-	err := goe.Open(db, &MockDriver{})
+	err := goe.Open(db, &MockDriver{}, goe.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestMapDatabaseErrorPrimaryKey(t *testing.T) {
 	}
 
 	db := &Database{DB: &goe.DB{}}
-	err := goe.Open(db, &MockDriver{})
+	err := goe.Open(db, &MockDriver{}, goe.Config{})
 	if !errors.Is(err, goe.ErrStructWithoutPrimaryKey) {
 		t.Fatal("Was expected a goe.ErrStructWithoutPrimaryKey but get:", err)
 	}
@@ -84,7 +84,7 @@ func TestMapDatabaseErrorManyToOne(t *testing.T) {
 	}
 
 	db := &Database{DB: &goe.DB{}}
-	err := goe.Open(db, &MockDriver{})
+	err := goe.Open(db, &MockDriver{}, goe.Config{})
 	if !errors.Is(err, goe.ErrInvalidManyToOne) {
 		t.Fatal("Was expected a goe.ErrInvalidManyToOne but get:", err)
 	}
@@ -109,7 +109,7 @@ func TestMapDatabaseErrorOneToOne(t *testing.T) {
 	}
 
 	db := &Database{DB: &goe.DB{}}
-	err := goe.Open(db, &MockDriver{})
+	err := goe.Open(db, &MockDriver{}, goe.Config{})
 	if !errors.Is(err, goe.ErrInvalidManyToOne) {
 		t.Fatal("Was expected a goe.ErrInvalidManyToOne but get:", err)
 	}
