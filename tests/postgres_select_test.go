@@ -83,6 +83,9 @@ func TestPostgresSelect(t *testing.T) {
 				if len(f) != 1 {
 					t.Errorf("Expected 1 food, got %v", len(f))
 				}
+				if f[0].Name != foods[0].Name {
+					t.Errorf("Expected %v, got %v", foods[0].Name, f[0].Name)
+				}
 			},
 		},
 	}
