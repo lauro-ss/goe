@@ -75,6 +75,32 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Order_By_Asc",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if a[0].Id > a[1].Id {
+					t.Errorf("Expected animals order by asc, got %v", a)
+				}
+			},
+		},
+		{
+			desc: "Select_Order_By_Desc",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).OrderByDesc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if a[0].Id < a[1].Id {
+					t.Errorf("Expected animals order by desc, got %v", a)
+				}
+			},
+		},
+		{
 			desc: "Select_Join",
 			testCase: func(t *testing.T) {
 				var a []Animal
