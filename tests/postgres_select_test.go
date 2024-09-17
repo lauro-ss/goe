@@ -26,7 +26,10 @@ func TestPostgresSelect(t *testing.T) {
 		t.Fatalf("Expected insert foods, got error: %v", err)
 	}
 
-	db.InsertIn(db.Animal, db.Food).Values([]int{foods[0].Id, animals[0].Id})
+	animalFoods := []int{
+		foods[0].Id, animals[0].Id,
+		foods[0].Id, animals[1].Id}
+	db.InsertIn(db.Food, db.Animal).Values(animalFoods)
 
 	testCases := []struct {
 		desc     string
@@ -79,7 +82,7 @@ func TestPostgresSelect(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
-				if len(a) != 1 {
+				if len(a) != (len(animalFoods) / 2) {
 					t.Errorf("Expected 1 animal, got %v", len(a))
 				}
 				if a[0].Name != animals[0].Name {
@@ -105,7 +108,7 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
-			desc: "Select_Join_Where_And_Equals",
+			desc: "Select_Join_Where_And_Equals_Find_0",
 			testCase: func(t *testing.T) {
 				var f []Food
 				err := db.Select(db.Food).Join(db.Animal, db.Food).Where(
@@ -118,6 +121,59 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if len(f) != 0 {
 					t.Errorf("Expected 0 food, got %v", len(f))
+				}
+			},
+		},
+		{
+			desc: "Select_Join_Where_And_Equals_Find_1",
+			testCase: func(t *testing.T) {
+				var f []Food
+				err := db.Select(db.Food).Join(db.Animal, db.Food).Where(
+					db.Equals(&db.Animal.Name, animals[0].Name),
+					db.And(),
+					db.Equals(&db.Food.Id, foods[0].Id),
+				).Scan(&f)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(f) != 1 {
+					t.Errorf("Expected 1 food, got %v", len(f))
+				}
+			},
+		},
+		{
+			desc: "Select_Join_Where_Order_By_Asc",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Food).Where(
+					db.Equals(&db.Food.Id, foods[0].Id),
+				).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 2 {
+					t.Errorf("Expected 2 animals, got %v", len(a))
+				}
+				if a[0].Id > a[1].Id {
+					t.Errorf("Expected animals order by asc, got %v", a)
+				}
+			},
+		},
+		{
+			desc: "Select_Join_Where_Order_By_Desc",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Food).Where(
+					db.Equals(&db.Food.Id, foods[0].Id),
+				).OrderByDesc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 2 {
+					t.Errorf("Expected 2 animals, got %v", len(a))
+				}
+				if a[0].Id < a[1].Id {
+					t.Errorf("Expected animals order by desc, got %v", a)
 				}
 			},
 		},
