@@ -36,7 +36,10 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_animals",
 			testCase: func(t *testing.T) {
 				var a []Animal
-				db.Select(db.Animal).Scan(&a)
+				err := db.Select(db.Animal).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
 				if len(a) != len(animals) {
 					t.Errorf("Expected %v animals, got %v", len(animals), len(a))
 				}
@@ -46,7 +49,10 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_Where_Equals",
 			testCase: func(t *testing.T) {
 				var a Animal
-				db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, animals[0].Id)).Scan(&a)
+				err := db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, animals[0].Id)).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
 				if a.Name != animals[0].Name {
 					t.Errorf("Expected a %v, got %v", animals[0].Name, a.Name)
 				}
@@ -56,7 +62,10 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_Where_Like",
 			testCase: func(t *testing.T) {
 				var a []Animal
-				db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
+				err := db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
 				if len(a) != 2 {
 					t.Errorf("Expected %v animals, got %v", 2, len(a))
 				}
@@ -66,7 +75,10 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_Join",
 			testCase: func(t *testing.T) {
 				var a []Animal
-				db.Select(db.Animal).Join(db.Animal, db.Food).Scan(&a)
+				err := db.Select(db.Animal).Join(db.Animal, db.Food).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
 				if len(a) != 1 {
 					t.Errorf("Expected 1 animal, got %v", len(a))
 				}
@@ -79,12 +91,33 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_Join_Where",
 			testCase: func(t *testing.T) {
 				var f []Food
-				db.Select(db.Food).Join(db.Animal, db.Food).Where(db.Equals(&db.Animal.Name, animals[0].Name)).Scan(&f)
+				err := db.Select(db.Food).Join(db.Animal, db.Food).Where(
+					db.Equals(&db.Animal.Name, animals[0].Name)).Scan(&f)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
 				if len(f) != 1 {
 					t.Errorf("Expected 1 food, got %v", len(f))
 				}
 				if f[0].Name != foods[0].Name {
 					t.Errorf("Expected %v, got %v", foods[0].Name, f[0].Name)
+				}
+			},
+		},
+		{
+			desc: "Select_Join_Where_And_Equals",
+			testCase: func(t *testing.T) {
+				var f []Food
+				err := db.Select(db.Food).Join(db.Animal, db.Food).Where(
+					db.Equals(&db.Animal.Name, animals[0].Name),
+					db.And(),
+					db.Equals(&db.Food.Id, foods[1].Id),
+				).Scan(&f)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(f) != 0 {
+					t.Errorf("Expected 0 food, got %v", len(f))
 				}
 			},
 		},
