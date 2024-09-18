@@ -14,7 +14,16 @@ func TestPostgresSelect(t *testing.T) {
 		t.Fatalf("Expected delete foods, got error: %v", err)
 	}
 
-	animals := []Animal{{Name: "Cat"}, {Name: "Dog"}, {Name: "Forest Cat"}}
+	animals := []Animal{
+		{Name: "Cat"},
+		{Name: "Dog"},
+		{Name: "Forest Cat"},
+		{Name: "Bear"},
+		{Name: "Lion"},
+		{Name: "Puma"},
+		{Name: "Snake"},
+		{Name: "Whale"},
+	}
 	err = db.Insert(db.Animal).Value(&animals)
 	if err != nil {
 		t.Fatalf("Expected insert animals, got error: %v", err)
@@ -36,7 +45,7 @@ func TestPostgresSelect(t *testing.T) {
 		testCase func(t *testing.T)
 	}{
 		{
-			desc: "Select_animals",
+			desc: "Select",
 			testCase: func(t *testing.T) {
 				var a []Animal
 				err := db.Select(db.Animal).Scan(&a)
@@ -97,6 +106,20 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if a[0].Id < a[1].Id {
 					t.Errorf("Expected animals order by desc, got %v", a)
+				}
+			},
+		},
+		{
+			desc: "Select_Page",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				var pageSize uint = 5
+				err := db.Select(db.Animal).Page(1, pageSize).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != int(pageSize) {
+					t.Errorf("Expected %v animals, got %v", pageSize, len(a))
 				}
 			},
 		},
@@ -226,6 +249,20 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if a[0].Id < a[1].Id {
 					t.Errorf("Expected animals order by desc, got %v", a)
+				}
+			},
+		},
+		{
+			desc: "Select_Join_Page",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				var pageSize uint = 2
+				err := db.Select(db.Animal).Join(db.Animal, db.Food).Page(1, pageSize).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a page select, got error: %v", err)
+				}
+				if len(a) != int(pageSize) {
+					t.Errorf("Expected %v animals, got %v", pageSize, len(a))
 				}
 			},
 		},
