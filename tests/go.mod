@@ -3,6 +3,7 @@ module github.com/lauro-ss/goe/tests
 go 1.22.1
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/lauro-ss/goe v0.2.2
 	github.com/lauro-ss/postgres v0.2.1
 )

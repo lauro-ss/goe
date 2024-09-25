@@ -48,7 +48,7 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select",
 			testCase: func(t *testing.T) {
 				var a []Animal
-				err := db.Select(db.Animal).Scan(&a)
+				err := db.Select(&db.Animal.Id, &db.Animal.Name).Scan(&a)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
@@ -263,6 +263,25 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if len(a) != int(pageSize) {
 					t.Errorf("Expected %v animals, got %v", pageSize, len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_Anonymous_Struct",
+			testCase: func(t *testing.T) {
+				var a struct {
+					Id1 int
+					Id2 string
+				}
+				err := db.Select(&db.Animal.Id, &db.Animal.Name).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if a.Id1 != animals[0].Id {
+					t.Errorf("Expected %v, got : %v", animals[0].Id, a.Id1)
+				}
+				if a.Id2 != animals[0].Name {
+					t.Errorf("Expected %v, got : %v", animals[0].Name, a.Id2)
 				}
 			},
 		},

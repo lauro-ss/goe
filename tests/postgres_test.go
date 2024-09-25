@@ -3,6 +3,7 @@ package tests_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lauro-ss/goe"
 	"github.com/lauro-ss/postgres"
 )
@@ -17,6 +18,12 @@ type Food struct {
 	Id      int
 	Name    string
 	Animals []Animal `goe:"table:AnimalFood"`
+}
+
+type Habitat struct {
+	Id      uuid.UUID
+	Name    string `goe:"type:varchar(50)"`
+	Animals []Animal
 }
 
 type Database struct {
