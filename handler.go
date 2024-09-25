@@ -86,15 +86,23 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 	dest := make([]any, len(columns))
 	for i := range dest {
 		t, _ := value.Type().FieldByName(columns[i])
+		if t.Type == nil {
+			dest[i] = reflect.New(value.Type().Field(i).Type).Interface()
+			continue
+		}
 		dest[i] = reflect.New(t.Type).Interface()
 	}
 	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
 	if err != nil {
 		return err
 	}
-
+	var field reflect.Value
 	for i, a := range dest {
-		value.FieldByName(columns[i]).Set(reflect.ValueOf(a).Elem())
+		field = value.FieldByName(columns[i])
+		if !field.CanSet() {
+			field = value.Field(i)
+		}
+		field.Set(reflect.ValueOf(a).Elem())
 	}
 	return nil
 }
