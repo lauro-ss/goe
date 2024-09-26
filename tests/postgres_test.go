@@ -9,9 +9,10 @@ import (
 )
 
 type Animal struct {
-	Id    int
-	Name  string
-	Foods []Food `goe:"table:AnimalFood"`
+	Id        int
+	Name      string
+	IdHabitat uuid.UUID `goe:"table:Habitat"`
+	Foods     []Food    `goe:"table:AnimalFood"`
 }
 
 type Food struct {
@@ -27,8 +28,9 @@ type Habitat struct {
 }
 
 type Database struct {
-	Animal *Animal
-	Food   *Food
+	Animal  *Animal
+	Food    *Food
+	Habitat *Habitat
 	*goe.DB
 }
 
