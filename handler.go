@@ -153,7 +153,9 @@ func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, a
 	for i := range dest {
 		if t, ok := value.Type().Elem().FieldByName(structColumns[i]); ok {
 			dest[i] = reflect.New(t.Type).Interface()
+			continue
 		}
+		dest[i] = reflect.New(value.Type().Elem().Field(i).Type).Interface()
 	}
 
 	err = mapStructQuery(rows, dest, value, structColumns, limit)
@@ -172,9 +174,14 @@ func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value, columns []s
 			return err
 		}
 		s := reflect.New(value.Type().Elem()).Elem()
+		var f reflect.Value
 		//Fills the target
 		for i, a := range dest {
-			s.FieldByName(columns[i]).Set(reflect.ValueOf(a).Elem())
+			f = s.FieldByName(columns[i])
+			if !f.CanSet() {
+				f = s.Field(i)
+			}
+			f.Set(reflect.ValueOf(a).Elem())
 		}
 		value.Set(reflect.Append(value, s))
 	}
