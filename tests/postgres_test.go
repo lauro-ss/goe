@@ -11,8 +11,8 @@ import (
 type Animal struct {
 	Id        int
 	Name      string
-	IdHabitat uuid.UUID `goe:"table:Habitat"`
-	Foods     []Food    `goe:"table:AnimalFood"`
+	IdHabitat *uuid.UUID `goe:"table:Habitat"`
+	Foods     []Food     `goe:"table:AnimalFood"`
 }
 
 type Food struct {
