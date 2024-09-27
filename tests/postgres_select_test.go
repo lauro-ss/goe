@@ -1,6 +1,10 @@
 package tests_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/uuid"
+)
 
 func TestPostgresSelect(t *testing.T) {
 	db, _ := SetupPostgres()
@@ -13,15 +17,30 @@ func TestPostgresSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected delete foods, got error: %v", err)
 	}
+	err = db.Delete(db.Habitat).Where()
+	if err != nil {
+		t.Fatalf("Expected delete habitats, got error: %v", err)
+	}
+
+	habitats := []Habitat{
+		{Id: uuid.New(), Name: "City"},
+		{Id: uuid.New(), Name: "Jungle"},
+		{Id: uuid.New(), Name: "Savannah"},
+		{Id: uuid.New(), Name: "Ocean"},
+	}
+	err = db.Insert(db.Habitat).Value(&habitats)
+	if err != nil {
+		t.Fatalf("Expected insert habitats, got error: %v", err)
+	}
 
 	animals := []Animal{
-		{Name: "Cat"},
-		{Name: "Dog"},
-		{Name: "Forest Cat"},
-		{Name: "Bear"},
-		{Name: "Lion"},
-		{Name: "Puma"},
-		{Name: "Snake"},
+		{Name: "Cat", IdHabitat: &habitats[0].Id},
+		{Name: "Dog", IdHabitat: &habitats[0].Id},
+		{Name: "Forest Cat", IdHabitat: &habitats[1].Id},
+		{Name: "Bear", IdHabitat: &habitats[1].Id},
+		{Name: "Lion", IdHabitat: &habitats[2].Id},
+		{Name: "Puma", IdHabitat: &habitats[1].Id},
+		{Name: "Snake", IdHabitat: &habitats[1].Id},
 		{Name: "Whale"},
 	}
 	err = db.Insert(db.Animal).Value(&animals)
@@ -174,6 +193,23 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Inverted_Join_Where_And_Equals_Find_0",
+			testCase: func(t *testing.T) {
+				var f []Food
+				err := db.Select(db.Food).Join(db.Food, db.Animal).Where(
+					db.Equals(&db.Animal.Name, animals[0].Name),
+					db.And(),
+					db.Equals(&db.Food.Id, foods[1].Id),
+				).Scan(&f)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(f) != 0 {
+					t.Errorf("Expected 0 food, got %v", len(f))
+				}
+			},
+		},
+		{
 			desc: "Select_Join_Where_And_Equals_Find_1",
 			testCase: func(t *testing.T) {
 				var f []Food
@@ -253,6 +289,52 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Join_Many_To_One",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Habitat).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				for i := range a {
+					if a[i].Id != animals[i].Id {
+						t.Errorf("Expected %v, got %v", a[0].Id, animals[0].Id)
+					}
+				}
+			},
+		},
+		{
+			desc: "Select_Inverted_Join_Many_To_One",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Habitat, db.Animal).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				for i := range a {
+					if a[i].Id != animals[i].Id {
+						t.Errorf("Expected %v, got %v", a[0].Id, animals[0].Id)
+					}
+				}
+			},
+		},
+		{
+			desc: "Select_Left_Join_Many_To_One",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).LeftJoin(db.Habitat, db.Animal).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != len(animals) {
+					t.Errorf("Expected %v, got %v", len(animals), len(a))
+				}
+				if a[len(a)-1].IdHabitat != nil {
+					t.Errorf("Expected nil, got value")
+				}
+			},
+		},
+		{
 			desc: "Select_Join_Page",
 			testCase: func(t *testing.T) {
 				var a []Animal
@@ -282,6 +364,49 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if a.Id2 != animals[0].Name {
 					t.Errorf("Expected %v, got : %v", animals[0].Name, a.Id2)
+				}
+			},
+		},
+		{
+			desc: "Select_Anonymous_Struct_2",
+			testCase: func(t *testing.T) {
+				var a struct {
+					Id  int
+					Id2 string
+				}
+				err := db.Select(&db.Animal.Id, &db.Animal.Name).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if a.Id != animals[0].Id {
+					t.Errorf("Expected %v, got : %v", animals[0].Id, a.Id)
+				}
+				if a.Id2 != animals[0].Name {
+					t.Errorf("Expected %v, got : %v", animals[0].Name, a.Id2)
+				}
+			},
+		},
+		{
+			desc: "Select_Anonymous_Struct_Slice_3",
+			testCase: func(t *testing.T) {
+				var a []struct {
+					AnimalId        int
+					AnimalName      string
+					AnimalIdHabitat uuid.UUID
+					HabitatId       uuid.UUID
+					HabitatName     string
+				}
+				err := db.Select(db.Animal, db.Habitat).Join(db.Animal, db.Habitat).OrderByAsc(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				for i := range a {
+					if a[i].AnimalId != animals[i].Id {
+						t.Errorf("Expected %v, got %v", a[0].AnimalId, animals[0].Id)
+					}
+					if a[i].AnimalIdHabitat.String() != a[i].HabitatId.String() {
+						t.Errorf("Expected %v, got %v", a[i].AnimalIdHabitat.String(), a[i].HabitatId.String())
+					}
 				}
 			},
 		},
