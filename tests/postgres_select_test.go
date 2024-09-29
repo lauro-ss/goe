@@ -335,6 +335,21 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Join_Many_To_Many_And_Many_To_One",
+			testCase: func(t *testing.T) {
+				var f []Food
+				err := db.Select(db.Food).Join(db.Food, db.Animal).
+					Join(db.Animal, db.Habitat).Where(db.Equals(&db.Habitat.Id, habitats[0].Id)).
+					Scan(&f)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(f) != 2 {
+					t.Errorf("Expected 2, got : %v", len(f))
+				}
+			},
+		},
+		{
 			desc: "Select_Join_Page",
 			testCase: func(t *testing.T) {
 				var a []Animal
