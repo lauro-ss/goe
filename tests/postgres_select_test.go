@@ -21,6 +21,10 @@ func TestPostgresSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected delete habitats, got error: %v", err)
 	}
+	err = db.Delete(db.Info).Where()
+	if err != nil {
+		t.Fatalf("Expected delete habitats, got error: %v", err)
+	}
 
 	habitats := []Habitat{
 		{Id: uuid.New(), Name: "City"},
@@ -33,9 +37,18 @@ func TestPostgresSelect(t *testing.T) {
 		t.Fatalf("Expected insert habitats, got error: %v", err)
 	}
 
+	infos := []Info{
+		{Id: uuid.New().NodeID(), Name: "Little Cat"},
+		{Id: uuid.New().NodeID(), Name: "Big Dog"},
+	}
+	err = db.Insert(db.Info).Value(&infos)
+	if err != nil {
+		t.Fatalf("Expected insert habitats, got error: %v", err)
+	}
+
 	animals := []Animal{
-		{Name: "Cat", IdHabitat: &habitats[0].Id},
-		{Name: "Dog", IdHabitat: &habitats[0].Id},
+		{Name: "Cat", IdHabitat: &habitats[0].Id, IdInfo: &infos[0].Id},
+		{Name: "Dog", IdHabitat: &habitats[0].Id, IdInfo: &infos[1].Id},
 		{Name: "Forest Cat", IdHabitat: &habitats[1].Id},
 		{Name: "Bear", IdHabitat: &habitats[1].Id},
 		{Name: "Lion", IdHabitat: &habitats[2].Id},
@@ -350,6 +363,74 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Join_One_To_One",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Info).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 2 {
+					t.Errorf("Expected 2, got : %v", len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_Inverted_Join_One_To_One",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Info, db.Animal).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 2 {
+					t.Errorf("Expected 2, got : %v", len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_Animal_Join_One_To_One_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Info).Join(db.Animal, db.Food).
+					Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 2 {
+					t.Errorf("Expected 2, got : %v", len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_Info_Join_One_To_One_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var i []Info
+				err := db.Select(db.Info).Join(db.Animal, db.Info).Join(db.Animal, db.Food).
+					Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&i)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(i) != 2 {
+					t.Errorf("Expected 2, got : %v", len(i))
+				}
+			},
+		},
+		{
+			desc: "Select_Info_Inverted_Join_One_To_One_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var i []Info
+				err := db.Select(db.Info).Join(db.Info, db.Animal).Join(db.Animal, db.Food).
+					Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&i)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(i) != 2 {
+					t.Errorf("Expected 2, got : %v", len(i))
+				}
+			},
+		},
+		{
 			desc: "Select_Join_Page",
 			testCase: func(t *testing.T) {
 				var a []Animal
@@ -408,6 +489,7 @@ func TestPostgresSelect(t *testing.T) {
 					AnimalId        int
 					AnimalName      string
 					AnimalIdHabitat uuid.UUID
+					AnimalIdInfo    []byte
 					HabitatId       uuid.UUID
 					HabitatName     string
 				}

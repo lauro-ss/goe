@@ -12,6 +12,7 @@ type Animal struct {
 	Id        int
 	Name      string
 	IdHabitat *uuid.UUID `goe:"table:Habitat"`
+	IdInfo    *[]byte    `goe:"table:Info"`
 	Foods     []Food     `goe:"table:AnimalFood"`
 }
 
@@ -27,10 +28,16 @@ type Habitat struct {
 	Animals []Animal
 }
 
+type Info struct {
+	Id   []byte
+	Name string
+}
+
 type Database struct {
 	Animal  *Animal
 	Food    *Food
 	Habitat *Habitat
+	Info    *Info
 	*goe.DB
 }
 
