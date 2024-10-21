@@ -29,7 +29,13 @@ type Habitat struct {
 }
 
 type Info struct {
-	Id   []byte
+	Id       []byte
+	Name     string
+	IdStatus int `goe:"table:Status"`
+}
+
+type Status struct {
+	Id   int
 	Name string
 }
 
@@ -38,6 +44,7 @@ type Database struct {
 	Food    *Food
 	Habitat *Habitat
 	Info    *Info
+	Status  *Status
 	*goe.DB
 }
 
