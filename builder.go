@@ -238,21 +238,35 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 			pk2Value.selectName))
 	case *oneToOne:
 		sql.WriteByte(10)
-		if pks[0].table != pk2.table {
-			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk2.selectName, fk.selectName))
+		var flag bool
+		for c := range pks[:i] {
+			if pks[c].table == pk2.table {
+				flag = true
+				break
+			}
+		}
+		if flag {
+			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, pk2.selectName, fk.selectName))
 			break
 		}
-		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, pk2.selectName, fk.selectName))
+		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk2.selectName, fk.selectName))
 	default:
 		if fk = pk2.fks[pk1.table]; fk != nil {
 			fk, ok := fk.(*oneToOne)
 			if ok {
 				sql.WriteByte(10)
-				if pks[0].table != pk2.table {
-					sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk1.selectName, fk.selectName))
+				var flag bool
+				for c := range pks[:i] {
+					if pks[c].table == pk2.table {
+						flag = true
+						break
+					}
+				}
+				if flag {
+					sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, pk1.selectName, fk.selectName))
 					break
 				}
-				sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, pk1.selectName, fk.selectName))
+				sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk1.selectName, fk.selectName))
 				return nil
 			}
 		}
