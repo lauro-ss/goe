@@ -23,7 +23,11 @@ func TestPostgresSelect(t *testing.T) {
 	}
 	err = db.Delete(db.Info).Where()
 	if err != nil {
-		t.Fatalf("Expected delete habitats, got error: %v", err)
+		t.Fatalf("Expected delete infos, got error: %v", err)
+	}
+	err = db.Delete(db.Status).Where()
+	if err != nil {
+		t.Fatalf("Expected delete status, got error: %v", err)
 	}
 
 	habitats := []Habitat{
@@ -37,13 +41,24 @@ func TestPostgresSelect(t *testing.T) {
 		t.Fatalf("Expected insert habitats, got error: %v", err)
 	}
 
+	status := []Status{
+		{Name: "Cat Alive"},
+		{Name: "Dog Alive"},
+		{Name: "Big Dog Alive"},
+	}
+
+	err = db.Insert(db.Status).Value(&status)
+	if err != nil {
+		t.Fatalf("Expected insert habitats, got error: %v", err)
+	}
+
 	infos := []Info{
-		{Id: uuid.New().NodeID(), Name: "Little Cat"},
-		{Id: uuid.New().NodeID(), Name: "Big Dog"},
+		{Id: uuid.New().NodeID(), Name: "Little Cat", IdStatus: status[0].Id},
+		{Id: uuid.New().NodeID(), Name: "Big Dog", IdStatus: status[2].Id},
 	}
 	err = db.Insert(db.Info).Value(&infos)
 	if err != nil {
-		t.Fatalf("Expected insert habitats, got error: %v", err)
+		t.Fatalf("Expected insert infos, got error: %v", err)
 	}
 
 	animals := []Animal{
@@ -427,6 +442,48 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if len(i) != 2 {
 					t.Errorf("Expected 2, got : %v", len(i))
+				}
+			},
+		},
+		{
+			desc: "Select_Info_Join_Status_One_To_One_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var s []Info
+				err := db.Select(db.Info).Join(db.Status, db.Info).Join(db.Info, db.Animal).
+					Join(db.Animal, db.Food).Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&s)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(s) != 2 {
+					t.Errorf("Expected 2, got : %v", len(s))
+				}
+			},
+		},
+		{
+			desc: "Select_Status_Inverted_Join_One_To_One_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var s []Status
+				err := db.Select(db.Status).Join(db.Info, db.Status).Join(db.Info, db.Animal).
+					Join(db.Animal, db.Food).Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&s)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(s) != 2 {
+					t.Errorf("Expected 2, got : %v", len(s))
+				}
+			},
+		},
+		{
+			desc: "Select_Status_Join_One_To_One_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var s []Status
+				err := db.Select(db.Status).Join(db.Status, db.Info).Join(db.Info, db.Animal).
+					Join(db.Food, db.Animal).Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&s)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(s) != 2 {
+					t.Errorf("Expected 2, got : %v", len(s))
 				}
 			},
 		},
