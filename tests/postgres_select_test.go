@@ -449,7 +449,7 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_Info_Join_Status_One_To_One_And_Many_To_Many",
 			testCase: func(t *testing.T) {
 				var s []Info
-				err := db.Select(db.Info).Join(db.Status, db.Info).Join(db.Info, db.Animal).
+				err := db.Select(db.Info).Join(db.Status, db.Info).Join(db.Animal, db.Info).
 					Join(db.Animal, db.Food).Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&s)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
@@ -477,7 +477,7 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_Status_Join_One_To_One_And_Many_To_Many",
 			testCase: func(t *testing.T) {
 				var s []Status
-				err := db.Select(db.Status).Join(db.Status, db.Info).Join(db.Info, db.Animal).
+				err := db.Select(db.Status).Join(db.Status, db.Info).Join(db.Animal, db.Info).
 					Join(db.Food, db.Animal).Where(db.Equals(&db.Food.Id, foods[0].Id)).Scan(&s)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
