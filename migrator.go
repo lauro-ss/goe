@@ -52,7 +52,7 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 		case reflect.Struct:
 			handlerStructMigrate(field, valueOf.Field(i).Type(), valueOf, i, p, migrator)
 		case reflect.Ptr:
-			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+			table := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
 				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), true); mto != nil {
 					key := utils.TableNamePattern(table)
@@ -67,7 +67,7 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 			}
 			migrateAtt(valueOf, field, i, p, migrator)
 		default:
-			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+			table := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
 				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
 					key := utils.TableNamePattern(table)
@@ -96,7 +96,7 @@ func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, 
 func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) error {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
-		table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+		table := checkTablePattern(tables, valueOf.Type().Field(i))
 		if table != "" {
 			if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
 				key := utils.TableNamePattern(table)

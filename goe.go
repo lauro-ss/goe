@@ -70,7 +70,7 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 		case reflect.Struct:
 			handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db, driver)
 		case reflect.Ptr:
-			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+			table := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
 				if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
 					switch v := mto.(type) {
@@ -97,8 +97,7 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 			}
 		default:
-			// check if tag field exists for many to one
-			table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+			table := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
 				if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
 					switch v := mto.(type) {
@@ -138,7 +137,7 @@ func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *p
 func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB, driver Driver) error {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
-		table := getTagValue(valueOf.Type().Field(i).Tag.Get("goe"), "table:")
+		table := checkTablePattern(tables, valueOf.Type().Field(i))
 		if table != "" {
 			if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
 				switch v := mto.(type) {
@@ -282,4 +281,20 @@ func getTagValue(fieldTag string, subTag string) string {
 		}
 	}
 	return ""
+}
+
+func checkTablePattern(tables reflect.Value, field reflect.StructField) string {
+	table := getTagValue(field.Tag.Get("goe"), "table:")
+	if table == "" {
+		for r := 1; r < len(field.Name); r++ {
+			if field.Name[r] < 'a' {
+				table = field.Name[r:]
+				break
+			}
+		}
+		if !tables.FieldByName(table).IsValid() {
+			table = ""
+		}
+	}
+	return table
 }
