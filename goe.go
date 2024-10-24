@@ -163,7 +163,7 @@ func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf refle
 		valueOf.Field(i).SetBytes([]byte{})
 		newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 	default:
-		if mtm := isManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db, driver); mtm != nil {
+		if mtm := isManytoMany(tables, targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db, driver); mtm != nil {
 			key := driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name()))
 			p.fks[key] = mtm
 		}
@@ -200,7 +200,7 @@ func isAutoIncrement(id reflect.StructField) bool {
 	return strings.Contains(id.Type.Kind().String(), "int")
 }
 
-func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db *DB, driver Driver) any {
+func isManytoMany(tables reflect.Value, targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db *DB, driver Driver) any {
 	nameTargetTypeOf := driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name()))
 	nameTypeOf := driver.KeywordHandler(utils.TableNamePattern(typeOf.Name()))
 
@@ -223,7 +223,7 @@ func isManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db
 				return createManyToMany(tag, typeOf, targetTypeOf, driver)
 			}
 		default:
-			if typeOf.Name() == getTagValue(targetTypeOf.Field(i).Tag.Get("goe"), "table:") {
+			if typeOf.Name() == checkTablePattern(tables, targetTypeOf.Field(i)) {
 				return createManyToOne(typeOf, targetTypeOf, true, driver)
 			}
 		}
