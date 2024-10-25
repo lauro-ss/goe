@@ -7,9 +7,12 @@ import (
 )
 
 func TestPostgresSelect(t *testing.T) {
-	db, _ := SetupPostgres()
+	db, err := SetupPostgres()
+	if err != nil {
+		t.Fatalf("Expected database, got error: %v", err)
+	}
 
-	err := db.Delete(db.Animal).Where()
+	err = db.Delete(db.Animal).Where()
 	if err != nil {
 		t.Fatalf("Expected delete animals, got error: %v", err)
 	}
@@ -30,11 +33,22 @@ func TestPostgresSelect(t *testing.T) {
 		t.Fatalf("Expected delete status, got error: %v", err)
 	}
 
+	weathers := []Weather{
+		{Name: "Hot"},
+		{Name: "Cold"},
+		{Name: "Wind"},
+		{Name: "Nice"},
+	}
+	err = db.Insert(db.Weather).Value(&weathers)
+	if err != nil {
+		t.Fatalf("Expected insert weathers, got error: %v", err)
+	}
+
 	habitats := []Habitat{
-		{Id: uuid.New(), Name: "City"},
-		{Id: uuid.New(), Name: "Jungle"},
-		{Id: uuid.New(), Name: "Savannah"},
-		{Id: uuid.New(), Name: "Ocean"},
+		{Id: uuid.New(), Name: "City", IdWeather: weathers[0].Id},
+		{Id: uuid.New(), Name: "Jungle", IdWeather: weathers[3].Id},
+		{Id: uuid.New(), Name: "Savannah", IdWeather: weathers[0].Id},
+		{Id: uuid.New(), Name: "Ocean", IdWeather: weathers[2].Id},
 	}
 	err = db.Insert(db.Habitat).Value(&habitats)
 	if err != nil {
@@ -488,6 +502,34 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Animal_By_Weather_Join_One_To_Many",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Habitat).Join(db.Habitat, db.Weather).
+					Where(db.Equals(&db.Weather.Id, weathers[3].Id)).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 4 {
+					t.Errorf("Expected 4, got : %v", len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_Weather_By_Animal_Join_One_To_Many",
+			testCase: func(t *testing.T) {
+				var w []Weather
+				err := db.Select(db.Weather).Join(db.Weather, db.Habitat).Join(db.Habitat, db.Animal).
+					Where(db.Equals(&db.Animal.Id, animals[0].Id)).Scan(&w)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(w) != 1 {
+					t.Errorf("Expected 1, got : %v", len(w))
+				}
+			},
+		},
+		{
 			desc: "Select_Join_Page",
 			testCase: func(t *testing.T) {
 				var a []Animal
@@ -549,6 +591,7 @@ func TestPostgresSelect(t *testing.T) {
 					AnimalIdInfo    []byte
 					HabitatId       uuid.UUID
 					HabitatName     string
+					IdWeather       int
 				}
 				err := db.Select(db.Animal, db.Habitat).Join(db.Animal, db.Habitat).OrderByAsc(&db.Animal.Id).Scan(&a)
 				if err != nil {

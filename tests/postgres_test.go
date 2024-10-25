@@ -25,12 +25,12 @@ type Food struct {
 type Habitat struct {
 	Id        uuid.UUID
 	Name      string `goe:"type:varchar(50)"`
-	IdWeather int    `goe:"table:Weather"`
+	IdWeather int
 	Animals   []Animal
 }
 
 type Weather struct {
-	Id       int
+	Id       int `goe:"pk"`
 	Name     string
 	Habitats []Habitat
 }
@@ -38,7 +38,7 @@ type Weather struct {
 type Info struct {
 	Id       []byte
 	Name     string
-	IdStatus int `goe:"table:Status"`
+	IdStatus int
 }
 
 type Status struct {
@@ -72,6 +72,6 @@ func SetupPostgres() (*Database, error) {
 func TestPostgresConection(t *testing.T) {
 	_, err := SetupPostgres()
 	if err != nil {
-		t.Fatalf("Expetec Postgres Conection, got error %v", err)
+		t.Fatalf("Expected Postgres Conection, got error %v", err)
 	}
 }
