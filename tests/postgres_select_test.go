@@ -45,7 +45,7 @@ func TestPostgresSelect(t *testing.T) {
 	}
 
 	habitats := []Habitat{
-		{Id: uuid.New(), Name: "City", IdWeather: weathers[0].Id},
+		{Id: uuid.New(), Name: "City", IdWeather: weathers[0].Id, NameWeather: "Test"},
 		{Id: uuid.New(), Name: "Jungle", IdWeather: weathers[3].Id},
 		{Id: uuid.New(), Name: "Savannah", IdWeather: weathers[0].Id},
 		{Id: uuid.New(), Name: "Ocean", IdWeather: weathers[2].Id},
@@ -67,7 +67,7 @@ func TestPostgresSelect(t *testing.T) {
 	}
 
 	infos := []Info{
-		{Id: uuid.New().NodeID(), Name: "Little Cat", IdStatus: status[0].Id},
+		{Id: uuid.New().NodeID(), Name: "Little Cat", IdStatus: status[0].Id, NameStatus: "Test"},
 		{Id: uuid.New().NodeID(), Name: "Big Dog", IdStatus: status[2].Id},
 	}
 	err = db.Insert(db.Info).Value(&infos)
@@ -592,6 +592,7 @@ func TestPostgresSelect(t *testing.T) {
 					HabitatId       uuid.UUID
 					HabitatName     string
 					IdWeather       int
+					NameWeather     string
 				}
 				err := db.Select(db.Animal, db.Habitat).Join(db.Animal, db.Habitat).OrderByAsc(&db.Animal.Id).Scan(&a)
 				if err != nil {

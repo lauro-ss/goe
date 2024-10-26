@@ -23,10 +23,11 @@ type Food struct {
 }
 
 type Habitat struct {
-	Id        uuid.UUID
-	Name      string `goe:"type:varchar(50)"`
-	IdWeather int
-	Animals   []Animal
+	Id          uuid.UUID
+	Name        string `goe:"type:varchar(50)"`
+	IdWeather   int
+	NameWeather string
+	Animals     []Animal
 }
 
 type Weather struct {
@@ -36,9 +37,10 @@ type Weather struct {
 }
 
 type Info struct {
-	Id       []byte
-	Name     string
-	IdStatus int
+	Id         []byte
+	Name       string
+	NameStatus string
+	IdStatus   int
 }
 
 type Status struct {
