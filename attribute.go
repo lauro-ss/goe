@@ -46,9 +46,13 @@ func (o *oneToOne) getPrimaryKey() *pk {
 	return o.pk
 }
 
-func createOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, driver Driver) *oneToOne {
+func createOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, driver Driver, prefix string) *oneToOne {
 	mto := new(oneToOne)
 	targetPkName := primaryKeys(typeOf)[0].Name
+	if targetPkName != prefix {
+		return nil
+	}
+
 	mto.selectName = fmt.Sprintf("%v.%v",
 		driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())),
 		driver.KeywordHandler(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))

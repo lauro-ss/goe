@@ -84,6 +84,10 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 						v.pk = p
 						p.fks[key] = v
 					case *oneToOne:
+						if v == nil {
+							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							break
+						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
 						v.pk = p
@@ -115,6 +119,10 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 						v.pk = p
 						p.fks[key] = v
 					case *oneToOne:
+						if v == nil {
+							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							break
+						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
 						v.pk = p
@@ -158,6 +166,9 @@ func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf refle
 					v.pk = p
 					p.fks[key] = v
 				case *oneToOne:
+					if v == nil {
+						break
+					}
 					key := driver.KeywordHandler(utils.TableNamePattern(table))
 					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
 					v.pk = p
@@ -256,7 +267,7 @@ func isManyToOne(tables reflect.Value, typeOf reflect.Type, driver Driver, table
 					}
 				}
 			}
-			return createOneToOne(tables.Field(c).Elem().Type(), typeOf, driver)
+			return createOneToOne(tables.Field(c).Elem().Type(), typeOf, driver, prefix)
 		}
 	}
 
