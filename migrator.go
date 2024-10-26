@@ -52,9 +52,19 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 		case reflect.Struct:
 			handlerStructMigrate(field, valueOf.Field(i).Type(), valueOf, i, p, migrator)
 		case reflect.Ptr:
-			table := checkTablePattern(tables, valueOf.Type().Field(i))
+			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
-				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), true); mto != nil {
+				if mto := isMigrateManyToOne(tables, valueOf.Type(), true, table, prefix); mto != nil {
+					switch v := mto.(type) {
+					case *MigrateManyToOne:
+						if v == nil {
+							migrateAtt(valueOf, field, i, p, migrator)
+							continue
+						}
+					case *MigrateOneToOne:
+						break
+					}
+
 					key := utils.TableNamePattern(table)
 					p.Fks[key] = mto
 					continue
@@ -67,9 +77,18 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 			}
 			migrateAtt(valueOf, field, i, p, migrator)
 		default:
-			table := checkTablePattern(tables, valueOf.Type().Field(i))
+			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
-				if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
+				if mto := isMigrateManyToOne(tables, valueOf.Type(), false, table, prefix); mto != nil {
+					switch v := mto.(type) {
+					case *MigrateManyToOne:
+						if v == nil {
+							migrateAtt(valueOf, field, i, p, migrator)
+							continue
+						}
+					case *MigrateOneToOne:
+						break
+					}
 					key := utils.TableNamePattern(table)
 					p.Fks[key] = mto
 					continue
@@ -96,9 +115,18 @@ func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, 
 func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) error {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
-		table := checkTablePattern(tables, valueOf.Type().Field(i))
+		table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 		if table != "" {
-			if mto := isMigrateManyToOne(tables, table, valueOf.Type(), false); mto != nil {
+			if mto := isMigrateManyToOne(tables, valueOf.Type(), false, table, prefix); mto != nil {
+				switch v := mto.(type) {
+				case *MigrateManyToOne:
+					if v == nil {
+						migrateAtt(valueOf, field, i, p, migrator)
+						return nil
+					}
+				case *MigrateOneToOne:
+					break
+				}
 				key := utils.TableNamePattern(table)
 				p.Fks[key] = mto
 				return nil
@@ -111,7 +139,7 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 		}
 		migrateAtt(valueOf, field, i, p, migrator)
 	default:
-		if mtm := isMigrateManytoMany(targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
+		if mtm := isMigrateManytoMany(tables, targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
 			key := utils.TableNamePattern(targetTypeOf.Name())
 			p.Fks[key] = mtm
 		}
@@ -119,14 +147,14 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 	return nil
 }
 
-func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type, nullable bool) any {
+func isMigrateManyToOne(tables reflect.Value, typeOf reflect.Type, nullable bool, table, prefix string) any {
 	for c := 0; c < tables.NumField(); c++ {
 		if tables.Field(c).Elem().Type().Name() == table {
 			for i := 0; i < tables.Field(c).Elem().NumField(); i++ {
 				// check if there is a slice to typeOf
 				if tables.Field(c).Elem().Field(i).Kind() == reflect.Slice {
 					if tables.Field(c).Elem().Field(i).Type().Elem().Name() == typeOf.Name() {
-						return createMigrateManyToOne(tables.Field(c).Elem().Type(), typeOf, false, nullable)
+						return createMigrateManyToOne(tables.Field(c).Elem().Type(), typeOf, false, nullable, prefix)
 					}
 				}
 			}
@@ -136,7 +164,7 @@ func isMigrateManyToOne(tables reflect.Value, table string, typeOf reflect.Type,
 	return nil
 }
 
-func isMigrateManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag string, m *Migrator) any {
+func isMigrateManytoMany(tables reflect.Value, targetTypeOf reflect.Type, typeOf reflect.Type, tag string, m *Migrator) any {
 	nameTargetTypeOf := utils.TableNamePattern(targetTypeOf.Name())
 	nameTypeOf := utils.TableNamePattern(typeOf.Name())
 
@@ -158,13 +186,15 @@ func isMigrateManytoMany(targetTypeOf reflect.Type, typeOf reflect.Type, tag str
 			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
 				return createMigrateManyToMany(tag, typeOf, targetTypeOf)
 			}
-		case reflect.Struct:
-			if targetTypeOf.Field(i).Type.Name() == typeOf.Name() {
-				return createMigrateManyToOne(typeOf, targetTypeOf, true, false)
-			}
 		case reflect.Ptr:
-			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				return createMigrateManyToOne(typeOf, targetTypeOf, true, false)
+			typeName, prefix := checkTablePattern(tables, targetTypeOf.Field(i))
+			if typeOf.Name() == typeName {
+				return createMigrateManyToOne(typeOf, targetTypeOf, true, true, prefix)
+			}
+		default:
+			typeName, prefix := checkTablePattern(tables, targetTypeOf.Field(i))
+			if typeOf.Name() == typeName {
+				return createMigrateManyToOne(typeOf, targetTypeOf, true, false, prefix)
 			}
 		}
 	}
@@ -196,7 +226,11 @@ func createMigrateManyToMany(tag string, typeOf reflect.Type, targetTypeOf refle
 	return mtm
 }
 
-func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool) *MigrateManyToOne {
+func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool, prefix string) *MigrateManyToOne {
+	if primaryKeys(typeOf)[0].Name != prefix {
+		return nil
+	}
+
 	mto := new(MigrateManyToOne)
 	mto.TargetTable = utils.TableNamePattern(typeOf.Name())
 	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(primaryKeys(typeOf)[0].Name, typeOf.Name()))

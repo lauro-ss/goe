@@ -70,11 +70,15 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 		case reflect.Struct:
 			handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db, driver)
 		case reflect.Ptr:
-			table := checkTablePattern(tables, valueOf.Type().Field(i))
+			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
-				if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
+				if mto := isManyToOne(tables, valueOf.Type(), driver, table, prefix); mto != nil {
 					switch v := mto.(type) {
 					case *manyToOne:
+						if v == nil {
+							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							break
+						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
 						v.pk = p
@@ -97,11 +101,15 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 			}
 		default:
-			table := checkTablePattern(tables, valueOf.Type().Field(i))
+			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
-				if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
+				if mto := isManyToOne(tables, valueOf.Type(), driver, table, prefix); mto != nil {
 					switch v := mto.(type) {
 					case *manyToOne:
+						if v == nil {
+							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							break
+						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
 						v.pk = p
@@ -137,11 +145,14 @@ func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *p
 func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB, driver Driver) error {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
-		table := checkTablePattern(tables, valueOf.Type().Field(i))
+		table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 		if table != "" {
-			if mto := isManyToOne(tables, valueOf.Type(), table, driver); mto != nil {
+			if mto := isManyToOne(tables, valueOf.Type(), driver, table, prefix); mto != nil {
 				switch v := mto.(type) {
 				case *manyToOne:
+					if v == nil {
+						break
+					}
 					key := driver.KeywordHandler(utils.TableNamePattern(table))
 					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
 					v.pk = p
@@ -160,6 +171,7 @@ func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf refle
 					table)
 			}
 		}
+		//TODO: Check this
 		valueOf.Field(i).SetBytes([]byte{})
 		newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 	default:
@@ -223,8 +235,9 @@ func isManytoMany(tables reflect.Value, targetTypeOf reflect.Type, typeOf reflec
 				return createManyToMany(tag, typeOf, targetTypeOf, driver)
 			}
 		default:
-			if typeOf.Name() == checkTablePattern(tables, targetTypeOf.Field(i)) {
-				return createManyToOne(typeOf, targetTypeOf, true, driver)
+			typeName, prefix := checkTablePattern(tables, targetTypeOf.Field(i))
+			if typeOf.Name() == typeName {
+				return createManyToOne(typeOf, targetTypeOf, true, driver, prefix)
 			}
 		}
 	}
@@ -232,14 +245,14 @@ func isManytoMany(tables reflect.Value, targetTypeOf reflect.Type, typeOf reflec
 	return nil
 }
 
-func isManyToOne(tables reflect.Value, typeOf reflect.Type, table string, driver Driver) field {
+func isManyToOne(tables reflect.Value, typeOf reflect.Type, driver Driver, table, prefix string) field {
 	for c := 0; c < tables.NumField(); c++ {
 		if tables.Field(c).Elem().Type().Name() == table {
 			for i := 0; i < tables.Field(c).Elem().NumField(); i++ {
 				// check if there is a slice to typeOf
 				if tables.Field(c).Elem().Field(i).Kind() == reflect.Slice {
 					if tables.Field(c).Elem().Field(i).Type().Elem().Name() == typeOf.Name() {
-						return createManyToOne(tables.Field(c).Elem().Type(), typeOf, false, driver)
+						return createManyToOne(tables.Field(c).Elem().Type(), typeOf, false, driver, prefix)
 					}
 				}
 			}
@@ -283,12 +296,17 @@ func getTagValue(fieldTag string, subTag string) string {
 	return ""
 }
 
-func checkTablePattern(tables reflect.Value, field reflect.StructField) string {
-	table := getTagValue(field.Tag.Get("goe"), "table:")
+func checkTablePattern(tables reflect.Value, field reflect.StructField) (table, prefix string) {
+	table = getTagValue(field.Tag.Get("goe"), "table:")
+	if table != "" {
+		prefix = strings.ReplaceAll(field.Name, table, "")
+		return table, prefix
+	}
 	if table == "" {
 		for r := 1; r < len(field.Name); r++ {
 			if field.Name[r] < 'a' {
 				table = field.Name[r:]
+				prefix = field.Name[:r]
 				break
 			}
 		}
@@ -296,5 +314,5 @@ func checkTablePattern(tables reflect.Value, field reflect.StructField) string {
 			table = ""
 		}
 	}
-	return table
+	return table, prefix
 }
