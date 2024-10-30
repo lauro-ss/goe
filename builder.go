@@ -8,7 +8,7 @@ import (
 )
 
 var ErrInvalidWhere = errors.New("goe: invalid where operation. try sending a pointer as parameter")
-var ErrNoMatchesTables = errors.New("don't have any many to one or many to many relationship")
+var ErrNoMatchesTables = errors.New("don't have any relationship")
 var ErrNotManyToMany = errors.New("don't have a many to many relationship")
 
 type builder struct {
