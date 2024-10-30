@@ -221,8 +221,8 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 		for c := range pks[:i] {
 			//switch pks if pk2 is priority
 			if pks[c].table == pk2.table {
-				pk1 = pks[c]
 				pk2 = pk1
+				pk1 = pks[c]
 				break
 			}
 		}
