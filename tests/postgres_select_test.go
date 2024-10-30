@@ -1,9 +1,11 @@
 package tests_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lauro-ss/goe"
 )
 
 func TestPostgresSelect(t *testing.T) {
@@ -605,6 +607,56 @@ func TestPostgresSelect(t *testing.T) {
 					if a[i].AnimalIdHabitat.String() != a[i].HabitatId.String() {
 						t.Errorf("Expected %v, got %v", a[i].AnimalIdHabitat.String(), a[i].HabitatId.String())
 					}
+				}
+			},
+		},
+		{
+			desc: "Select_Invalid_Scan",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Scan(a)
+				if !errors.Is(err, goe.ErrInvalidScan) {
+					t.Errorf("Expected goe.ErrInvalidScan, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Invalid_OrderBy",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).OrderByAsc(db.Animal.IdHabitat).Scan(&a)
+				if !errors.Is(err, goe.ErrInvalidOrderBy) {
+					t.Errorf("Expected goe.ErrInvalidOrderBy, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Invalid_Where",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Where(db.Equals(db.Animal.Id, 1)).Scan(&a)
+				if !errors.Is(err, goe.ErrInvalidWhere) {
+					t.Errorf("Expected goe.ErrInvalidWhere, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Invalid_Join",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Weather).Scan(&a)
+				if !errors.Is(err, goe.ErrNoMatchesTables) {
+					t.Errorf("Expected goe.ErrNoMatchesTables, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Invalid_Arg",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(nil).Join(db.Animal, db.Weather).Scan(&a)
+				if !errors.Is(err, goe.ErrInvalidArg) {
+					t.Errorf("Expected goe.ErrInvalidArg, got error: %v", err)
 				}
 			},
 		},
