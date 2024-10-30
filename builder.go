@@ -218,24 +218,22 @@ func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks 
 			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk2.selectName, fk.selectName))
 		}
 	case *manyToMany:
-		pk1Value := *pk1
-		pk2Value := *pk2
 		for c := range pks[:i] {
 			//switch pks if pk2 is priority
 			if pks[c].table == pk2.table {
-				pk1Value = *pks[c]
-				pk2Value = *pk1
+				pk1 = pks[c]
+				pk2 = pk1
 				break
 			}
 		}
 		sql.WriteByte(10)
-		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, fk.table, pk1Value.selectName, fk.ids[pk1Value.table].selectName))
+		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, fk.table, pk1.selectName, fk.ids[pk1.table].selectName))
 		sql.WriteByte(10)
 		sql.WriteString(fmt.Sprintf(
 			"%v %v on (%v = %v)",
 			join,
-			pk2Value.table, fk.ids[pk2Value.table].selectName,
-			pk2Value.selectName))
+			pk2.table, fk.ids[pk2.table].selectName,
+			pk2.selectName))
 	case *oneToOne:
 		sql.WriteByte(10)
 		var flag bool
