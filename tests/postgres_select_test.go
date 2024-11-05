@@ -34,6 +34,20 @@ func TestPostgresSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected delete status, got error: %v", err)
 	}
+	err = db.Delete(db.Owns).Where()
+	if err != nil {
+		t.Fatalf("Expected delete owns, got error: %v", err)
+	}
+
+	owns := []Owns{
+		{Name: "Bones"},
+		{Name: "Toys"},
+		{Name: "Boxs"},
+	}
+	err = db.Insert(db.Owns).Value(&owns)
+	if err != nil {
+		t.Fatalf("Expected insert owns, got error: %v", err)
+	}
 
 	weathers := []Weather{
 		{Name: "Hot"},
@@ -101,7 +115,20 @@ func TestPostgresSelect(t *testing.T) {
 	animalFoods := []int{
 		foods[0].Id, animals[0].Id,
 		foods[0].Id, animals[1].Id}
-	db.InsertIn(db.Food, db.Animal).Values(animalFoods)
+	err = db.InsertIn(db.Food, db.Animal).Values(animalFoods)
+	if err != nil {
+		t.Fatalf("Expected insert animalFoods, got error: %v", err)
+	}
+
+	animalOwns := []int{
+		animals[0].Id, owns[2].Id,
+		animals[1].Id, owns[0].Id,
+		animals[1].Id, owns[1].Id,
+	}
+	err = db.InsertIn(db.Animal, db.Owns).Values(&animalOwns)
+	if err != nil {
+		t.Fatalf("Expected insert animalOwns, got error: %v", err)
+	}
 
 	testCases := []struct {
 		desc     string
@@ -500,6 +527,40 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if len(s) != 2 {
 					t.Errorf("Expected 2, got : %v", len(s))
+				}
+			},
+		},
+		{
+			desc: "Select_Animal_Join_Many_To_Many_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Animal, db.Food).Join(db.Animal, db.Owns).
+					Where(db.Equals(&db.Owns.Id, owns[0].Id), db.And(), db.Equals(&db.Food.Id, foods[0].Id)).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 1 {
+					t.Errorf("Expected 2, got : %v", len(a))
+				}
+				if a[0].Id != animals[1].Id {
+					t.Errorf("Expected Dog, got : %v", a)
+				}
+			},
+		},
+		{
+			desc: "Select_Animal_Inverted_Join_Many_To_Many_And_Many_To_Many",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err := db.Select(db.Animal).Join(db.Food, db.Animal).Join(db.Owns, db.Animal).
+					Where(db.Equals(&db.Owns.Id, owns[0].Id), db.And(), db.Equals(&db.Food.Id, foods[0].Id)).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 1 {
+					t.Errorf("Expected 2, got : %v", len(a))
+				}
+				if a[0].Id != animals[1].Id {
+					t.Errorf("Expected Dog, got : %v", a)
 				}
 			},
 		},
