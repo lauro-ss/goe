@@ -3,6 +3,7 @@ package tests_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lauro-ss/goe"
@@ -37,6 +38,18 @@ func TestPostgresSelect(t *testing.T) {
 	err = db.Delete(db.Owns).Where()
 	if err != nil {
 		t.Fatalf("Expected delete owns, got error: %v", err)
+	}
+	err = db.Delete(db.UserRole).Where()
+	if err != nil {
+		t.Fatalf("Expected delete user roles, got error: %v", err)
+	}
+	err = db.Delete(db.User).Where()
+	if err != nil {
+		t.Fatalf("Expected delete users, got error: %v", err)
+	}
+	err = db.Delete(db.Role).Where()
+	if err != nil {
+		t.Fatalf("Expected delete roles, got error: %v", err)
 	}
 
 	owns := []Owns{
@@ -128,6 +141,36 @@ func TestPostgresSelect(t *testing.T) {
 	err = db.InsertIn(db.Animal, db.Owns).Values(&animalOwns)
 	if err != nil {
 		t.Fatalf("Expected insert animalOwns, got error: %v", err)
+	}
+
+	users := []User{
+		{Name: "Lauro Santana", Email: "lauro@email.com"},
+		{Name: "John Constantine", Email: "hunter@email.com"},
+		{Name: "Harry Potter", Email: "harry@email.com"},
+	}
+	err = db.Insert(db.User).Value(&users)
+	if err != nil {
+		t.Fatalf("Expected insert users, got error: %v", err)
+	}
+
+	roles := []Role{
+		{Name: "Administrator"},
+		{Name: "User"},
+		{Name: "Mid-Level"},
+	}
+	err = db.Insert(db.Role).Value(&roles)
+	if err != nil {
+		t.Fatalf("Expected insert roles, got error: %v", err)
+	}
+
+	tt := time.Now().AddDate(0, 0, 10)
+	userRoles := []UserRole{
+		{IdUser: users[0].Id, IdRole: roles[0].Id, EndDate: &tt},
+		{IdUser: users[1].Id, IdRole: roles[2].Id},
+	}
+	err = db.Insert(db.UserRole).Value(&userRoles)
+	if err != nil {
+		t.Fatalf("Expected insert user roles, got error: %v", err)
 	}
 
 	testCases := []struct {
@@ -603,6 +646,48 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if len(a) != int(pageSize) {
 					t.Errorf("Expected %v animals, got %v", pageSize, len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_User_And_Roles",
+			testCase: func(t *testing.T) {
+				var q []struct {
+					User    string
+					Role    *string
+					EndTime *time.Time
+				}
+				err := db.Select(&db.User.Name, &db.Role.Name, &db.UserRole.EndDate).LeftJoin(db.User, db.UserRole).
+					LeftJoin(db.UserRole, db.Role).OrderByAsc(&db.User.Id).Scan(&q)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(q) != len(users) {
+					t.Errorf("Expected %v, got : %v", len(users), len(q))
+				}
+				if q[0].EndTime == nil {
+					t.Errorf("Expected a value, got : %v", q[0].EndTime)
+				}
+			},
+		},
+		{
+			desc: "Select_User_And_Roles_Inverted",
+			testCase: func(t *testing.T) {
+				var q []struct {
+					User    string
+					Role    *string
+					EndTime *time.Time
+				}
+				err := db.Select(&db.User.Name, &db.Role.Name, &db.UserRole.EndDate).LeftJoin(db.UserRole, db.User).
+					LeftJoin(db.UserRole, db.Role).OrderByAsc(&db.User.Id).Scan(&q)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(q) != len(users) {
+					t.Errorf("Expected %v, got : %v", len(users), len(q))
+				}
+				if q[0].EndTime == nil {
+					t.Errorf("Expected a value, got : %v", q[0].EndTime)
 				}
 			},
 		},

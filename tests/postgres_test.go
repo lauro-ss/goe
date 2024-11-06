@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lauro-ss/goe"
@@ -55,14 +56,37 @@ type Status struct {
 	Name string
 }
 
+type User struct {
+	Id        int
+	Name      string
+	Email     string `goe:"index(unique n:idx_email)"`
+	UserRoles []UserRole
+}
+
+type UserRole struct {
+	Id      int
+	IdUser  int
+	IdRole  int
+	EndDate *time.Time
+}
+
+type Role struct {
+	Id        int
+	Name      string
+	UserRoles []UserRole
+}
+
 type Database struct {
-	Animal  *Animal
-	Food    *Food
-	Habitat *Habitat
-	Info    *Info
-	Status  *Status
-	Weather *Weather
-	Owns    *Owns
+	Animal   *Animal
+	Food     *Food
+	Habitat  *Habitat
+	Info     *Info
+	Status   *Status
+	Weather  *Weather
+	Owns     *Owns
+	User     *User
+	UserRole *UserRole
+	Role     *Role
 	*goe.DB
 }
 
