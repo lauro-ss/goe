@@ -76,6 +76,25 @@ type Role struct {
 	UserRoles []UserRole
 }
 
+type Flag struct {
+	Id      uuid.UUID
+	Name    string
+	Float32 float32
+	Float64 float64
+	Today   time.Time
+	Int     int
+	Int8    int8
+	Int16   int16
+	Int32   int32
+	Int64   int64
+	Uint    uint
+	Uint8   uint8
+	Uint16  uint16
+	Uint32  uint32
+	Uint64  uint64
+	Bool    bool
+}
+
 type Database struct {
 	Animal   *Animal
 	Food     *Food
@@ -87,6 +106,7 @@ type Database struct {
 	User     *User
 	UserRole *UserRole
 	Role     *Role
+	Flag     *Flag
 	*goe.DB
 }
 
