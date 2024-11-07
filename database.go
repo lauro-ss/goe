@@ -463,6 +463,9 @@ func getArgsSelect(addrMap map[uintptr]field, args ...any) ([]uintptr, []aggrega
 			return nil, nil, ErrInvalidArg
 		}
 	}
+	if len(uintArgs) == 0 && len(aggregates) == 0 {
+		return nil, nil, ErrInvalidArg
+	}
 	return uintArgs, aggregates, nil
 }
 

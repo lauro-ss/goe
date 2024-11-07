@@ -208,9 +208,6 @@ func (s *stateSelect) OrderByDesc(arg any) *stateSelect {
 }
 
 func (s *stateSelect) querySelect(args []uintptr, aggregates []aggregate) *stateSelect {
-	if len(args) == 0 && len(aggregates) == 0 {
-		s.err = ErrInvalidArg
-	}
 	if s.err == nil {
 		s.builder.args = args
 		s.builder.aggregates = aggregates
