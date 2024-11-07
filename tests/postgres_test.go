@@ -25,7 +25,7 @@ type Owns struct {
 }
 
 type Food struct {
-	Id      int
+	Id      uuid.UUID
 	Name    string
 	Animals []Animal `goe:"table:AnimalFood"`
 }
