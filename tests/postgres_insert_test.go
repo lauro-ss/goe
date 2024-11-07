@@ -1,10 +1,12 @@
 package tests_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lauro-ss/goe"
 )
 
 func TestPostgresInsert(t *testing.T) {
@@ -125,18 +127,172 @@ func TestPostgresInsert(t *testing.T) {
 				if a.Id == 0 {
 					t.Errorf("Expected a Id value, got : %v", a.Id)
 				}
-				f := Food{Name: "Meat"}
+				f := Food{Id: uuid.New(), Name: "Meat"}
 				err = db.Insert(db.Food).Value(&f)
 				if err != nil {
 					t.Errorf("Expected a insert food, got error: %v", err)
-				}
-				if f.Id == 0 {
-					t.Errorf("Expected a Id value, got : %v", a.Id)
 				}
 
 				err = db.InsertIn(db.Animal, db.Food).Values(a.Id, f.Id)
 				if err != nil {
 					t.Errorf("Expected a insert AnimalFood, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Batch_Animal",
+			testCase: func(t *testing.T) {
+				animals := []Animal{
+					{Name: "Cat"},
+					{Name: "Dog"},
+					{Name: "Forest Cat"},
+					{Name: "Bear"},
+					{Name: "Lion"},
+					{Name: "Puma"},
+					{Name: "Snake"},
+					{Name: "Whale"},
+				}
+				err = db.Insert(db.Animal).Value(&animals)
+				if err != nil {
+					t.Fatalf("Expected insert animals, got error: %v", err)
+				}
+				for i := range animals {
+					if animals[i].Id == 0 {
+						t.Errorf("Expected a Id value, got : %v", animals[i].Id)
+					}
+				}
+			},
+		},
+		{
+			desc: "InsertIn_Batch_Animal",
+			testCase: func(t *testing.T) {
+				animals := []Animal{
+					{Name: "Cat"},
+					{Name: "Dog"},
+				}
+				err = db.Insert(db.Animal).Value(&animals)
+				if err != nil {
+					t.Fatalf("Expected insert animals, got error: %v", err)
+				}
+
+				foods := []Food{
+					{Id: uuid.New(), Name: "Meat"},
+					{Id: uuid.New(), Name: "Grass"},
+				}
+				err = db.Insert(db.Food).Value(&foods)
+				if err != nil {
+					t.Fatalf("Expected insert foods, got error: %v", err)
+				}
+
+				animalFoods := []any{
+					foods[0].Id, animals[0].Id,
+					foods[0].Id, animals[1].Id}
+				err = db.InsertIn(db.Food, db.Animal).Values(animalFoods)
+				if err != nil {
+					t.Fatalf("Expected insert animalFoods, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Invalid_Pointer",
+			testCase: func(t *testing.T) {
+				a := Animal{Name: "Cat"}
+				err = db.Insert(db.Animal).Value(a)
+				if !errors.Is(err, goe.ErrInvalidInsertPointer) {
+					t.Errorf("Expected goe.ErrInvalidInsertPointer, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Invalid_Value",
+			testCase: func(t *testing.T) {
+				a := 2
+				err = db.Insert(db.Animal).Value(&a)
+				if !errors.Is(err, goe.ErrInvalidInsertValue) {
+					t.Errorf("Expected goe.ErrInvalidInsertValue, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Invalid_Batch_Value",
+			testCase: func(t *testing.T) {
+				animals := []int{
+					1,
+					2,
+				}
+				err = db.Insert(db.Animal).Value(&animals)
+				if !errors.Is(err, goe.ErrInvalidInsertBatchValue) {
+					t.Errorf("Expected goe.ErrInvalidInsertBatchValue, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Invalid_Empty_Batch",
+			testCase: func(t *testing.T) {
+				animals := []Animal{}
+				err = db.Insert(db.Animal).Value(&animals)
+				if !errors.Is(err, goe.ErrEmptyBatchValue) {
+					t.Errorf("Expected goe.ErrInvalidInsertBatchValue, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Invalid_Arg",
+			testCase: func(t *testing.T) {
+				a := 2
+				err = db.Insert(db.DB).Value(&a)
+				if !errors.Is(err, goe.ErrInvalidArg) {
+					t.Errorf("Expected goe.ErrInvalidArg, got : %v", err)
+				}
+
+				err = db.Insert(nil).Value(&a)
+				if !errors.Is(err, goe.ErrInvalidArg) {
+					t.Errorf("Expected goe.ErrInvalidArg, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "InsertIn_Invalid_Tables",
+			testCase: func(t *testing.T) {
+				af := []any{
+					1, 2,
+					3, 4,
+				}
+				err = db.InsertIn(db.Animal, db.Flag).Values(&af)
+				if !errors.Is(err, goe.ErrNoMatchesTables) {
+					t.Errorf("Expected goe.ErrNoMatchesTables, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "InsertIn_Invalid_Tables_Many_To_Many",
+			testCase: func(t *testing.T) {
+				af := []any{
+					1, 2,
+					3, 4,
+				}
+				err = db.InsertIn(db.Animal, db.Habitat).Values(&af)
+				if !errors.Is(err, goe.ErrNotManyToMany) {
+					t.Errorf("Expected goe.ErrNotManyToMany, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "InsertIn_Invalid_Value",
+			testCase: func(t *testing.T) {
+				af := []any{
+					1, 2,
+					3,
+				}
+				err = db.InsertIn(db.Animal, db.Food).Values(af)
+				if !errors.Is(err, goe.ErrInvalidInsertInValue) {
+					t.Errorf("Expected goe.ErrInvalidInsertInValue, got : %v", err)
+				}
+
+				a := 1
+				err = db.InsertIn(db.Animal, db.Food).Values(a)
+				if !errors.Is(err, goe.ErrInvalidInsertInValue) {
+					t.Errorf("Expected goe.ErrInvalidInsertInValue, got : %v", err)
 				}
 			},
 		},
