@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-var ErrInvalidArg = errors.New("goe: invalid argument. try sending a pointer as argument")
+var ErrInvalidArg = errors.New("goe: invalid argument. try sending a pointer to a database mapped struct as argument")
 
 type Config struct {
 	LogQuery bool
@@ -489,6 +489,9 @@ func getArgs(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 		} else {
 			return nil, ErrInvalidArg
 		}
+	}
+	if len(stringArgs) == 0 {
+		return nil, ErrInvalidArg
 	}
 	return stringArgs, nil
 }
