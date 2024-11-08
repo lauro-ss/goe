@@ -180,13 +180,13 @@ func (db *DB) InsertInContext(ctx context.Context, table1 any, table2 any) *stat
 //
 //	// update one row and column name from animal
 //	db.Update(&db.Animal.Name).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
-func (db *DB) Update(table any) *stateUpdate {
-	return db.UpdateContext(context.Background(), table)
+func (db *DB) Update(table ...any) *stateUpdate {
+	return db.UpdateContext(context.Background(), table...)
 }
 
 // UpdateContext creates a update state for table
-func (db *DB) UpdateContext(ctx context.Context, table any) *stateUpdate {
-	stringArgs, err := getArgs(db.addrMap, table)
+func (db *DB) UpdateContext(ctx context.Context, table ...any) *stateUpdate {
+	stringArgs, err := getArgs(db.addrMap, table...)
 
 	var state *stateUpdate
 	if err != nil {
