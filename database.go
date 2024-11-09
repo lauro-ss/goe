@@ -7,6 +7,7 @@ import (
 )
 
 var ErrInvalidArg = errors.New("goe: invalid argument. try sending a pointer to a database mapped struct as argument")
+var ErrTooManyTablesUpdate = errors.New("goe: invalid table. try sending arguments from the same table")
 
 type Config struct {
 	LogQuery bool
@@ -186,7 +187,7 @@ func (db *DB) Update(table ...any) *stateUpdate {
 
 // UpdateContext creates a update state for table
 func (db *DB) UpdateContext(ctx context.Context, table ...any) *stateUpdate {
-	stringArgs, err := getArgs(db.addrMap, table...)
+	stringArgs, err := getArgsUpdate(db.addrMap, table...)
 
 	var state *stateUpdate
 	if err != nil {
@@ -488,6 +489,48 @@ func getArgs(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 				}
 			} else {
 				stringArgs = append(stringArgs, uintptr(valueOf.Addr().UnsafePointer()))
+			}
+		} else {
+			return nil, ErrInvalidArg
+		}
+	}
+	if len(stringArgs) == 0 {
+		return nil, ErrInvalidArg
+	}
+	return stringArgs, nil
+}
+
+func getArgsUpdate(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
+	stringArgs := make([]uintptr, 0)
+	var table string
+	for i := range args {
+		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
+			valueOf := reflect.ValueOf(args[i]).Elem()
+			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
+				var fieldOf reflect.Value
+				for i := 0; i < valueOf.NumField(); i++ {
+					fieldOf = valueOf.Field(i)
+					if fieldOf.Kind() == reflect.Slice && fieldOf.Type().Elem().Kind() == reflect.Struct {
+						continue
+					}
+					addr := uintptr(fieldOf.Addr().UnsafePointer())
+					if addrMap[addr] != nil {
+						if table != "" && addrMap[addr].getPrimaryKey().table != table {
+							return nil, ErrTooManyTablesUpdate
+						}
+						table = addrMap[addr].getPrimaryKey().table
+						stringArgs = append(stringArgs, addr)
+					}
+				}
+			} else {
+				addr := uintptr(valueOf.Addr().UnsafePointer())
+				if addrMap[addr] != nil {
+					if table != "" && addrMap[addr].getPrimaryKey().table != table {
+						return nil, ErrTooManyTablesUpdate
+					}
+					table = addrMap[addr].getPrimaryKey().table
+					stringArgs = append(stringArgs, uintptr(valueOf.Addr().UnsafePointer()))
+				}
 			}
 		} else {
 			return nil, ErrInvalidArg
