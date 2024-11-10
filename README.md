@@ -1,5 +1,5 @@
 # GOE
- A SQL Like code first ORM for Go (golang)
+ A SQL Like code first ORM for Golang
 
 
 [![Go.Dev reference](https://img.shields.io/badge/go.dev-reference-blue?logo=go&logoColor=white)](https://pkg.go.dev/github.com/lauro-ss/goe)
