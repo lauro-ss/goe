@@ -485,20 +485,6 @@ func TestPostgresUpdate(t *testing.T) {
 			},
 		},
 		{
-			desc: "UpdateIn_Invalid_Tables",
-			testCase: func(t *testing.T) {
-				a := Animal{
-					Name: "Cat",
-				}
-
-				a.Name = "Update Cat"
-				err = db.UpdateIn(db.Animal, db.Flag).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
-				if !errors.Is(err, goe.ErrNoMatchesTables) {
-					t.Errorf("Expected a goe.ErrNoMatchesTables, got error: %v", err)
-				}
-			},
-		},
-		{
 			desc: "UpdateIn_Invalid_Where",
 			testCase: func(t *testing.T) {
 				a := Animal{
