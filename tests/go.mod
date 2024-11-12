@@ -4,8 +4,8 @@ go 1.22.1
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/olauro/goe v0.2.2
-	github.com/olauro/postgres v0.2.1
+	github.com/olauro/goe v0.2.3
+	github.com/olauro/postgres v0.2.2
 )
 
 require (
