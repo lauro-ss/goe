@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/lauro-ss/goe/utils"
+	"github.com/olauro/goe/utils"
 )
 
 var ErrInvalidManyToOne = errors.New("goe")

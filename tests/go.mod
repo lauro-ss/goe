@@ -1,11 +1,11 @@
-module github.com/lauro-ss/goe/tests
+module github.com/olauro/goe/tests
 
 go 1.22.1
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/lauro-ss/goe v0.2.2
-	github.com/lauro-ss/postgres v0.2.1
+	github.com/olauro/goe v0.2.2
+	github.com/olauro/postgres v0.2.1
 )
 
 require (
@@ -18,4 +18,4 @@ require (
 	golang.org/x/text v0.20.0 // indirect
 )
 
-replace github.com/lauro-ss/goe => ../
+replace github.com/olauro/goe => ../

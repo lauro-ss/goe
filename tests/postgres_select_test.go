@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lauro-ss/goe"
+	"github.com/olauro/goe"
 )
 
 func TestPostgresSelect(t *testing.T) {

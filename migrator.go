@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/lauro-ss/goe/utils"
+	"github.com/olauro/goe/utils"
 )
 
 type Migrator struct {

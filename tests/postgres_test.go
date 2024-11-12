@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lauro-ss/goe"
-	"github.com/lauro-ss/postgres"
+	"github.com/olauro/goe"
+	"github.com/olauro/postgres"
 )
 
 type Animal struct {

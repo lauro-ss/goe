@@ -2,7 +2,7 @@
  A SQL like ORM for Go
 
 
-[![Go.Dev reference](https://img.shields.io/badge/go.dev-reference-blue?logo=go&logoColor=white)](https://pkg.go.dev/github.com/lauro-ss/goe)
+[![Go.Dev reference](https://img.shields.io/badge/go.dev-reference-blue?logo=go&logoColor=white)](https://pkg.go.dev/github.com/olauro/goe)
 [![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
 ![](goe.png)
@@ -47,14 +47,14 @@
 
 ## Install
 ```
-go get github.com/lauro-ss/goe
+go get github.com/olauro/goe
 ```
 > As any database/sql support in go, you have to get a specific driver for your database, check [Available Drivers](#available-drivers)
 
 ## Available Drivers
 ### PostgreSQL
 ```
-go get github.com/lauro-ss/postgres
+go get github.com/olauro/postgres
 ```
 ## Quick Start
 ```
@@ -65,8 +65,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/lauro-ss/goe"
-	"github.com/lauro-ss/postgres"
+	"github.com/olauro/goe"
+	"github.com/olauro/postgres"
 )
 
 // By default field "Id" is primary key

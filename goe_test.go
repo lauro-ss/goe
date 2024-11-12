@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lauro-ss/goe"
+	"github.com/olauro/goe"
 )
 
 type MockDriver struct {
