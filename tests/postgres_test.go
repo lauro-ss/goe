@@ -110,8 +110,13 @@ type Database struct {
 	*goe.DB
 }
 
+var db *Database
+
 func SetupPostgres() (*Database, error) {
-	db := &Database{DB: &goe.DB{}}
+	if db != nil {
+		return db, nil
+	}
+	db = &Database{DB: &goe.DB{}}
 	err := goe.Open(db, postgres.Open("user=postgres password=postgres host=localhost port=5432 database=postgres"), goe.Config{})
 	if err != nil {
 		return nil, err
