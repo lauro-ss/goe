@@ -3,6 +3,7 @@ package goe
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"reflect"
 )
 
@@ -75,7 +76,7 @@ func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args
 		dest[i] = value.Addr().Interface()
 	}
 	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	value.Set(reflect.ValueOf(dest[0]).Elem())
@@ -93,7 +94,7 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 		dest[i] = reflect.New(t.Type).Interface()
 	}
 	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	var field reflect.Value
