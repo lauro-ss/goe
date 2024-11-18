@@ -1,6 +1,7 @@
 package goe
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -24,11 +25,12 @@ type stateSelect struct {
 	conn    Connection
 	addrMap map[uintptr]field
 	builder *builder
+	ctx     context.Context
 	err     error
 }
 
-func createSelectState(conn Connection, c *Config, e error) *stateSelect {
-	return &stateSelect{conn: conn, builder: createBuilder(), config: c, err: e}
+func createSelectState(conn Connection, c *Config, ctx context.Context, e error) *stateSelect {
+	return &stateSelect{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
 }
 
 // Where creates a where SQL using the operations
@@ -257,7 +259,7 @@ func (s *stateSelect) Scan(target any) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit)
+	return handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit, s.ctx)
 }
 
 /*
@@ -267,11 +269,12 @@ type stateInsert struct {
 	config  *Config
 	conn    Connection
 	builder *builder
+	ctx     context.Context
 	err     error
 }
 
-func createInsertState(conn Connection, c *Config, e error) *stateInsert {
-	return &stateInsert{conn: conn, builder: createBuilder(), config: c, err: e}
+func createInsertState(conn Connection, c *Config, ctx context.Context, e error) *stateInsert {
+	return &stateInsert{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *stateInsert {
@@ -330,7 +333,7 @@ func (s *stateInsert) Value(value any) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName)
+	return handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName, s.ctx)
 }
 
 func (s *stateInsert) batchValue(value reflect.Value) error {
@@ -347,18 +350,19 @@ func (s *stateInsert) batchValue(value reflect.Value) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerValuesReturningBatch(s.conn, sql, value, s.builder.argsAny, idName)
+	return handlerValuesReturningBatch(s.conn, sql, value, s.builder.argsAny, idName, s.ctx)
 }
 
 type stateInsertIn struct {
 	config  *Config
 	conn    Connection
 	builder *builder
+	ctx     context.Context
 	err     error
 }
 
-func createInsertStateIn(conn Connection, c *Config, e error) *stateInsertIn {
-	return &stateInsertIn{conn: conn, builder: createBuilder(), config: c, err: e}
+func createInsertStateIn(conn Connection, c *Config, ctx context.Context, e error) *stateInsertIn {
+	return &stateInsertIn{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateInsertIn) queryInsertIn(args []uintptr, addrMap map[uintptr]field) *stateInsertIn {
@@ -407,7 +411,7 @@ func (s *stateInsertIn) Values(v ...any) error {
 		if s.config.LogQuery {
 			log.Println("\n" + sql)
 		}
-		return handlerValues(s.conn, sql, s.builder.argsAny)
+		return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
 	case 2:
 		s.builder.argsAny = append(s.builder.argsAny, v[0])
 		s.builder.argsAny = append(s.builder.argsAny, v[1])
@@ -421,7 +425,7 @@ func (s *stateInsertIn) Values(v ...any) error {
 		if s.config.LogQuery {
 			log.Println("\n" + sql)
 		}
-		return handlerValues(s.conn, sql, s.builder.argsAny)
+		return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
 	default:
 		return ErrInvalidInsertInValue
 	}
@@ -434,11 +438,12 @@ type stateUpdate struct {
 	config  *Config
 	conn    Connection
 	builder *builder
+	ctx     context.Context
 	err     error
 }
 
-func createUpdateState(conn Connection, c *Config, e error) *stateUpdate {
-	return &stateUpdate{conn: conn, builder: createBuilder(), config: c, err: e}
+func createUpdateState(conn Connection, c *Config, ctx context.Context, e error) *stateUpdate {
+	return &stateUpdate{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
@@ -494,18 +499,19 @@ func (s *stateUpdate) Value(value any) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerValues(s.conn, sql, s.builder.argsAny)
+	return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
 }
 
 type stateUpdateIn struct {
 	config  *Config
 	conn    Connection
 	builder *builder
+	ctx     context.Context
 	err     error
 }
 
-func createUpdateInState(conn Connection, c *Config, e error) *stateUpdateIn {
-	return &stateUpdateIn{conn: conn, builder: createBuilder(), config: c, err: e}
+func createUpdateInState(conn Connection, c *Config, ctx context.Context, e error) *stateUpdateIn {
+	return &stateUpdateIn{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateUpdateIn) Where(brs ...operator) *stateUpdateIn {
@@ -555,18 +561,19 @@ func (s *stateUpdateIn) Value(value any) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerValues(s.conn, sql, s.builder.argsAny)
+	return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
 }
 
 type stateDelete struct {
 	config  *Config
 	conn    Connection
 	builder *builder
+	ctx     context.Context
 	err     error
 }
 
-func createDeleteState(conn Connection, c *Config, e error) *stateDelete {
-	return &stateDelete{conn: conn, builder: createBuilder(), config: c, err: e}
+func createDeleteState(conn Connection, c *Config, ctx context.Context, e error) *stateDelete {
+	return &stateDelete{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *stateDelete {
@@ -603,18 +610,19 @@ func (s *stateDelete) Where(brs ...operator) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerValues(s.conn, sql, s.builder.argsAny)
+	return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
 }
 
 type stateDeleteIn struct {
 	config  *Config
 	conn    Connection
 	builder *builder
+	ctx     context.Context
 	err     error
 }
 
-func createDeleteInState(conn Connection, c *Config, e error) *stateDeleteIn {
-	return &stateDeleteIn{conn: conn, builder: createBuilder(), config: c, err: e}
+func createDeleteInState(conn Connection, c *Config, ctx context.Context, e error) *stateDeleteIn {
+	return &stateDeleteIn{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateDeleteIn) queryDeleteIn(args []uintptr, addrMap map[uintptr]field) *stateDeleteIn {
@@ -655,5 +663,5 @@ func (s *stateDeleteIn) Where(brs ...operator) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerValues(s.conn, sql, s.builder.argsAny)
+	return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
 }

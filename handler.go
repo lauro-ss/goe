@@ -7,20 +7,16 @@ import (
 	"reflect"
 )
 
-func handlerValues(conn Connection, sqlQuery string, args []any) error {
-	defer conn.Close()
-
-	_, err := conn.ExecContext(context.Background(), sqlQuery, args...)
+func handlerValues(conn Connection, sqlQuery string, args []any, ctx context.Context) error {
+	_, err := conn.ExecContext(ctx, sqlQuery, args...)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) error {
-	defer conn.Close()
-
-	row := conn.QueryRowContext(context.Background(), sqlQuery, args...)
+func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string, ctx context.Context) error {
+	row := conn.QueryRowContext(ctx, sqlQuery, args...)
 
 	err := row.Scan(value.FieldByName(idName).Addr().Interface())
 	if err != nil {
@@ -29,13 +25,12 @@ func handlerValuesReturning(conn Connection, sqlQuery string, value reflect.Valu
 	return nil
 }
 
-func handlerValuesReturningBatch(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string) error {
-	defer conn.Close()
-
-	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
+func handlerValuesReturningBatch(conn Connection, sqlQuery string, value reflect.Value, args []any, idName string, ctx context.Context) error {
+	rows, err := conn.QueryContext(ctx, sqlQuery, args...)
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	i := 0
 	for rows.Next() {
@@ -48,34 +43,32 @@ func handlerValuesReturningBatch(conn Connection, sqlQuery string, value reflect
 	return nil
 }
 
-func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string, limit uint) error {
-	defer conn.Close()
-
+func handlerResult(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string, limit uint, ctx context.Context) error {
 	switch value.Kind() {
 	case reflect.Slice:
 		if value.Type().Elem().Kind() == reflect.Struct && value.Type().Elem().Name() != "Time" {
-			return handlerStructQuery(conn, sqlQuery, value, args, structColumns, limit)
+			return handlerStructQuery(conn, sqlQuery, value, args, structColumns, limit, ctx)
 		}
 		if value.Type().Elem().Kind() == reflect.Uint8 {
-			return handlerQueryRow(conn, sqlQuery, value, args)
+			return handlerQueryRow(conn, sqlQuery, value, args, ctx)
 		}
-		return handlerQuery(conn, sqlQuery, value, args, limit)
+		return handlerQuery(conn, sqlQuery, value, args, limit, ctx)
 	case reflect.Struct:
 		if value.Type().Name() != "Time" {
-			return handlerStructQueryRow(conn, sqlQuery, value, args, structColumns)
+			return handlerStructQueryRow(conn, sqlQuery, value, args, structColumns, ctx)
 		}
-		return handlerQueryRow(conn, sqlQuery, value, args)
+		return handlerQueryRow(conn, sqlQuery, value, args, ctx)
 	default:
-		return handlerQueryRow(conn, sqlQuery, value, args)
+		return handlerQueryRow(conn, sqlQuery, value, args, ctx)
 	}
 }
 
-func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any) error {
+func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, ctx context.Context) error {
 	dest := make([]any, 1)
 	for i := range dest {
 		dest[i] = value.Addr().Interface()
 	}
-	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
+	err := conn.QueryRowContext(ctx, sqlQuery, args...).Scan(dest...)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -83,7 +76,7 @@ func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args
 	return nil
 }
 
-func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string) error {
+func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value, args []any, columns []string, ctx context.Context) error {
 	dest := make([]any, len(columns))
 	for i := range dest {
 		t, _ := value.Type().FieldByName(columns[i])
@@ -93,7 +86,7 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 		}
 		dest[i] = reflect.New(t.Type).Interface()
 	}
-	err := conn.QueryRowContext(context.Background(), sqlQuery, args...).Scan(dest...)
+	err := conn.QueryRowContext(ctx, sqlQuery, args...).Scan(dest...)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -108,8 +101,8 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 	return nil
 }
 
-func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, limit uint) error {
-	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
+func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, limit uint, ctx context.Context) error {
+	rows, err := conn.QueryContext(ctx, sqlQuery, args...)
 
 	if err != nil {
 		return err
@@ -142,8 +135,8 @@ func mapQuery(rows *sql.Rows, dest []any, value reflect.Value, limit uint) (err 
 	return err
 }
 
-func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string, limit uint) error {
-	rows, err := conn.QueryContext(context.Background(), sqlQuery, args...)
+func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string, limit uint, ctx context.Context) error {
+	rows, err := conn.QueryContext(ctx, sqlQuery, args...)
 
 	if err != nil {
 		return err
