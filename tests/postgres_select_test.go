@@ -19,6 +19,10 @@ func TestPostgresSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected delete AnimalFood, got error: %v", err)
 	}
+	err = db.DeleteIn(db.Animal, db.Owns).Where()
+	if err != nil {
+		t.Fatalf("Expected delete AnimalOwns, got error: %v", err)
+	}
 	err = db.Delete(db.Flag).Where()
 	if err != nil {
 		t.Fatalf("Expected delete flags, got error: %v", err)
