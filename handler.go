@@ -7,6 +7,8 @@ import (
 	"reflect"
 )
 
+var ErrNotFound = errors.New("goe: not found any element on result set")
+
 func handlerValues(conn Connection, sqlQuery string, args []any, ctx context.Context) error {
 	_, err := conn.ExecContext(ctx, sqlQuery, args...)
 	if err != nil {
@@ -69,7 +71,10 @@ func handlerQueryRow(conn Connection, sqlQuery string, value reflect.Value, args
 		dest[i] = value.Addr().Interface()
 	}
 	err := conn.QueryRowContext(ctx, sqlQuery, args...).Scan(dest...)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
 		return err
 	}
 	value.Set(reflect.ValueOf(dest[0]).Elem())
@@ -87,7 +92,10 @@ func handlerStructQueryRow(conn Connection, sqlQuery string, value reflect.Value
 		dest[i] = reflect.New(t.Type).Interface()
 	}
 	err := conn.QueryRowContext(ctx, sqlQuery, args...).Scan(dest...)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
 		return err
 	}
 	var field reflect.Value
@@ -123,7 +131,17 @@ func handlerQuery(conn Connection, sqlQuery string, value reflect.Value, args []
 }
 
 func mapQuery(rows *sql.Rows, dest []any, value reflect.Value, limit uint) (err error) {
+	if !rows.Next() {
+		return ErrNotFound
+	}
+
 	value.Set(reflect.MakeSlice(value.Type(), 0, int(limit)))
+
+	err = rows.Scan(dest...)
+	if err != nil {
+		return err
+	}
+	value.Set(reflect.Append(value, reflect.ValueOf(dest[0]).Elem()))
 
 	for rows.Next() {
 		err = rows.Scan(dest...)
@@ -132,7 +150,7 @@ func mapQuery(rows *sql.Rows, dest []any, value reflect.Value, limit uint) (err 
 		}
 		value.Set(reflect.Append(value, reflect.ValueOf(dest[0]).Elem()))
 	}
-	return err
+	return nil
 }
 
 func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, args []any, structColumns []string, limit uint, ctx context.Context) error {
@@ -161,23 +179,41 @@ func handlerStructQuery(conn Connection, sqlQuery string, value reflect.Value, a
 }
 
 func mapStructQuery(rows *sql.Rows, dest []any, value reflect.Value, columns []string, limit uint) (err error) {
+	if !rows.Next() {
+		return ErrNotFound
+	}
+
 	value.Set(reflect.MakeSlice(value.Type(), 0, int(limit)))
+
+	err = handlerStructRow(rows, dest, value, columns)
+	if err != nil {
+		return err
+	}
+
 	for rows.Next() {
-		err = rows.Scan(dest...)
+		err = handlerStructRow(rows, dest, value, columns)
 		if err != nil {
 			return err
 		}
-		s := reflect.New(value.Type().Elem()).Elem()
-		var f reflect.Value
-		//Fills the target
-		for i, a := range dest {
-			f = s.FieldByName(columns[i])
-			if !f.CanSet() {
-				f = s.Field(i)
-			}
-			f.Set(reflect.ValueOf(a).Elem())
-		}
-		value.Set(reflect.Append(value, s))
 	}
-	return err
+	return nil
+}
+
+func handlerStructRow(rows *sql.Rows, dest []any, value reflect.Value, columns []string) (err error) {
+	err = rows.Scan(dest...)
+	if err != nil {
+		return err
+	}
+	s := reflect.New(value.Type().Elem()).Elem()
+	var f reflect.Value
+	//Fills the target
+	for i, a := range dest {
+		f = s.FieldByName(columns[i])
+		if !f.CanSet() {
+			f = s.Field(i)
+		}
+		f.Set(reflect.ValueOf(a).Elem())
+	}
+	value.Set(reflect.Append(value, s))
+	return nil
 }
