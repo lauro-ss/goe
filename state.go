@@ -8,7 +8,7 @@ import (
 	"reflect"
 )
 
-var ErrInvalidScan = errors.New("goe: invalid scan target. try sending a pointer for scan")
+var ErrInvalidScan = errors.New("goe: invalid scan target. try sending an address to a struct, value or pointer for scan")
 var ErrInvalidOrderBy = errors.New("goe: invalid order by target. try sending a pointer")
 
 var ErrInvalidInsertValue = errors.New("goe: invalid insert value. try sending a pointer to a struct as value")
@@ -248,6 +248,14 @@ func (s *stateSelect) Scan(target any) error {
 	if value.Kind() != reflect.Ptr {
 		return ErrInvalidScan
 	}
+	value = value.Elem()
+	if !value.CanSet() {
+		return ErrInvalidScan
+	}
+	if value.Kind() == reflect.Ptr {
+		value.Set(reflect.New(value.Type().Elem()))
+		value = value.Elem()
+	}
 
 	//generate query
 	s.err = s.builder.buildSqlSelect()
@@ -259,7 +267,7 @@ func (s *stateSelect) Scan(target any) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerResult(s.conn, sql, value.Elem(), s.builder.argsAny, s.builder.structColumns, s.builder.limit, s.ctx)
+	return handlerResult(s.conn, sql, value, s.builder.argsAny, s.builder.structColumns, s.builder.limit, s.ctx)
 }
 
 /*
