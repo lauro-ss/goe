@@ -203,6 +203,22 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_One_Field",
+			testCase: func(t *testing.T) {
+				var a []int
+				err = db.Select(&db.Animal.Id).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(a) != len(animals) {
+					t.Errorf("Expected %v animals, got %v", len(animals), len(a))
+				}
+				if a[0] == a[1] {
+					t.Errorf("Expected a select, got same values: %v and %v", a[0], a[1])
+				}
+			},
+		},
+		{
 			desc: "Select_Where_Equals",
 			testCase: func(t *testing.T) {
 				var a Animal
@@ -212,6 +228,72 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if a.Name != animals[0].Name {
 					t.Errorf("Expected a %v, got %v", animals[0].Name, a.Name)
+				}
+			},
+		},
+		{
+			desc: "Select_Slice_Not_Found_One_Field",
+			testCase: func(t *testing.T) {
+				var a []int
+				err = db.Select(&db.Animal.Id).Where(db.Equals(&db.Animal.Id, 0)).Scan(&a)
+				if !errors.Is(err, goe.ErrNotFound) {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Not_Found_One_Field",
+			testCase: func(t *testing.T) {
+				var a int
+				err = db.Select(&db.Animal.Id).Where(db.Equals(&db.Animal.Id, 0)).Scan(&a)
+				if !errors.Is(err, goe.ErrNotFound) {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Slice_Not_Found",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, 0)).Scan(&a)
+				if !errors.Is(err, goe.ErrNotFound) {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Not_Found",
+			testCase: func(t *testing.T) {
+				var a Animal
+				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, 0)).Scan(&a)
+				if !errors.Is(err, goe.ErrNotFound) {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Pointer_As_Scan",
+			testCase: func(t *testing.T) {
+				var a *Animal
+				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, animals[0].Id)).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if a.Id != animals[0].Id {
+					t.Errorf("Expected a %v, got : %v", animals[0].Id, a.Id)
+				}
+			},
+		},
+		{
+			desc: "Select_Pointer_As_Scan_One_Field",
+			testCase: func(t *testing.T) {
+				var a *int
+				err = db.Select(&db.Animal.Id).Where(db.Equals(&db.Animal.Id, animals[0].Id)).Scan(&a)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if *a != animals[0].Id {
+					t.Errorf("Expected a %v, got : %v", animals[0].Id, a)
 				}
 			},
 		},
@@ -310,7 +392,7 @@ func TestPostgresSelect(t *testing.T) {
 					db.And(),
 					db.Equals(&db.Food.Id, foods[1].Id),
 				).Scan(&f)
-				if err != nil {
+				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 				if len(f) != 0 {
@@ -327,7 +409,7 @@ func TestPostgresSelect(t *testing.T) {
 					db.And(),
 					db.Equals(&db.Food.Id, foods[1].Id),
 				).Scan(&f)
-				if err != nil {
+				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 				if len(f) != 0 {
