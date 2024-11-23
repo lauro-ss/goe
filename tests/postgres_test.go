@@ -128,9 +128,9 @@ func SetupPostgres() (*Database, error) {
 	return db, nil
 }
 
-func TestPostgresConection(t *testing.T) {
+func TestPostgresConnection(t *testing.T) {
 	_, err := SetupPostgres()
 	if err != nil {
-		t.Fatalf("Expected Postgres Conection, got error %v", err)
+		t.Fatalf("Expected Postgres Connection, got error %v", err)
 	}
 }
