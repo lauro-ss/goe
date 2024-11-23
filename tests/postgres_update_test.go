@@ -248,11 +248,19 @@ func TestPostgresUpdate(t *testing.T) {
 					t.Errorf("Expected a insert habitat, got error: %v", err)
 				}
 
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
+				}
+
 				a.IdHabitat = &h.Id
 				a.Name = "Update Cat"
 				err = db.Update(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if err != nil {
 					t.Errorf("Expected a update, got error: %v", err)
+				}
+
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
 				var aselect Animal
@@ -380,6 +388,10 @@ func TestPostgresUpdate(t *testing.T) {
 					t.Fatalf("Expected %v and %v, got : %v and %v", a.Name, f[0].Name, aselect[0].Animal, aselect[0].Food)
 				}
 
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
+				}
+
 				err = db.UpdateIn(db.Animal, db.Food).
 					Where(db.Equals(&db.Animal.Id, aselect[0].IdAnimal),
 						db.And(),
@@ -387,6 +399,10 @@ func TestPostgresUpdate(t *testing.T) {
 					Value(&f[1].Id)
 				if err != nil {
 					t.Fatalf("Expected update animalfood, got error: %v", err)
+				}
+
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
 				err = db.Select(&db.Animal.Id, &db.Food.Id, &db.Animal.Name, &db.Food.Name).Join(db.Animal, db.Food).

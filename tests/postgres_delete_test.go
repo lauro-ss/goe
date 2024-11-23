@@ -13,6 +13,9 @@ func TestPostgresDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected database, got error: %v", err)
 	}
+	if db.ConnPool.Stats().InUse != 0 {
+		t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
+	}
 
 	err = db.DeleteIn(db.Animal, db.Food).Where()
 	if err != nil {
@@ -70,10 +73,18 @@ func TestPostgresDelete(t *testing.T) {
 		{
 			desc: "Delete_One_Record",
 			testCase: func(t *testing.T) {
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
+				}
+
 				a := Animal{Name: "Dog"}
 				err = db.Insert(db.Animal).Value(&a)
 				if err != nil {
 					t.Errorf("Expected a insert animal, got error: %v", err)
+				}
+
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
 				var as Animal
@@ -82,9 +93,17 @@ func TestPostgresDelete(t *testing.T) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
+				}
+
 				err = db.Delete(db.Animal).Where(db.Equals(&db.Animal.Id, as.Id))
 				if err != nil {
 					t.Errorf("Expected a delete animal, got error: %v", err)
+				}
+
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
 				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&as)
@@ -155,9 +174,17 @@ func TestPostgresDelete(t *testing.T) {
 					t.Errorf("Expected insert foods, got error: %v", err)
 				}
 
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
+				}
+
 				err = db.InsertIn(db.Animal, db.Food).Values(animals.Id, foods.Id)
 				if err != nil {
 					t.Errorf("Expected insert animalFood, got error: %v", err)
+				}
+
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
 				var AnimalFood *struct {
@@ -180,12 +207,20 @@ func TestPostgresDelete(t *testing.T) {
 					)
 				}
 
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
+				}
+
 				err = db.DeleteIn(db.Animal, db.Food).Where(
 					db.Equals(&db.Animal.Id, animals.Id),
 					db.And(),
 					db.Equals(&db.Food.Id, foods.Id))
 				if err != nil {
 					t.Errorf("Expected a delete animalFood, got error: %v", err)
+				}
+
+				if db.ConnPool.Stats().InUse != 0 {
+					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
 				err = db.Select(&db.Animal.Name, &db.Food.Name).
