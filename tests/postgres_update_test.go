@@ -495,7 +495,7 @@ func TestPostgresUpdate(t *testing.T) {
 
 				a.Name = "Update Cat"
 				err = db.UpdateIn(db.Animal, db.Flag).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
-				if !errors.Is(err, goe.ErrNoMatchesTables) {
+				if !errors.Is(err, goe.ErrNotManyToMany) {
 					t.Errorf("Expected a goe.ErrNoMatchesTables, got error: %v", err)
 				}
 			},
