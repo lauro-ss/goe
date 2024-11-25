@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -902,6 +903,30 @@ func TestPostgresSelect(t *testing.T) {
 				err = db.Select(nil).Join(db.Animal, db.Weather).Scan(&a)
 				if !errors.Is(err, goe.ErrInvalidArg) {
 					t.Errorf("Expected goe.ErrInvalidArg, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Context_Cancel",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				var a *int
+				err = db.SelectContext(ctx, &db.Animal.Id).Where(db.Equals(&db.Animal.Id, animals[0].Id)).Scan(&a)
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Expected a context.Canceled, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Select_Context_Timeout",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
+				defer cancel()
+				var a *int
+				err = db.SelectContext(ctx, &db.Animal.Id).Where(db.Equals(&db.Animal.Id, animals[0].Id)).Scan(&a)
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
 				}
 			},
 		},
