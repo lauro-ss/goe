@@ -1,8 +1,10 @@
 package tests_test
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/olauro/goe"
@@ -321,6 +323,50 @@ func TestPostgresDelete(t *testing.T) {
 				err = db.DeleteIn(db.Animal, db.DB).Where()
 				if !errors.Is(err, goe.ErrInvalidArg) {
 					t.Errorf("Expected a goe.ErrInvalidArg, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Delete_Context_Cancel",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				err = db.DeleteContext(ctx, db.Animal).Where()
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Expected a context.Canceled, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Delete_Context_Timeout",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
+				defer cancel()
+				err = db.DeleteContext(ctx, db.Animal).Where()
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "DeleteIn_Context_Cancel",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				err = db.DeleteInContext(ctx, db.Animal, db.Food).Where()
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Expected a context.Canceled, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "DeleteIn_Context_Timeout",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
+				defer cancel()
+				err = db.DeleteInContext(ctx, db.Animal, db.Food).Where()
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
 				}
 			},
 		},

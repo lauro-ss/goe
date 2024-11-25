@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -306,6 +307,52 @@ func TestPostgresInsert(t *testing.T) {
 				err = db.InsertIn(db.Animal, db.And).Values(af)
 				if !errors.Is(err, goe.ErrInvalidArg) {
 					t.Errorf("Expected goe.ErrInvalidArg, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Context_Cancel",
+			testCase: func(t *testing.T) {
+				a := Animal{}
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				err = db.InsertContext(ctx, db.Animal).Value(&a)
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Expected context.Canceled, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "Insert_Context_Timeout",
+			testCase: func(t *testing.T) {
+				a := Animal{}
+				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
+				defer cancel()
+				err = db.InsertContext(ctx, db.Animal).Value(&a)
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Expected context.DeadlineExceeded, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "InsertIn_Context_Cancel",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				err = db.InsertInContext(ctx, db.Animal, db.Food).Values(1, uuid.New())
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Expected context.Canceled, got : %v", err)
+				}
+			},
+		},
+		{
+			desc: "InsertIn_Context_Timeout",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
+				defer cancel()
+				err = db.InsertInContext(ctx, db.Animal, db.Food).Values(1, uuid.New())
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Expected context.DeadlineExceeded, got : %v", err)
 				}
 			},
 		},

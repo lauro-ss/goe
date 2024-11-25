@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -525,6 +526,56 @@ func TestPostgresUpdate(t *testing.T) {
 				err = db.UpdateIn(db.Animal, nil).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
 				if !errors.Is(err, goe.ErrInvalidArg) {
 					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Update_Context_Cancel",
+			testCase: func(t *testing.T) {
+				a := Animal{
+					Name: "Cat",
+				}
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				err = db.UpdateContext(ctx, db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Expected a context.Canceled, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Update_Context_Timeout",
+			testCase: func(t *testing.T) {
+				a := Animal{
+					Name: "Cat",
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
+				defer cancel()
+				err = db.UpdateContext(ctx, db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "UpdateIn_Context_Cancel",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				err = db.UpdateInContext(ctx, db.Food, db.Animal).Value(1)
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Expected a context.Canceled, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "UpdateIn_Context_Timeout",
+			testCase: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
+				defer cancel()
+				err = db.UpdateInContext(ctx, db.Food, db.Animal).Value(1)
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
 				}
 			},
 		},
