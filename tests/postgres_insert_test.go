@@ -296,6 +296,19 @@ func TestPostgresInsert(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "InsertIn_Invalid_Arg",
+			testCase: func(t *testing.T) {
+				af := []any{
+					1, 2,
+					3,
+				}
+				err = db.InsertIn(db.Animal, db.And).Values(af)
+				if !errors.Is(err, goe.ErrInvalidArg) {
+					t.Errorf("Expected goe.ErrInvalidArg, got : %v", err)
+				}
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, tC.testCase)

@@ -514,6 +514,20 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "UpdateIn_Invalid_Arg",
+			testCase: func(t *testing.T) {
+				a := Animal{
+					Name: "Cat",
+				}
+
+				a.Name = "Update Cat"
+				err = db.UpdateIn(db.Animal, nil).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
+				if !errors.Is(err, goe.ErrInvalidArg) {
+					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
+				}
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, tC.testCase)

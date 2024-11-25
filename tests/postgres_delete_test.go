@@ -288,6 +288,42 @@ func TestPostgresDelete(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "Delete_Invalid_Arg",
+			testCase: func(t *testing.T) {
+				err = db.Delete(db.DB).Where(db.Equals(&db.Animal.Id, 1))
+				if !errors.Is(err, goe.ErrInvalidArg) {
+					t.Errorf("Expected a goe.ErrInvalidArg, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "Delete_Invalid_Where",
+			testCase: func(t *testing.T) {
+				err = db.Delete(db.Animal).Where(db.Equals(db.Animal.Id, 1))
+				if !errors.Is(err, goe.ErrInvalidWhere) {
+					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "DeleteIn_Invalid_Tables",
+			testCase: func(t *testing.T) {
+				err = db.DeleteIn(db.Animal, db.Flag).Where()
+				if !errors.Is(err, goe.ErrNotManyToMany) {
+					t.Errorf("Expected a goe.ErrNoMatchesTables, got error: %v", err)
+				}
+			},
+		},
+		{
+			desc: "DeleteIn_Invalid_Arg",
+			testCase: func(t *testing.T) {
+				err = db.DeleteIn(db.Animal, db.DB).Where()
+				if !errors.Is(err, goe.ErrInvalidArg) {
+					t.Errorf("Expected a goe.ErrInvalidArg, got error: %v", err)
+				}
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, tC.testCase)
