@@ -490,7 +490,7 @@ func (b *builder) buildSetIn() error {
 
 	mtm := pk2.fks[b.table]
 	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNoMatchesTables)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
@@ -522,7 +522,7 @@ func (b *builder) buildDeleteIn(addrMap map[uintptr]field) {
 func (b *builder) buildSqlDeleteIn() (err error) {
 	mtm := b.tablesPk[1].fks[b.table]
 	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table, ErrNoMatchesTables)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table, ErrNotManyToMany)
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
