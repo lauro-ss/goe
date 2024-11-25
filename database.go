@@ -146,7 +146,7 @@ func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
 
 // InsertInContext creates a insert state for a many to many table
 func (db *DB) InsertInContext(ctx context.Context, table1 any, table2 any) *stateInsertIn {
-	stringArgs, err := getArgsIn(table1, table2)
+	stringArgs, err := getArgsIn(db.addrMap, table1, table2)
 
 	var state *stateInsertIn
 	if err != nil {
@@ -213,7 +213,7 @@ func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
 
 // UpdateInContext creates a update state for a many to many table
 func (db *DB) UpdateInContext(ctx context.Context, table1 any, table2 any) *stateUpdateIn {
-	stringArgs, err := getArgsIn(table1, table2)
+	stringArgs, err := getArgsIn(db.addrMap, table1, table2)
 
 	var state *stateUpdateIn
 	if err != nil {
@@ -270,7 +270,7 @@ func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
 
 // DeleteInContext creates a delete state for a many to many table
 func (db *DB) DeleteInContext(ctx context.Context, table1 any, table2 any) *stateDeleteIn {
-	stringArgs, err := getArgsIn(table1, table2)
+	stringArgs, err := getArgsIn(db.addrMap, table1, table2)
 
 	var state *stateDeleteIn
 	if err != nil {
@@ -535,19 +535,30 @@ func getArgsUpdate(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 	return stringArgs, nil
 }
 
-func getArgsIn(args ...any) ([]uintptr, error) {
+func getArgsIn(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 	stringArgs := make([]uintptr, 2)
+	var ptr uintptr
 	for i := range args {
 		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
 			valueOf := reflect.ValueOf(args[i]).Elem()
 			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
-				stringArgs[i] = uintptr(reflect.ValueOf(args[i]).Elem().Field(0).Addr().UnsafePointer())
+				ptr = uintptr(reflect.ValueOf(args[i]).Elem().Field(0).Addr().UnsafePointer())
+				if addrMap[ptr] != nil {
+					stringArgs[i] = ptr
+				}
 			} else {
-				stringArgs[i] = uintptr(valueOf.Addr().UnsafePointer())
+				ptr = uintptr(valueOf.Addr().UnsafePointer())
+				if addrMap[ptr] != nil {
+					stringArgs[i] = ptr
+				}
 			}
 		} else {
 			return nil, ErrInvalidArg
 		}
+	}
+
+	if stringArgs[0] == 0 || stringArgs[1] == 0 {
+		return nil, ErrInvalidArg
 	}
 	return stringArgs, nil
 }

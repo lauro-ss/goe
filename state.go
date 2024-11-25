@@ -93,7 +93,7 @@ func (s *stateSelect) Join(t1 any, t2 any) *stateSelect {
 	if s.err != nil {
 		return s
 	}
-	args, err := getArgsIn(t1, t2)
+	args, err := getArgsIn(s.addrMap, t1, t2)
 	if err != nil {
 		s.err = err
 		return s
@@ -116,7 +116,7 @@ func (s *stateSelect) InnerJoin(t1 any, t2 any) *stateSelect {
 	if s.err != nil {
 		return s
 	}
-	args, err := getArgsIn(t1, t2)
+	args, err := getArgsIn(s.addrMap, t1, t2)
 	if err != nil {
 		s.err = err
 		return s
@@ -139,7 +139,7 @@ func (s *stateSelect) RightJoin(t1 any, t2 any) *stateSelect {
 	if s.err != nil {
 		return s
 	}
-	args, err := getArgsIn(t1, t2)
+	args, err := getArgsIn(s.addrMap, t1, t2)
 	if err != nil {
 		s.err = err
 		return s
@@ -162,7 +162,7 @@ func (s *stateSelect) LeftJoin(t1 any, t2 any) *stateSelect {
 	if s.err != nil {
 		return s
 	}
-	args, err := getArgsIn(t1, t2)
+	args, err := getArgsIn(s.addrMap, t1, t2)
 	if err != nil {
 		s.err = err
 		return s
