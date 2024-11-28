@@ -341,7 +341,10 @@ func (s *stateInsert) Value(value any) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	return handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName, s.ctx)
+	if s.builder.returning {
+		return handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName, s.ctx)
+	}
+	return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
 }
 
 func (s *stateInsert) batchValue(value reflect.Value) error {

@@ -25,6 +25,7 @@ type builder struct {
 	brs           []operator
 	table         string
 	tablesPk      []*pk
+	returning     bool
 }
 
 func createBuilder() *builder {
@@ -318,9 +319,12 @@ func (b *builder) buildValues(value reflect.Value) string {
 		c++
 	}
 	pk := b.tablesPk[0]
-	b.sql.Write([]byte{41, 32})
-	b.sql.WriteString("RETURNING ")
-	b.sql.WriteString(pk.attributeName)
+	b.sql.WriteByte(41)
+	if pk.autoIncrement {
+		b.returning = true
+		b.sql.WriteString(" RETURNING ")
+		b.sql.WriteString(pk.attributeName)
+	}
 	b.sql.WriteByte(59)
 	return pk.structAttributeName
 
