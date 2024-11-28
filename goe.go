@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/olauro/goe/utils"
@@ -48,27 +49,34 @@ func Open(db any, driver Driver, config Config) error {
 }
 
 func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Driver) error {
-	p, fieldName, err := getPk(valueOf.Type(), driver)
+	pks, fieldNames, err := getPk(valueOf.Type(), driver)
 	if err != nil {
 		return err
 	}
-	db.addrMap[uintptr(valueOf.FieldByName(fieldName).Addr().UnsafePointer())] = p
+
+	for i := range pks {
+		db.addrMap[uintptr(valueOf.FieldByName(fieldNames[i]).Addr().UnsafePointer())] = pks[i]
+	}
 	var field reflect.StructField
 
 	for i := 0; i < valueOf.NumField(); i++ {
 		field = valueOf.Type().Field(i)
 		//skip primary key
-		if field.Name == fieldName {
-			continue
+		if slices.Contains(fieldNames, field.Name) {
+			//TODO: Check this
+			table, prefix := checkTablePattern(tables, field)
+			if table == "" && prefix == "" {
+				continue
+			}
 		}
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
-			err := handlerSlice(tables, valueOf.Field(i).Type().Elem(), valueOf, i, p, db, driver)
+			err := handlerSlice(tables, valueOf.Field(i).Type().Elem(), valueOf, i, pks, db, driver)
 			if err != nil {
 				return err
 			}
 		case reflect.Struct:
-			handlerStruct(valueOf.Field(i).Type(), valueOf, i, p, db, driver)
+			handlerStruct(valueOf.Field(i).Type(), valueOf, i, pks[0], db, driver)
 		case reflect.Ptr:
 			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
@@ -76,22 +84,30 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 					switch v := mto.(type) {
 					case *manyToOne:
 						if v == nil {
-							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 							break
 						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
-						v.pk = p
-						p.fks[key] = v
+						for _, pk := range pks {
+							if pk.structAttributeName == prefix || pk.structAttributeName == prefix+table {
+								pk.fks[key] = mto
+								v.pk = pk
+							}
+						}
 					case *oneToOne:
 						if v == nil {
-							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 							break
 						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
-						v.pk = p
-						p.fks[key] = v
+						for _, pk := range pks {
+							if pk.structAttributeName == prefix || pk.structAttributeName == prefix+table {
+								pk.fks[key] = mto
+								v.pk = pk
+							}
+						}
 					}
 
 				} else {
@@ -102,7 +118,7 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 						table)
 				}
 			} else {
-				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+				newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 			}
 		default:
 			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
@@ -111,22 +127,34 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 					switch v := mto.(type) {
 					case *manyToOne:
 						if v == nil {
-							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 							break
 						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
-						v.pk = p
-						p.fks[key] = v
+						for _, pk := range pks {
+							if pk.structAttributeName == prefix {
+								pk.fks[key] = mto
+								v.pk = pk
+							} else if pk.structAttributeName == v.structAttributeName {
+								pk.fks[key] = mto
+								pk.autoIncrement = false
+								v.pk = pk
+							}
+						}
 					case *oneToOne:
 						if v == nil {
-							newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+							newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 							break
 						}
 						key := driver.KeywordHandler(utils.TableNamePattern(table))
 						db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
-						v.pk = p
-						p.fks[key] = v
+						for _, pk := range pks {
+							if pk.structAttributeName == prefix || pk.structAttributeName == prefix+table {
+								pk.fks[key] = mto
+								v.pk = pk
+							}
+						}
 					}
 				} else {
 					return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
@@ -136,7 +164,7 @@ func initField(tables reflect.Value, valueOf reflect.Value, db *DB, driver Drive
 						table)
 				}
 			} else {
-				newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+				newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 			}
 		}
 	}
@@ -150,7 +178,7 @@ func handlerStruct(targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *p
 	}
 }
 
-func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *pk, db *DB, driver Driver) error {
+func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf reflect.Value, i int, pks []*pk, db *DB, driver Driver) error {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
 		table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
@@ -163,16 +191,28 @@ func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf refle
 					}
 					key := driver.KeywordHandler(utils.TableNamePattern(table))
 					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
-					v.pk = p
-					p.fks[key] = v
+					for _, pk := range pks {
+						if pk.structAttributeName == prefix || pk.structAttributeName == prefix+table {
+							pk.fks[key] = mto
+							v.pk = pk
+						}
+					}
 				case *oneToOne:
 					if v == nil {
 						break
 					}
 					key := driver.KeywordHandler(utils.TableNamePattern(table))
 					db.addrMap[uintptr(valueOf.Field(i).Addr().UnsafePointer())] = v
-					v.pk = p
-					p.fks[key] = v
+					for _, pk := range pks {
+						if pk.structAttributeName == prefix || pk.structAttributeName == prefix+table {
+							pk.fks[key] = mto
+							v.pk = pk
+						}
+					}
+					// //TODO: Check the usage of this primery key
+					// v.pk = p
+					// //TODO: Update key to be attribute name
+					// p.fks[key] = v
 				}
 			} else {
 				return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
@@ -184,11 +224,11 @@ func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf refle
 		}
 		//TODO: Check this
 		valueOf.Field(i).SetBytes([]byte{})
-		newAttr(valueOf, i, p, uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
+		newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
 	default:
 		if mtm := isManytoMany(tables, targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db, driver); mtm != nil {
 			key := driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name()))
-			p.fks[key] = mtm
+			pks[0].fks[key] = mtm
 		}
 	}
 	return nil
@@ -203,20 +243,32 @@ func newAttr(valueOf reflect.Value, i int, p *pk, addr uintptr, db *DB, d Driver
 	db.addrMap[addr] = at
 }
 
-func getPk(typeOf reflect.Type, driver Driver) (*pk, string, error) {
-	var p *pk
+func getPk(typeOf reflect.Type, driver Driver) ([]*pk, []string, error) {
+	var pks []*pk
+	var fieldsNames []string
+
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
-		p = createPk(typeOf.Name(), id.Name, isAutoIncrement(id), driver)
-		return p, id.Name, nil
+		pks := make([]*pk, 1)
+		fieldsNames = make([]string, 1)
+		pks[0] = createPk(typeOf.Name(), id.Name, isAutoIncrement(id), driver)
+		fieldsNames[0] = id.Name
+		return pks, fieldsNames, nil
 	}
 
 	fields := fieldsByTags("pk", typeOf)
 	if len(fields) == 0 {
-		return nil, "", fmt.Errorf("%w: struct %q don't have a primary key setted", ErrStructWithoutPrimaryKey, typeOf.Name())
+		return nil, nil, fmt.Errorf("%w: struct %q don't have a primary key setted", ErrStructWithoutPrimaryKey, typeOf.Name())
 	}
-	p = createPk(typeOf.Name(), fields[0].Name, isAutoIncrement(fields[0]), driver)
-	return p, fields[0].Name, nil
+
+	pks = make([]*pk, len(fields))
+	fieldsNames = make([]string, len(fields))
+	for i := range fields {
+		pks[i] = createPk(typeOf.Name(), fields[i].Name, isAutoIncrement(fields[i]), driver)
+		fieldsNames[i] = fields[i].Name
+	}
+
+	return pks, fieldsNames, nil
 }
 
 func isAutoIncrement(id reflect.StructField) bool {
@@ -314,7 +366,7 @@ func checkTablePattern(tables reflect.Value, field reflect.StructField) (table, 
 		return table, prefix
 	}
 	if table == "" {
-		for r := 1; r < len(field.Name); r++ {
+		for r := len(field.Name) - 1; r > 1; r-- {
 			if field.Name[r] < 'a' {
 				table = field.Name[r:]
 				prefix = field.Name[:r]

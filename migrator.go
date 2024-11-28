@@ -3,6 +3,8 @@ package goe
 import (
 	"fmt"
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/olauro/goe/utils"
 )
@@ -30,27 +32,34 @@ func MigrateFrom(db any) *Migrator {
 }
 
 func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) error {
-	p, fieldName, err := migratePk(valueOf.Type())
+	pks, fieldNames, err := migratePk(valueOf.Type())
 	if err != nil {
 		return err
 	}
-	migrator.Tables = append(migrator.Tables, p)
+
+	for _, pk := range pks {
+		migrator.Tables = append(migrator.Tables, pk)
+	}
 	var field reflect.StructField
 
 	for i := 0; i < valueOf.NumField(); i++ {
 		field = valueOf.Type().Field(i)
 		//skip primary key
-		if field.Name == fieldName {
-			continue
+		if slices.Contains(fieldNames, field.Name) {
+			//TODO: Check this
+			table, prefix := checkTablePattern(tables, field)
+			if table == "" && prefix == "" {
+				continue
+			}
 		}
 		switch valueOf.Field(i).Kind() {
 		case reflect.Slice:
-			err = handlerSliceMigrate(tables, field, valueOf.Field(i).Type().Elem(), valueOf, i, p, migrator)
+			err = handlerSliceMigrate(tables, field, valueOf.Field(i).Type().Elem(), valueOf, i, pks, migrator)
 			if err != nil {
 				return err
 			}
 		case reflect.Struct:
-			handlerStructMigrate(field, valueOf.Field(i).Type(), valueOf, i, p, migrator)
+			handlerStructMigrate(field, valueOf.Field(i).Type(), valueOf, i, pks[0], migrator)
 		case reflect.Ptr:
 			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
@@ -58,18 +67,22 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 					switch v := mto.(type) {
 					case *MigrateManyToOne:
 						if v == nil {
-							migrateAtt(valueOf, field, i, p, migrator)
+							migrateAtt(valueOf, field, i, pks[0], migrator)
 							continue
 						}
 					case *MigrateOneToOne:
 						if v == nil {
-							migrateAtt(valueOf, field, i, p, migrator)
+							migrateAtt(valueOf, field, i, pks[0], migrator)
 							continue
 						}
 					}
 
 					key := utils.TableNamePattern(table)
-					p.Fks[key] = mto
+					for _, pk := range pks {
+						if pk.AttributeName == strings.ToLower(prefix) || pk.AttributeName == strings.ToLower(prefix+table) {
+							pk.Fks[key] = mto
+						}
+					}
 					continue
 				}
 				return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
@@ -78,7 +91,7 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 					valueOf.Type().Name(),
 					table)
 			}
-			migrateAtt(valueOf, field, i, p, migrator)
+			migrateAtt(valueOf, field, i, pks[0], migrator)
 		default:
 			table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
 			if table != "" {
@@ -86,17 +99,21 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 					switch v := mto.(type) {
 					case *MigrateManyToOne:
 						if v == nil {
-							migrateAtt(valueOf, field, i, p, migrator)
+							migrateAtt(valueOf, field, i, pks[0], migrator)
 							continue
 						}
 					case *MigrateOneToOne:
 						if v == nil {
-							migrateAtt(valueOf, field, i, p, migrator)
+							migrateAtt(valueOf, field, i, pks[0], migrator)
 							continue
 						}
 					}
 					key := utils.TableNamePattern(table)
-					p.Fks[key] = mto
+					for _, pk := range pks {
+						if pk.AttributeName == strings.ToLower(prefix) || pk.AttributeName == strings.ToLower(prefix+table) {
+							pk.Fks[key] = mto
+						}
+					}
 					continue
 				}
 				return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
@@ -105,7 +122,7 @@ func typeField(tables reflect.Value, valueOf reflect.Value, migrator *Migrator) 
 					valueOf.Type().Name(),
 					table)
 			}
-			migrateAtt(valueOf, field, i, p, migrator)
+			migrateAtt(valueOf, field, i, pks[0], migrator)
 		}
 	}
 	return nil
@@ -118,7 +135,7 @@ func handlerStructMigrate(field reflect.StructField, targetTypeOf reflect.Type, 
 	}
 }
 
-func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, p *MigratePk, migrator *Migrator) error {
+func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, targetTypeOf reflect.Type, valueOf reflect.Value, i int, pks []*MigratePk, migrator *Migrator) error {
 	switch targetTypeOf.Kind() {
 	case reflect.Uint8:
 		table, prefix := checkTablePattern(tables, valueOf.Type().Field(i))
@@ -127,17 +144,21 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 				switch v := mto.(type) {
 				case *MigrateManyToOne:
 					if v == nil {
-						migrateAtt(valueOf, field, i, p, migrator)
+						migrateAtt(valueOf, field, i, pks[0], migrator)
 						return nil
 					}
 				case *MigrateOneToOne:
 					if v == nil {
-						migrateAtt(valueOf, field, i, p, migrator)
+						migrateAtt(valueOf, field, i, pks[0], migrator)
 						return nil
 					}
 				}
 				key := utils.TableNamePattern(table)
-				p.Fks[key] = mto
+				for _, pk := range pks {
+					if pk.AttributeName == strings.ToLower(prefix) || pk.AttributeName == strings.ToLower(prefix+table) {
+						pk.Fks[key] = mto
+					}
+				}
 				return nil
 			}
 			return fmt.Errorf("%w: field %q on %q has table %q specified but the table don't exists",
@@ -146,11 +167,11 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 				valueOf.Type().Name(),
 				table)
 		}
-		migrateAtt(valueOf, field, i, p, migrator)
+		migrateAtt(valueOf, field, i, pks[0], migrator)
 	default:
 		if mtm := isMigrateManytoMany(tables, targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
 			key := utils.TableNamePattern(targetTypeOf.Name())
-			p.Fks[key] = mtm
+			pks[0].Fks[key] = mtm
 		}
 	}
 	return nil
@@ -236,26 +257,44 @@ func createMigrateManyToMany(tag string, typeOf reflect.Type, targetTypeOf refle
 }
 
 func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool, prefix string) *MigrateManyToOne {
-	if primaryKeys(typeOf)[0].Name != prefix {
+	fieldPks := primaryKeys(typeOf)
+	count := 0
+	for i := range fieldPks {
+		if fieldPks[i].Name == prefix {
+			count++
+		}
+	}
+
+	if count == 0 {
 		return nil
 	}
 
 	mto := new(MigrateManyToOne)
 	mto.TargetTable = utils.TableNamePattern(typeOf.Name())
-	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(primaryKeys(typeOf)[0].Name, typeOf.Name()))
+	mto.TargetColumn = utils.ColumnNamePattern(prefix)
+	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(prefix, typeOf.Name()))
 	mto.HasMany = hasMany
 	mto.Nullable = nullable
 	return mto
 }
 
 func createMigrateOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, nullable bool, prefix string) *MigrateOneToOne {
-	if primaryKeys(typeOf)[0].Name != prefix {
+	fieldPks := primaryKeys(typeOf)
+	count := 0
+	for i := range fieldPks {
+		if fieldPks[i].Name == prefix {
+			count++
+		}
+	}
+
+	if count == 0 {
 		return nil
 	}
 
 	mto := new(MigrateOneToOne)
 	mto.TargetTable = utils.TableNamePattern(typeOf.Name())
-	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(primaryKeys(typeOf)[0].Name, typeOf.Name()))
+	mto.TargetColumn = utils.ColumnNamePattern(prefix)
+	mto.Id = fmt.Sprintf("%v.%v", utils.TableNamePattern(targetTypeOf.Name()), utils.ManyToOneNamePattern(prefix, typeOf.Name()))
 	mto.Nullable = nullable
 	return mto
 }
@@ -277,16 +316,18 @@ type MigrateAtt struct {
 }
 
 type MigrateOneToOne struct {
-	TargetTable string
-	Nullable    bool
-	Id          string
+	TargetTable  string
+	TargetColumn string
+	Nullable     bool
+	Id           string
 }
 
 type MigrateManyToOne struct {
-	TargetTable string
-	Nullable    bool
-	Id          string
-	HasMany     bool
+	TargetTable  string
+	TargetColumn string
+	Nullable     bool
+	Id           string
+	HasMany      bool
 }
 
 type MigrateManyToMany struct {
@@ -305,20 +346,31 @@ func setAttributeStrings(attributeName string, dataType string) AttributeStrings
 		DataType:      dataType}
 }
 
-func migratePk(typeOf reflect.Type) (*MigratePk, string, error) {
-	var p *MigratePk
+func migratePk(typeOf reflect.Type) ([]*MigratePk, []string, error) {
+	var pks []*MigratePk
+	var fieldsNames []string
+
 	id, valid := typeOf.FieldByName("Id")
 	if valid {
-		p = createMigratePk(typeOf.Name(), id.Name, isAutoIncrement(id), getType(id))
-		return p, id.Name, nil
+		pks = make([]*MigratePk, 1)
+		fieldsNames = make([]string, 1)
+		pks[0] = createMigratePk(typeOf.Name(), id.Name, isAutoIncrement(id), getType(id))
+		fieldsNames[0] = id.Name
+		return pks, fieldsNames, nil
 	}
 
 	fields := fieldsByTags("pk", typeOf)
 	if len(fields) == 0 {
-		return nil, "", fmt.Errorf("%w: struct %q don't have a primary key setted", ErrStructWithoutPrimaryKey, typeOf.Name())
+		return nil, nil, fmt.Errorf("%w: struct %q don't have a primary key setted", ErrStructWithoutPrimaryKey, typeOf.Name())
 	}
-	p = createMigratePk(typeOf.Name(), fields[0].Name, isAutoIncrement(fields[0]), getType(fields[0]))
-	return p, fields[0].Name, nil
+
+	pks = make([]*MigratePk, len(fields))
+	fieldsNames = make([]string, len(fields))
+	for i := range fields {
+		pks[i] = createMigratePk(typeOf.Name(), fields[i].Name, isAutoIncrement(fields[i]), getType(fields[i]))
+		fieldsNames[i] = fields[i].Name
+	}
+	return pks, fieldsNames, nil
 }
 
 func migrateAtt(valueOf reflect.Value, field reflect.StructField, i int, pk *MigratePk, m *Migrator) {

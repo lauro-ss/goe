@@ -48,16 +48,23 @@ func (o *oneToOne) getPrimaryKey() *pk {
 
 func createOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, driver Driver, prefix string) *oneToOne {
 	mto := new(oneToOne)
-	targetPkName := primaryKeys(typeOf)[0].Name
-	if targetPkName != prefix {
+	targetPks := primaryKeys(typeOf)
+	count := 0
+	for i := range targetPks {
+		if targetPks[i].Name == prefix {
+			count++
+		}
+	}
+
+	if count == 0 {
 		return nil
 	}
 
 	mto.selectName = fmt.Sprintf("%v.%v",
 		driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())),
-		driver.KeywordHandler(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
-	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
-	mto.structAttributeName = targetPkName + typeOf.Name()
+		driver.KeywordHandler(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
+	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
+	mto.structAttributeName = prefix + typeOf.Name()
 	return mto
 }
 
@@ -73,17 +80,24 @@ func (m *manyToOne) getPrimaryKey() *pk {
 
 func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, driver Driver, prefix string) *manyToOne {
 	mto := new(manyToOne)
-	targetPkName := primaryKeys(typeOf)[0].Name
-	if targetPkName != prefix {
+	targetPks := primaryKeys(typeOf)
+	count := 0
+	for i := range targetPks {
+		if targetPks[i].Name == prefix {
+			count++
+		}
+	}
+
+	if count == 0 {
 		return nil
 	}
 
 	mto.selectName = fmt.Sprintf("%v.%v",
 		driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())),
-		driver.KeywordHandler(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
+		driver.KeywordHandler(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
 	mto.hasMany = hasMany
-	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(targetPkName, typeOf.Name())))
-	mto.structAttributeName = targetPkName + typeOf.Name()
+	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
+	mto.structAttributeName = prefix + typeOf.Name()
 	return mto
 }
 
