@@ -276,6 +276,70 @@ func TestPostgresUpdate(t *testing.T) {
 			},
 		},
 		{
+			desc: "Update_PersonJobs",
+			testCase: func(t *testing.T) {
+				persons := []Person{
+					{Name: "Jhon"},
+					{Name: "Laura"},
+					{Name: "Luana"},
+				}
+				err = db.Insert(db.Person).Value(&persons)
+				if err != nil {
+					t.Fatalf("Expected insert persons, got error: %v", err)
+				}
+
+				jobs := []Job{
+					{Name: "Developer"},
+					{Name: "Designer"},
+				}
+				err = db.Insert(db.Job).Value(&jobs)
+				if err != nil {
+					t.Fatalf("Expected insert jobs, got error: %v", err)
+				}
+
+				personJobs := []PersonJob{
+					{IdPerson: persons[0].Id, IdJob: jobs[0].Id, CreatedAt: time.Now()},
+					{IdPerson: persons[1].Id, IdJob: jobs[0].Id, CreatedAt: time.Now()},
+					{IdPerson: persons[2].Id, IdJob: jobs[1].Id, CreatedAt: time.Now()},
+				}
+				err = db.Insert(db.PersonJob).Value(&personJobs)
+				if err != nil {
+					t.Fatalf("Expected insert personJobs, got error: %v", err)
+				}
+
+				pj := []struct {
+					Job    string
+					Person string
+				}{}
+				err = db.Select(&db.Person.Name, &db.Job.Name).Join(db.Person, db.PersonJob).Join(db.Job, &db.PersonJob.IdJob).
+					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(pj) != 2 {
+					t.Errorf("Expected %v, got : %v", 2, len(pj))
+				}
+
+				err = db.Update(&db.PersonJob.IdJob).Where(
+					db.Equals(&db.PersonJob.IdPerson, persons[2].Id),
+					db.And(),
+					db.Equals(&db.PersonJob.IdJob, jobs[1].Id),
+				).Value(PersonJob{IdJob: jobs[0].Id})
+				if err != nil {
+					t.Errorf("Expected a update, got error: %v", err)
+				}
+
+				err = db.Select(&db.Person.Name, &db.Job.Name).Join(db.Person, db.PersonJob).Join(db.Job, &db.PersonJob.IdJob).
+					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(pj) != 3 {
+					t.Errorf("Expected %v, got : %v", 3, len(pj))
+				}
+			},
+		},
+		{
 			desc: "UpdateIn_AnimalFood",
 			testCase: func(t *testing.T) {
 				a := Animal{

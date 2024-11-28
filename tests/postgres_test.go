@@ -95,18 +95,45 @@ type Flag struct {
 	Bool    bool
 }
 
+type Person struct {
+	Id         int
+	Name       string
+	PersonJobs []PersonJob
+}
+
+type PersonJob struct {
+	IdPerson  int `goe:"pk"`
+	IdJob     int `goe:"pk"`
+	CreatedAt time.Time
+}
+
+type Job struct {
+	Name       string
+	Id         int
+	PersonJobs []PersonJob
+}
+
+type Data struct {
+	Id        string    `goe:"pk"`
+	Birthdate time.Time `goe:"pk"`
+}
+
 type Database struct {
-	Animal   *Animal
-	Food     *Food
-	Habitat  *Habitat
-	Info     *Info
-	Status   *Status
-	Weather  *Weather
-	Owns     *Owns
-	User     *User
-	UserRole *UserRole
-	Role     *Role
-	Flag     *Flag
+	Animal    *Animal
+	Food      *Food
+	Habitat   *Habitat
+	Info      *Info
+	Status    *Status
+	Weather   *Weather
+	Owns      *Owns
+	User      *User
+	UserRole  *UserRole
+	Role      *Role
+	Flag      *Flag
+	Person    *Person
+	PersonJob *PersonJob
+	Job       *Job
+	Data      *Data
 	*goe.DB
 }
 

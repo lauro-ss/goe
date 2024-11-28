@@ -64,6 +64,18 @@ func TestPostgresSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected delete roles, got error: %v", err)
 	}
+	err = db.Delete(db.PersonJob).Where()
+	if err != nil {
+		t.Fatalf("Expected delete personJobs, got error: %v", err)
+	}
+	err = db.Delete(db.Job).Where()
+	if err != nil {
+		t.Fatalf("Expected delete jobs, got error: %v", err)
+	}
+	err = db.Delete(db.Person).Where()
+	if err != nil {
+		t.Fatalf("Expected delete persons, got error: %v", err)
+	}
 
 	owns := []Owns{
 		{Name: "Bones"},
@@ -184,6 +196,35 @@ func TestPostgresSelect(t *testing.T) {
 	err = db.Insert(db.UserRole).Value(&userRoles)
 	if err != nil {
 		t.Fatalf("Expected insert user roles, got error: %v", err)
+	}
+
+	persons := []Person{
+		{Name: "Jhon"},
+		{Name: "Laura"},
+		{Name: "Luana"},
+	}
+	err = db.Insert(db.Person).Value(&persons)
+	if err != nil {
+		t.Fatalf("Expected insert persons, got error: %v", err)
+	}
+
+	jobs := []Job{
+		{Name: "Developer"},
+		{Name: "Designer"},
+	}
+	err = db.Insert(db.Job).Value(&jobs)
+	if err != nil {
+		t.Fatalf("Expected insert jobs, got error: %v", err)
+	}
+
+	personJobs := []PersonJob{
+		{IdPerson: persons[0].Id, IdJob: jobs[0].Id, CreatedAt: time.Now()},
+		{IdPerson: persons[1].Id, IdJob: jobs[0].Id, CreatedAt: time.Now()},
+		{IdPerson: persons[2].Id, IdJob: jobs[1].Id, CreatedAt: time.Now()},
+	}
+	err = db.Insert(db.PersonJob).Value(&personJobs)
+	if err != nil {
+		t.Fatalf("Expected insert personJobs, got error: %v", err)
 	}
 
 	testCases := []struct {
@@ -762,6 +803,22 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if q[0].EndTime == nil {
 					t.Errorf("Expected a value, got : %v", q[0].EndTime)
+				}
+			},
+		},
+		{
+			desc: "Select_Persons_And_Jobs",
+			testCase: func(t *testing.T) {
+				pj := []struct {
+					Job    string
+					Person string
+				}{}
+				err = db.Select(&db.Person.Name, &db.Job.Name).Join(db.Person, db.PersonJob).Join(db.Job, &db.PersonJob.IdJob).Scan(&pj)
+				if err != nil {
+					t.Errorf("Expected a select, got error: %v", err)
+				}
+				if len(pj) != len(personJobs) {
+					t.Errorf("Expected %v, got : %v", len(personJobs), len(pj))
 				}
 			},
 		},

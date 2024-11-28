@@ -118,6 +118,26 @@ func TestPostgresInsert(t *testing.T) {
 			},
 		},
 		{
+			desc: "Insert_Composed_Pk",
+			testCase: func(t *testing.T) {
+				p := Person{Name: "Jhon"}
+				err = db.Insert(db.Person).Value(&p)
+				if err != nil {
+					t.Errorf("Expected a insert person, got error: %v", err)
+				}
+				j := Job{Name: "Developer"}
+				err = db.Insert(db.Job).Value(&j)
+				if err != nil {
+					t.Errorf("Expected a insert job, got error: %v", err)
+				}
+
+				err = db.Insert(db.PersonJob).Value(&PersonJob{IdJob: j.Id, IdPerson: p.Id, CreatedAt: time.Now()})
+				if err != nil {
+					t.Errorf("Expected a insert PersonJob, got error: %v", err)
+				}
+			},
+		},
+		{
 			desc: "InsertIn_AnimalFood",
 			testCase: func(t *testing.T) {
 				a := Animal{Name: "Cat"}
