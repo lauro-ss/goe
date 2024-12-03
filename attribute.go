@@ -27,13 +27,13 @@ func createManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type
 	pk := primaryKeys(typeOf)[0]
 
 	id := utils.ManyToManyNamePattern(pk.Name, nameTypeOf)
-	mtm.ids[driver.KeywordHandler(utils.TableNamePattern(nameTypeOf))] = createAttributeStrings(table, id, driver)
+	mtm.ids[driver.KeywordHandler(utils.TableNamePattern(nameTypeOf))] = createAttributeStrings([]byte(table), id, driver)
 
 	// target id
 	pkTarget := primaryKeys(targetTypeOf)[0]
 	id = utils.ManyToManyNamePattern(pkTarget.Name, nameTargetTypeOf)
 
-	mtm.ids[driver.KeywordHandler(utils.TableNamePattern(nameTargetTypeOf))] = createAttributeStrings(table, id, driver)
+	mtm.ids[driver.KeywordHandler(utils.TableNamePattern(nameTargetTypeOf))] = createAttributeStrings([]byte(table), id, driver)
 	return mtm
 }
 
@@ -44,6 +44,10 @@ type oneToOne struct {
 
 func (o *oneToOne) getPrimaryKey() *pk {
 	return o.pk
+}
+
+func (o *oneToOne) table() []byte {
+	return o.tableBytes
 }
 
 func createOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, driver Driver, prefix string) *oneToOne {
@@ -63,6 +67,7 @@ func createOneToOne(typeOf reflect.Type, targetTypeOf reflect.Type, driver Drive
 	mto.selectName = fmt.Sprintf("%v.%v",
 		driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())),
 		driver.KeywordHandler(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
+	mto.tableBytes = []byte(driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())))
 	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
 	mto.structAttributeName = prefix + typeOf.Name()
 	return mto
@@ -76,6 +81,10 @@ type manyToOne struct {
 
 func (m *manyToOne) getPrimaryKey() *pk {
 	return m.pk
+}
+
+func (m *manyToOne) table() []byte {
+	return m.tableBytes
 }
 
 func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, driver Driver, prefix string) *manyToOne {
@@ -96,27 +105,29 @@ func createManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany boo
 		driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())),
 		driver.KeywordHandler(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
 	mto.hasMany = hasMany
+	mto.tableBytes = []byte(driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name())))
 	mto.attributeName = driver.KeywordHandler(utils.ColumnNamePattern(utils.ManyToOneNamePattern(prefix, typeOf.Name())))
 	mto.structAttributeName = prefix + typeOf.Name()
 	return mto
 }
 
 type attributeStrings struct {
+	tableBytes          []byte
 	selectName          string
 	attributeName       string
 	structAttributeName string
 }
 
-func createAttributeStrings(table string, attributeName string, driver Driver) attributeStrings {
+func createAttributeStrings(table []byte, attributeName string, driver Driver) attributeStrings {
 	return attributeStrings{
-		selectName:          fmt.Sprintf("%v.%v", table, driver.KeywordHandler(utils.ColumnNamePattern(attributeName))),
+		tableBytes:          table,
+		selectName:          fmt.Sprintf("%v.%v", string(table), driver.KeywordHandler(utils.ColumnNamePattern(attributeName))),
 		attributeName:       driver.KeywordHandler(utils.ColumnNamePattern(attributeName)),
 		structAttributeName: attributeName,
 	}
 }
 
 type pk struct {
-	table         string
 	autoIncrement bool
 	fks           map[string]any
 	attributeStrings
@@ -126,10 +137,14 @@ func (p *pk) getPrimaryKey() *pk {
 	return p
 }
 
-func createPk(table string, attributeName string, autoIncrement bool, driver Driver) *pk {
-	table = driver.KeywordHandler(utils.TableNamePattern(table))
+func (p *pk) table() []byte {
+	return p.tableBytes
+}
+
+func createPk(table []byte, attributeName string, autoIncrement bool, driver Driver) *pk {
+	//TODO:: Check this utils
+	table = []byte(driver.KeywordHandler(utils.TableNamePattern(string(table))))
 	return &pk{
-		table:            table,
 		attributeStrings: createAttributeStrings(table, attributeName, driver),
 		autoIncrement:    autoIncrement,
 		fks:              make(map[string]any)}
@@ -144,9 +159,13 @@ func (a *att) getPrimaryKey() *pk {
 	return a.pk
 }
 
+func (a *att) table() []byte {
+	return a.tableBytes
+}
+
 func createAtt(attributeName string, pk *pk, d Driver) *att {
 	return &att{
-		attributeStrings: createAttributeStrings(pk.table, attributeName, d), pk: pk}
+		attributeStrings: createAttributeStrings(pk.tableBytes, attributeName, d), pk: pk}
 }
 
 func (p *pk) buildAttributeSelect(b *builder, i int) {

@@ -251,7 +251,7 @@ func getPk(typeOf reflect.Type, driver Driver) ([]*pk, []string, error) {
 	if valid {
 		pks := make([]*pk, 1)
 		fieldsNames = make([]string, 1)
-		pks[0] = createPk(typeOf.Name(), id.Name, isAutoIncrement(id), driver)
+		pks[0] = createPk([]byte(typeOf.Name()), id.Name, isAutoIncrement(id), driver)
 		fieldsNames[0] = id.Name
 		return pks, fieldsNames, nil
 	}
@@ -264,7 +264,7 @@ func getPk(typeOf reflect.Type, driver Driver) ([]*pk, []string, error) {
 	pks = make([]*pk, len(fields))
 	fieldsNames = make([]string, len(fields))
 	for i := range fields {
-		pks[i] = createPk(typeOf.Name(), fields[i].Name, isAutoIncrement(fields[i]), driver)
+		pks[i] = createPk([]byte(typeOf.Name()), fields[i].Name, isAutoIncrement(fields[i]), driver)
 		fieldsNames[i] = fields[i].Name
 	}
 
@@ -282,7 +282,7 @@ func isManytoMany(tables reflect.Value, targetTypeOf reflect.Type, typeOf reflec
 	for _, v := range db.addrMap {
 		switch value := v.(type) {
 		case *pk:
-			if value.table == nameTargetTypeOf {
+			if string(value.table()) == nameTargetTypeOf {
 				switch fk := value.fks[nameTypeOf].(type) {
 				case *manyToMany:
 					return fk

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -21,7 +22,9 @@ type builder struct {
 	orderBy       string
 	limit         uint
 	offset        uint
-	joins         []string
+	joins         []string //select
+	joinsArgs     []field  //select
+	tables        []string //select TODO: update all table names to a int ID
 	brs           []operator
 	table         string
 	tablesPk      []*pk
@@ -56,7 +59,9 @@ func (b *builder) buildSelect(addrMap map[uintptr]field) {
 
 	addrMap[b.args[lenArgs-1]].buildAttributeSelect(b, lenArgs-1)
 	b.sql.WriteString(" FROM ")
-	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
+	b.sql.Write(addrMap[b.args[0]].table())
+	//TODO: add From() to set order tables
+	b.tables = append(b.tables, string(addrMap[b.args[0]].table()))
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 }
 
@@ -69,17 +74,18 @@ func (b *builder) buildAggregates() {
 	if len(b.args) == 0 {
 		b.tablesPk = make([]*pk, 1)
 		b.sql.WriteString(" FROM ")
-		b.sql.WriteString(b.aggregates[0].field.getPrimaryKey().table)
+		b.sql.Write(b.aggregates[0].field.table())
 		b.tablesPk[0] = b.aggregates[0].field.getPrimaryKey()
 	}
 }
 
 func (b *builder) buildSelectJoins(addrMap map[uintptr]field, join string, argsJoins []uintptr) {
-	b.tablesPk = append(b.tablesPk, make([]*pk, 2)...)
-	c := len(b.tablesPk) - 2
+	j := len(b.joinsArgs)
+	b.joinsArgs = append(b.joinsArgs, make([]field, 2)...)
+	b.tables = append(b.tables, make([]string, 1)...)
 	b.joins = append(b.joins, join)
-	b.tablesPk[c] = addrMap[argsJoins[0]].getPrimaryKey()
-	b.tablesPk[c+1] = addrMap[argsJoins[1]].getPrimaryKey()
+	b.joinsArgs[j] = addrMap[argsJoins[0]]
+	b.joinsArgs[j+1] = addrMap[argsJoins[1]]
 }
 
 func (b *builder) buildPage() {
@@ -161,7 +167,7 @@ func (b *builder) buildWhereIn() error {
 				b.argsAny = append(b.argsAny, v.value)
 				argsCount++
 			} else {
-				return fmt.Errorf("goe: the tables %s and %s %w", b.table, v.pk.table, ErrNotManyToMany)
+				return fmt.Errorf("goe: the tables %s and %s %w", b.table, v.pk.table(), ErrNotManyToMany)
 			}
 		case simpleOperator:
 			b.sql.WriteString(v.operation())
@@ -174,11 +180,11 @@ func (b *builder) buildWhereIn() error {
 
 func buildWhereIn(pks []*pk, brPk *pk, argsCount int, v complexOperator) string {
 	for i := range pks {
-		mtm := brPk.fks[pks[i].table]
+		mtm := brPk.fks[string(pks[i].table())]
 		if mtm != nil {
 			if mtmValue, ok := mtm.(*manyToMany); ok {
 				v.setValueFlag(fmt.Sprintf("$%v", argsCount))
-				v.setArgument(mtmValue.ids[brPk.table].attributeName)
+				v.setArgument(mtmValue.ids[string(brPk.table())].attributeName)
 				return v.operation()
 			}
 		}
@@ -187,90 +193,27 @@ func buildWhereIn(pks []*pk, brPk *pk, argsCount int, v complexOperator) string 
 }
 
 func (b *builder) buildTables() (err error) {
-	if len(b.tablesPk) > 1 {
-		c := 1
-		for i := range b.joins {
-			err = buildJoins(b.tablesPk[i+c], b.tablesPk[i+c+1], b.joins[i], b.sql, i+c+1, b.tablesPk)
-			if err != nil {
-				return err
-			}
-			c++
+	c := 1
+	for i := range b.joins {
+		err = buildJoins(b.joins[i], b.sql, b.joinsArgs[i+c-1], b.joinsArgs[i+c-1+1], b.tables, i+1)
+		if err != nil {
+			return err
 		}
+		c++
 	}
-	return err
+	return nil
 }
 
-func buildJoins(pk1 *pk, pk2 *pk, join string, sql *strings.Builder, i int, pks []*pk) error {
-	switch fk := pk1.fks[pk2.table].(type) {
-	case *manyToOne:
-		table := pk2.table
-		for c := range pks[:i] {
-			//switch table if pk2 is priority
-			if pks[c].table == pk2.table {
-				table = pk1.table
-				break
-			}
-		}
-		if fk.hasMany {
-			sql.WriteByte(10)
-			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk1.selectName, fk.selectName))
-		} else {
-			sql.WriteByte(10)
-			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, table, pk2.selectName, fk.selectName))
-		}
-	case *manyToMany:
-		for c := range pks[:i] {
-			//switch pks if pk2 is priority
-			if pks[c].table == pk2.table {
-				pk2 = pk1
-				pk1 = pks[c]
-				break
-			}
-		}
-		sql.WriteByte(10)
-		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, fk.table, pk1.selectName, fk.ids[pk1.table].selectName))
-		sql.WriteByte(10)
-		sql.WriteString(fmt.Sprintf(
-			"%v %v on (%v = %v)",
-			join,
-			pk2.table, fk.ids[pk2.table].selectName,
-			pk2.selectName))
-	case *oneToOne:
-		sql.WriteByte(10)
-		var flag bool
-		for c := range pks[:i] {
-			if pks[c].table == pk2.table {
-				flag = true
-				break
-			}
-		}
-		if flag {
-			sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, pk2.selectName, fk.selectName))
-			break
-		}
-		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk2.selectName, fk.selectName))
-	default:
-		if fk = pk2.fks[pk1.table]; fk != nil {
-			fk, ok := fk.(*oneToOne)
-			if ok {
-				sql.WriteByte(10)
-				var flag bool
-				for c := range pks[:i] {
-					if pks[c].table == pk2.table {
-						flag = true
-						break
-					}
-				}
-				if flag {
-					sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk1.table, pk1.selectName, fk.selectName))
-					break
-				}
-				sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, pk2.table, pk1.selectName, fk.selectName))
-				return nil
-			}
-		}
-		return fmt.Errorf("goe: the tables %s and %s %w", pk1.table, pk2.table, ErrNoMatchesTables)
+func buildJoins(join string, sql *strings.Builder, f1, f2 field, tables []string, tableIndice int) error {
+	sql.WriteByte(10)
+	if !slices.Contains(tables, string(f2.table())) {
+		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, string(f2.table()), f1.getSelect(), f2.getSelect()))
+		tables[tableIndice] = string(f2.table())
+		return nil
 	}
+	//TODO: update this to write
+	sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, string(f1.table()), f1.getSelect(), f2.getSelect()))
+	tables[tableIndice] = string(f1.table())
 	return nil
 }
 
@@ -283,7 +226,7 @@ func (b *builder) buildInsert(addrMap map[uintptr]field) {
 	b.tablesPk = make([]*pk, 1)
 
 	f := addrMap[b.args[0]]
-	b.sql.WriteString(f.getPrimaryKey().table)
+	b.sql.Write(f.table())
 	b.sql.WriteString(" (")
 	b.tablesPk[0] = f.getPrimaryKey()
 	f.buildAttributeInsert(b)
@@ -374,7 +317,7 @@ func (b *builder) buildInsertIn(addrMap map[uintptr]field) {
 
 	b.tablesPk = make([]*pk, 2)
 
-	b.table = addrMap[b.args[0]].getPrimaryKey().table
+	b.table = string(addrMap[b.args[0]].table())
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
 }
@@ -385,18 +328,18 @@ func (b *builder) buildValuesIn() error {
 
 	mtm := pk2.fks[b.table]
 	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNoMatchesTables)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNoMatchesTables)
 	}
 
 	mtmValue, ok := mtm.(*manyToMany)
 	if !ok {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
 	}
 	b.sql.WriteString(mtmValue.table)
 	b.sql.WriteString(" (")
-	b.sql.WriteString(mtmValue.ids[pk1.table].attributeName)
+	b.sql.WriteString(mtmValue.ids[string(pk1.table())].attributeName)
 	b.sql.WriteString(",")
-	b.sql.WriteString(mtmValue.ids[pk2.table].attributeName)
+	b.sql.WriteString(mtmValue.ids[string(pk2.table())].attributeName)
 	b.sql.WriteString(") ")
 	b.sql.WriteString("VALUES ")
 	b.sql.WriteString("($1,$2);")
@@ -409,18 +352,18 @@ func (b *builder) buildValuesInBatch(v reflect.Value) error {
 
 	mtm := pk2.fks[b.table]
 	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNoMatchesTables)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNoMatchesTables)
 	}
 
 	mtmValue, ok := mtm.(*manyToMany)
 	if !ok {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
 	}
 	b.sql.WriteString(mtmValue.table)
 	b.sql.Write([]byte{32, 40})
-	b.sql.WriteString(mtmValue.ids[pk1.table].attributeName)
+	b.sql.WriteString(mtmValue.ids[string(pk1.table())].attributeName)
 	b.sql.WriteByte(44)
-	b.sql.WriteString(mtmValue.ids[pk2.table].attributeName)
+	b.sql.WriteString(mtmValue.ids[string(pk2.table())].attributeName)
 	b.sql.Write([]byte{41, 32})
 	b.sql.WriteString("VALUES ")
 	b.sql.WriteString("($1,$2)")
@@ -447,7 +390,7 @@ func (b *builder) buildUpdate(addrMap map[uintptr]field) {
 	b.structColumns = make([]string, 0, len(b.args))
 	b.attrNames = make([]string, 0, len(b.args))
 
-	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
+	b.sql.Write(addrMap[b.args[0]].table())
 	b.sql.WriteString(" SET ")
 	addrMap[b.args[0]].buildAttributeUpdate(b)
 
@@ -484,7 +427,7 @@ func (b *builder) buildUpdateIn(addrMap map[uintptr]field) {
 	b.attrNames = make([]string, 0, len(b.args))
 	b.tablesPk = make([]*pk, 2)
 
-	b.table = addrMap[b.args[0]].getPrimaryKey().table
+	b.table = string(addrMap[b.args[0]].table())
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
 }
@@ -494,22 +437,22 @@ func (b *builder) buildSetIn() error {
 
 	mtm := pk2.fks[b.table]
 	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
 		b.sql.WriteString(mtmValue.table)
 		b.sql.WriteString(" SET ")
-		b.sql.WriteString(fmt.Sprintf("%v = $1", mtmValue.ids[pk2.table].attributeName))
+		b.sql.WriteString(fmt.Sprintf("%v = $1", mtmValue.ids[string(pk2.table())].attributeName))
 		return nil
 	}
-	return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table, ErrNotManyToMany)
+	return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
 }
 
 func (b *builder) buildDelete(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("DELETE FROM ")
-	b.sql.WriteString(addrMap[b.args[0]].getPrimaryKey().table)
+	b.sql.Write(addrMap[b.args[0]].table())
 }
 
 func (b *builder) buildDeleteIn(addrMap map[uintptr]field) {
@@ -518,7 +461,7 @@ func (b *builder) buildDeleteIn(addrMap map[uintptr]field) {
 
 	b.tablesPk = make([]*pk, 2)
 
-	b.table = addrMap[b.args[0]].getPrimaryKey().table
+	b.table = string(addrMap[b.args[0]].table())
 	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
 }
@@ -526,7 +469,7 @@ func (b *builder) buildDeleteIn(addrMap map[uintptr]field) {
 func (b *builder) buildSqlDeleteIn() (err error) {
 	mtm := b.tablesPk[1].fks[b.table]
 	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table, ErrNotManyToMany)
+		return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table(), ErrNotManyToMany)
 	}
 
 	if mtmValue, ok := mtm.(*manyToMany); ok {
@@ -535,5 +478,5 @@ func (b *builder) buildSqlDeleteIn() (err error) {
 		b.sql.WriteByte(59)
 		return err
 	}
-	return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table, ErrNotManyToMany)
+	return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table(), ErrNotManyToMany)
 }

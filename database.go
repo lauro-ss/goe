@@ -508,20 +508,21 @@ func getArgsUpdate(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 					}
 					addr := uintptr(fieldOf.Addr().UnsafePointer())
 					if addrMap[addr] != nil {
-						if table != "" && addrMap[addr].getPrimaryKey().table != table {
+						if table != "" && string(addrMap[addr].table()) != table {
 							return nil, ErrTooManyTablesUpdate
 						}
-						table = addrMap[addr].getPrimaryKey().table
+						table = string(addrMap[addr].table())
 						stringArgs = append(stringArgs, addr)
 					}
 				}
 			} else {
+				//TODO: Check this, update all comparable table to a Id
 				addr := uintptr(valueOf.Addr().UnsafePointer())
 				if addrMap[addr] != nil {
-					if table != "" && addrMap[addr].getPrimaryKey().table != table {
+					if table != "" && string(addrMap[addr].table()) != table {
 						return nil, ErrTooManyTablesUpdate
 					}
-					table = addrMap[addr].getPrimaryKey().table
+					table = string(addrMap[addr].table())
 					stringArgs = append(stringArgs, uintptr(valueOf.Addr().UnsafePointer()))
 				}
 			}
@@ -541,16 +542,9 @@ func getArgsIn(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 	for i := range args {
 		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
 			valueOf := reflect.ValueOf(args[i]).Elem()
-			if valueOf.Type().Name() != "Time" && valueOf.Kind() == reflect.Struct {
-				ptr = uintptr(reflect.ValueOf(args[i]).Elem().Field(0).Addr().UnsafePointer())
-				if addrMap[ptr] != nil {
-					stringArgs[i] = ptr
-				}
-			} else {
-				ptr = uintptr(valueOf.Addr().UnsafePointer())
-				if addrMap[ptr] != nil {
-					stringArgs[i] = ptr
-				}
+			ptr = uintptr(valueOf.Addr().UnsafePointer())
+			if addrMap[ptr] != nil {
+				stringArgs[i] = ptr
 			}
 		} else {
 			return nil, ErrInvalidArg
