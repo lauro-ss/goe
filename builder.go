@@ -26,7 +26,6 @@ type builder struct {
 	joinsArgs     []field  //select
 	tables        []string //select TODO: update all table names to a int ID
 	brs           []operator
-	table         string
 	tablesPk      []*pk
 	returning     bool
 }
@@ -121,12 +120,6 @@ func (b *builder) buildSqlDelete() (err error) {
 	return err
 }
 
-func (b *builder) buildSqlUpdateIn() (err error) {
-	err = b.buildWhereIn()
-	b.sql.WriteByte(59)
-	return err
-}
-
 func (b *builder) buildWhere() error {
 	if len(b.brs) == 0 {
 		return nil
@@ -148,48 +141,6 @@ func (b *builder) buildWhere() error {
 		}
 	}
 	return nil
-}
-
-func (b *builder) buildWhereIn() error {
-	if len(b.brs) == 0 {
-		return nil
-	}
-	b.sql.WriteByte(10)
-	b.sql.WriteString("WHERE ")
-	argsCount := len(b.argsAny) + 1
-
-	for _, op := range b.brs {
-		switch v := op.(type) {
-		case complexOperator:
-			st := buildWhereIn(b.tablesPk, v.pk, argsCount, v)
-			if st != "" {
-				b.sql.WriteString(st)
-				b.argsAny = append(b.argsAny, v.value)
-				argsCount++
-			} else {
-				return fmt.Errorf("goe: the tables %s and %s %w", b.table, v.pk.table(), ErrNotManyToMany)
-			}
-		case simpleOperator:
-			b.sql.WriteString(v.operation())
-		default:
-			return ErrInvalidWhere
-		}
-	}
-	return nil
-}
-
-func buildWhereIn(pks []*pk, brPk *pk, argsCount int, v complexOperator) string {
-	for i := range pks {
-		mtm := brPk.fks[string(pks[i].table())]
-		if mtm != nil {
-			if mtmValue, ok := mtm.(*manyToMany); ok {
-				v.setValueFlag(fmt.Sprintf("$%v", argsCount))
-				v.setArgument(mtmValue.ids[string(brPk.table())].attributeName)
-				return v.operation()
-			}
-		}
-	}
-	return ""
 }
 
 func (b *builder) buildTables() (err error) {
@@ -310,79 +261,6 @@ func buildValueField(valueField reflect.Value, b *builder) {
 	b.argsAny = append(b.argsAny, valueField.Interface())
 }
 
-func (b *builder) buildInsertIn(addrMap map[uintptr]field) {
-	//TODO: Set a drive type to share stm
-	b.sql.WriteString("INSERT ")
-	b.sql.WriteString("INTO ")
-
-	b.tablesPk = make([]*pk, 2)
-
-	b.table = string(addrMap[b.args[0]].table())
-	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
-	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
-}
-
-func (b *builder) buildValuesIn() error {
-	pk1 := b.tablesPk[0]
-	pk2 := b.tablesPk[1]
-
-	mtm := pk2.fks[b.table]
-	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNoMatchesTables)
-	}
-
-	mtmValue, ok := mtm.(*manyToMany)
-	if !ok {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
-	}
-	b.sql.WriteString(mtmValue.table)
-	b.sql.WriteString(" (")
-	b.sql.WriteString(mtmValue.ids[string(pk1.table())].attributeName)
-	b.sql.WriteString(",")
-	b.sql.WriteString(mtmValue.ids[string(pk2.table())].attributeName)
-	b.sql.WriteString(") ")
-	b.sql.WriteString("VALUES ")
-	b.sql.WriteString("($1,$2);")
-	return nil
-}
-
-func (b *builder) buildValuesInBatch(v reflect.Value) error {
-	pk1 := b.tablesPk[0]
-	pk2 := b.tablesPk[1]
-
-	mtm := pk2.fks[b.table]
-	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNoMatchesTables)
-	}
-
-	mtmValue, ok := mtm.(*manyToMany)
-	if !ok {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
-	}
-	b.sql.WriteString(mtmValue.table)
-	b.sql.Write([]byte{32, 40})
-	b.sql.WriteString(mtmValue.ids[string(pk1.table())].attributeName)
-	b.sql.WriteByte(44)
-	b.sql.WriteString(mtmValue.ids[string(pk2.table())].attributeName)
-	b.sql.Write([]byte{41, 32})
-	b.sql.WriteString("VALUES ")
-	b.sql.WriteString("($1,$2)")
-	b.argsAny = make([]any, v.Len())
-	b.argsAny[0] = v.Index(0).Interface()
-	b.argsAny[1] = v.Index(1).Interface()
-
-	for i := 2; i < v.Len(); i++ {
-		b.argsAny[i] = v.Index(i).Interface()
-	}
-	c := 1
-	for i := 2; i <= v.Len()/2; i++ {
-		b.sql.WriteString(fmt.Sprintf(",($%v,$%v)", i+c, i+c+1))
-		c++
-	}
-	b.sql.WriteByte(59)
-	return nil
-}
-
 func (b *builder) buildUpdate(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("UPDATE ")
@@ -420,63 +298,8 @@ func buildSetField(valueField reflect.Value, fieldName string, b *builder, c uin
 	c++
 }
 
-func (b *builder) buildUpdateIn(addrMap map[uintptr]field) {
-	//TODO: Set a drive type to share stm
-	b.sql.WriteString("UPDATE ")
-
-	b.attrNames = make([]string, 0, len(b.args))
-	b.tablesPk = make([]*pk, 2)
-
-	b.table = string(addrMap[b.args[0]].table())
-	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
-	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
-}
-
-func (b *builder) buildSetIn() error {
-	pk2 := b.tablesPk[1]
-
-	mtm := pk2.fks[b.table]
-	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
-	}
-
-	if mtmValue, ok := mtm.(*manyToMany); ok {
-		b.sql.WriteString(mtmValue.table)
-		b.sql.WriteString(" SET ")
-		b.sql.WriteString(fmt.Sprintf("%v = $1", mtmValue.ids[string(pk2.table())].attributeName))
-		return nil
-	}
-	return fmt.Errorf("goe: the tables %s and %s %w", b.table, pk2.table(), ErrNotManyToMany)
-}
-
 func (b *builder) buildDelete(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
 	b.sql.WriteString("DELETE FROM ")
 	b.sql.Write(addrMap[b.args[0]].table())
-}
-
-func (b *builder) buildDeleteIn(addrMap map[uintptr]field) {
-	//TODO: Set a drive type to share stm
-	b.sql.WriteString("DELETE FROM ")
-
-	b.tablesPk = make([]*pk, 2)
-
-	b.table = string(addrMap[b.args[0]].table())
-	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
-	b.tablesPk[1] = addrMap[b.args[1]].getPrimaryKey()
-}
-
-func (b *builder) buildSqlDeleteIn() (err error) {
-	mtm := b.tablesPk[1].fks[b.table]
-	if mtm == nil {
-		return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table(), ErrNotManyToMany)
-	}
-
-	if mtmValue, ok := mtm.(*manyToMany); ok {
-		b.sql.WriteString(mtmValue.table)
-		err = b.buildWhereIn()
-		b.sql.WriteByte(59)
-		return err
-	}
-	return fmt.Errorf("goe: the tables %s and %s %w", b.table, b.tablesPk[1].table(), ErrNotManyToMany)
 }

@@ -225,11 +225,6 @@ func handlerSlice(tables reflect.Value, targetTypeOf reflect.Type, valueOf refle
 		//TODO: Check this
 		valueOf.Field(i).SetBytes([]byte{})
 		newAttr(valueOf, i, pks[0], uintptr(valueOf.Field(i).Addr().UnsafePointer()), db, driver)
-	default:
-		if mtm := isManytoMany(tables, targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), db, driver); mtm != nil {
-			key := driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name()))
-			pks[0].fks[key] = mtm
-		}
 	}
 	return nil
 }
@@ -273,39 +268,6 @@ func getPk(typeOf reflect.Type, driver Driver) ([]*pk, []string, error) {
 
 func isAutoIncrement(id reflect.StructField) bool {
 	return strings.Contains(id.Type.Kind().String(), "int")
-}
-
-func isManytoMany(tables reflect.Value, targetTypeOf reflect.Type, typeOf reflect.Type, tag string, db *DB, driver Driver) any {
-	nameTargetTypeOf := driver.KeywordHandler(utils.TableNamePattern(targetTypeOf.Name()))
-	nameTypeOf := driver.KeywordHandler(utils.TableNamePattern(typeOf.Name()))
-
-	for _, v := range db.addrMap {
-		switch value := v.(type) {
-		case *pk:
-			if string(value.table()) == nameTargetTypeOf {
-				switch fk := value.fks[nameTypeOf].(type) {
-				case *manyToMany:
-					return fk
-				}
-			}
-		}
-	}
-
-	for i := 0; i < targetTypeOf.NumField(); i++ {
-		switch targetTypeOf.Field(i).Type.Kind() {
-		case reflect.Slice:
-			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				return createManyToMany(tag, typeOf, targetTypeOf, driver)
-			}
-		default:
-			typeName, prefix := checkTablePattern(tables, targetTypeOf.Field(i))
-			if typeOf.Name() == typeName {
-				return createManyToOne(typeOf, targetTypeOf, true, driver, prefix)
-			}
-		}
-	}
-
-	return nil
 }
 
 func isManyToOne(tables reflect.Value, typeOf reflect.Type, driver Driver, table, prefix string) field {

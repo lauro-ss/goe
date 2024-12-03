@@ -119,46 +119,6 @@ func (db *DB) InsertContext(ctx context.Context, table any) *stateInsert {
 	return state.queryInsert(stringArgs, db.addrMap)
 }
 
-// InsertIn creates a insert state for a many to many table
-//
-// InsertIn uses [context.Background] internally;
-// to specify the context, use [DB.InsertInContext].
-//
-// # Example:
-//
-//	// insert into AnimalHabitat
-//	// first value is for idAnimal
-//	// second is for idHabitat
-//	db.InsertIn(db.Animal, db.Habitat).Values("5ad0e5fc-e9f7-4855-9698-d0c10b996f73", 25)
-//
-//	as := []any{
-//		"5ad0e5fc-e9f7-4855-9698-d0c10b996f73", 1,
-//		"5ad0e5fc-e9f7-4855-9698-d0c10b996f73", 2,
-//		"5ad0e5fc-e9f7-4855-9698-d0c10b996f73", 3,
-//	}
-//
-//	// insert batch values in AnimalHabitat
-//	// the slice needs to be even and not have a length of 0
-//	db.InsertIn(db.Animal, db.Habitat).Values(&as)
-func (db *DB) InsertIn(table1 any, table2 any) *stateInsertIn {
-	return db.InsertInContext(context.Background(), table1, table2)
-}
-
-// InsertInContext creates a insert state for a many to many table
-func (db *DB) InsertInContext(ctx context.Context, table1 any, table2 any) *stateInsertIn {
-	stringArgs, err := getArgsIn(db.addrMap, table1, table2)
-
-	var state *stateInsertIn
-	if err != nil {
-		state = createInsertStateIn(nil, db.config, ctx, err)
-		return state.queryInsertIn(nil, nil)
-	}
-
-	state = createInsertStateIn(db.ConnPool, db.config, ctx, err)
-
-	return state.queryInsertIn(stringArgs, db.addrMap)
-}
-
 // Update creates a update state for table
 //
 // Update uses [context.Background] internally;
@@ -196,35 +156,6 @@ func (db *DB) UpdateContext(ctx context.Context, table ...any) *stateUpdate {
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
 
-// UpdateIn creates a update state for a many to many table
-//
-// UpdateIn uses [context.Background] internally;
-// to specify the context, use [DB.UpdateInContext].
-//
-//	// update idfood in matched row from many to many table AnimalFood
-//	db.UpdateIn(db.Animal, db.Food).Where(
-//		db.Equals(&db.Animal.Id, "906f4f1f-49e7-47ee-8954-2d6e0a3354cf"),
-//		db.And(),
-//		db.Equals(&db.Food.Id, "f023a4e7-34e9-4db2-85e0-efe8d67eea1b")).
-//		Value("fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")
-func (db *DB) UpdateIn(table1 any, table2 any) *stateUpdateIn {
-	return db.UpdateInContext(context.Background(), table1, table2)
-}
-
-// UpdateInContext creates a update state for a many to many table
-func (db *DB) UpdateInContext(ctx context.Context, table1 any, table2 any) *stateUpdateIn {
-	stringArgs, err := getArgsIn(db.addrMap, table1, table2)
-
-	var state *stateUpdateIn
-	if err != nil {
-		state = createUpdateInState(nil, db.config, ctx, err)
-		return state.queryUpdateIn(nil, nil)
-	}
-	state = createUpdateInState(db.ConnPool, db.config, ctx, err)
-
-	return state.queryUpdateIn(stringArgs, db.addrMap)
-}
-
 // Delete creates a delete state for table
 //
 // Delete uses [context.Background] internally;
@@ -250,36 +181,6 @@ func (db *DB) DeleteContext(ctx context.Context, table any) *stateDelete {
 	state = createDeleteState(db.ConnPool, db.config, ctx, err)
 
 	return state.queryDelete(stringArgs, db.addrMap)
-}
-
-// DeleteIn creates a delete state for a many to many table
-//
-// DeleteIn uses [context.Background] internally;
-// to specify the context, use [DB.DeleteInContext].
-//
-// # Example
-//
-//	// delete all rows from AnimalFood
-//	db.DeleteIn(db.Animal, db.Food).Where()
-//
-//	// generate the same SQL as the other
-//	db.DeleteIn(db.Food, db.Animal).Where()
-func (db *DB) DeleteIn(table1 any, table2 any) *stateDeleteIn {
-	return db.DeleteInContext(context.Background(), table1, table2)
-}
-
-// DeleteInContext creates a delete state for a many to many table
-func (db *DB) DeleteInContext(ctx context.Context, table1 any, table2 any) *stateDeleteIn {
-	stringArgs, err := getArgsIn(db.addrMap, table1, table2)
-
-	var state *stateDeleteIn
-	if err != nil {
-		state = createDeleteInState(nil, db.config, ctx, err)
-		return state.queryDeleteIn(nil, nil)
-	}
-	state = createDeleteInState(db.ConnPool, db.config, ctx, err)
-
-	return state.queryDeleteIn(stringArgs, db.addrMap)
 }
 
 func getArg(arg any, addrMap map[uintptr]field) field {

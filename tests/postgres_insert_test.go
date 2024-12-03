@@ -220,64 +220,6 @@ func TestPostgresInsert(t *testing.T) {
 			},
 		},
 		{
-			desc: "InsertIn_Invalid_Tables",
-			testCase: func(t *testing.T) {
-				af := []any{
-					1, 2,
-					3, 4,
-				}
-				err = db.InsertIn(db.Animal, db.Flag).Values(&af)
-				if !errors.Is(err, goe.ErrNoMatchesTables) {
-					t.Errorf("Expected goe.ErrNoMatchesTables, got : %v", err)
-				}
-			},
-		},
-		{
-			desc: "InsertIn_Invalid_Tables_Many_To_Many",
-			testCase: func(t *testing.T) {
-				af := []any{
-					1, 2,
-					3, 4,
-				}
-				err = db.InsertIn(db.Animal, db.Habitat).Values(&af)
-				if !errors.Is(err, goe.ErrNotManyToMany) {
-					t.Errorf("Expected goe.ErrNotManyToMany, got : %v", err)
-				}
-			},
-		},
-		{
-			desc: "InsertIn_Invalid_Value",
-			testCase: func(t *testing.T) {
-				af := []any{
-					1, 2,
-					3,
-				}
-				err = db.InsertIn(db.Animal, db.Food).Values(af)
-				if !errors.Is(err, goe.ErrInvalidInsertInValue) {
-					t.Errorf("Expected goe.ErrInvalidInsertInValue, got : %v", err)
-				}
-
-				a := 1
-				err = db.InsertIn(db.Animal, db.Food).Values(a)
-				if !errors.Is(err, goe.ErrInvalidInsertInValue) {
-					t.Errorf("Expected goe.ErrInvalidInsertInValue, got : %v", err)
-				}
-			},
-		},
-		{
-			desc: "InsertIn_Invalid_Arg",
-			testCase: func(t *testing.T) {
-				af := []any{
-					1, 2,
-					3,
-				}
-				err = db.InsertIn(db.Animal, db.And).Values(af)
-				if !errors.Is(err, goe.ErrInvalidArg) {
-					t.Errorf("Expected goe.ErrInvalidArg, got : %v", err)
-				}
-			},
-		},
-		{
 			desc: "Insert_Context_Cancel",
 			testCase: func(t *testing.T) {
 				a := Animal{}

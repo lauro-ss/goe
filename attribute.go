@@ -7,36 +7,6 @@ import (
 	"github.com/olauro/goe/utils"
 )
 
-type manyToMany struct {
-	table string
-	ids   map[string]attributeStrings
-}
-
-func createManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type, driver Driver) *manyToMany {
-	table := getTagValue(tag, "table:")
-	if table == "" {
-		return nil
-	}
-	nameTargetTypeOf := targetTypeOf.Name()
-	nameTypeOf := typeOf.Name()
-
-	table = driver.KeywordHandler(utils.TableNamePattern(table))
-	mtm := new(manyToMany)
-	mtm.table = table
-	mtm.ids = make(map[string]attributeStrings)
-	pk := primaryKeys(typeOf)[0]
-
-	id := utils.ManyToManyNamePattern(pk.Name, nameTypeOf)
-	mtm.ids[driver.KeywordHandler(utils.TableNamePattern(nameTypeOf))] = createAttributeStrings([]byte(table), id, driver)
-
-	// target id
-	pkTarget := primaryKeys(targetTypeOf)[0]
-	id = utils.ManyToManyNamePattern(pkTarget.Name, nameTargetTypeOf)
-
-	mtm.ids[driver.KeywordHandler(utils.TableNamePattern(nameTargetTypeOf))] = createAttributeStrings([]byte(table), id, driver)
-	return mtm
-}
-
 type oneToOne struct {
 	pk *pk
 	attributeStrings

@@ -30,10 +30,6 @@ func (co *complexOperator) setValueFlag(f string) {
 	co.valueFlag = f
 }
 
-func (co *complexOperator) setArgument(s string) {
-	co.argument = s
-}
-
 func (co *complexOperator) setNot() {
 	co.operator = "NOT " + co.operator
 }
