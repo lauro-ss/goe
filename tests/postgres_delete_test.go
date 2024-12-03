@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/olauro/goe"
 )
 
@@ -19,13 +18,9 @@ func TestPostgresDelete(t *testing.T) {
 		t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 	}
 
-	err = db.DeleteIn(db.Animal, db.Food).Where()
+	err = db.Delete(db.AnimalFood).Where()
 	if err != nil {
 		t.Fatalf("Expected delete AnimalFood, got error: %v", err)
-	}
-	err = db.DeleteIn(db.Animal, db.Owns).Where()
-	if err != nil {
-		t.Fatalf("Expected delete AnimalOwns, got error: %v", err)
 	}
 	err = db.Delete(db.Flag).Where()
 	if err != nil {
@@ -50,10 +45,6 @@ func TestPostgresDelete(t *testing.T) {
 	err = db.Delete(db.Status).Where()
 	if err != nil {
 		t.Fatalf("Expected delete status, got error: %v", err)
-	}
-	err = db.Delete(db.Owns).Where()
-	if err != nil {
-		t.Fatalf("Expected delete owns, got error: %v", err)
 	}
 	err = db.Delete(db.UserRole).Where()
 	if err != nil {
@@ -162,135 +153,6 @@ func TestPostgresDelete(t *testing.T) {
 			},
 		},
 		{
-			desc: "DeleteIn_One_Record",
-			testCase: func(t *testing.T) {
-				animals := Animal{Name: "Cat"}
-				err = db.Insert(db.Animal).Value(&animals)
-				if err != nil {
-					t.Errorf("Expected insert animals, got error: %v", err)
-				}
-
-				foods := Food{Id: uuid.New(), Name: "Meat"}
-				err = db.Insert(db.Food).Value(&foods)
-				if err != nil {
-					t.Errorf("Expected insert foods, got error: %v", err)
-				}
-
-				if db.ConnPool.Stats().InUse != 0 {
-					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
-				}
-
-				err = db.InsertIn(db.Animal, db.Food).Values(animals.Id, foods.Id)
-				if err != nil {
-					t.Errorf("Expected insert animalFood, got error: %v", err)
-				}
-
-				if db.ConnPool.Stats().InUse != 0 {
-					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
-				}
-
-				var AnimalFood *struct {
-					AnimalName string
-					FoodName   string
-				}
-				err = db.Select(&db.Animal.Name, &db.Food.Name).
-					Join(db.Animal, db.Food).Where(
-					db.Equals(&db.Animal.Id, animals.Id),
-					db.And(),
-					db.Equals(&db.Food.Id, foods.Id)).Scan(&AnimalFood)
-				if err != nil {
-					t.Errorf("Expected a select, got error: %v", err)
-				}
-
-				if AnimalFood.AnimalName != animals.Name || AnimalFood.FoodName != foods.Name {
-					t.Errorf(`Expected %v got %v, Expected %v got: %v`,
-						animals.Name, AnimalFood.AnimalName,
-						foods.Name, AnimalFood.FoodName,
-					)
-				}
-
-				if db.ConnPool.Stats().InUse != 0 {
-					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
-				}
-
-				err = db.DeleteIn(db.Animal, db.Food).Where(
-					db.Equals(&db.Animal.Id, animals.Id),
-					db.And(),
-					db.Equals(&db.Food.Id, foods.Id))
-				if err != nil {
-					t.Errorf("Expected a delete animalFood, got error: %v", err)
-				}
-
-				if db.ConnPool.Stats().InUse != 0 {
-					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
-				}
-
-				err = db.Select(&db.Animal.Name, &db.Food.Name).
-					Join(db.Animal, db.Food).Where(
-					db.Equals(&db.Animal.Id, animals.Id),
-					db.And(),
-					db.Equals(&db.Food.Id, foods.Id)).Scan(&AnimalFood)
-				if !errors.Is(err, goe.ErrNotFound) {
-					t.Errorf("Expected a select, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "DeleteIn_All_Record",
-			testCase: func(t *testing.T) {
-				animals := Animal{Name: "Cat"}
-				err = db.Insert(db.Animal).Value(&animals)
-				if err != nil {
-					t.Errorf("Expected insert animals, got error: %v", err)
-				}
-
-				foods := []Food{
-					{Id: uuid.New(), Name: "Meat"},
-					{Id: uuid.New(), Name: "Grass"},
-				}
-				err = db.Insert(db.Food).Value(&foods)
-				if err != nil {
-					t.Errorf("Expected insert foods, got error: %v", err)
-				}
-
-				animalFods := []any{
-					animals.Id, foods[0].Id,
-					animals.Id, foods[1].Id,
-				}
-				err = db.InsertIn(db.Animal, db.Food).Values(animalFods)
-				if err != nil {
-					t.Errorf("Expected insert animalFood, got error: %v", err)
-				}
-
-				var AnimalFood []struct {
-					AnimalName string
-					FoodName   string
-				}
-				err = db.Select(&db.Animal.Name, &db.Food.Name).
-					Join(db.Animal, db.Food).Where(
-					db.Equals(&db.Animal.Id, animals.Id)).Scan(&AnimalFood)
-				if err != nil {
-					t.Errorf("Expected a select, got error: %v", err)
-				}
-				if len(AnimalFood) != 2 {
-					t.Errorf("Expected a 2, got: %v", len(AnimalFood))
-				}
-
-				err = db.DeleteIn(db.Animal, db.Food).Where(
-					db.Equals(&db.Animal.Id, animals.Id))
-				if err != nil {
-					t.Errorf("Expected a delete animalFood, got error: %v", err)
-				}
-
-				err = db.Select(&db.Animal.Name, &db.Food.Name).
-					Join(db.Animal, db.Food).Where(
-					db.Equals(&db.Animal.Id, animals.Id)).Scan(&AnimalFood)
-				if !errors.Is(err, goe.ErrNotFound) {
-					t.Errorf("Expected a select, got error: %v", err)
-				}
-			},
-		},
-		{
 			desc: "Delete_Invalid_Arg",
 			testCase: func(t *testing.T) {
 				err = db.Delete(db.DB).Where(db.Equals(&db.Animal.Id, 1))
@@ -305,24 +167,6 @@ func TestPostgresDelete(t *testing.T) {
 				err = db.Delete(db.Animal).Where(db.Equals(db.Animal.Id, 1))
 				if !errors.Is(err, goe.ErrInvalidWhere) {
 					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "DeleteIn_Invalid_Tables",
-			testCase: func(t *testing.T) {
-				err = db.DeleteIn(db.Animal, db.Flag).Where()
-				if !errors.Is(err, goe.ErrNotManyToMany) {
-					t.Errorf("Expected a goe.ErrNoMatchesTables, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "DeleteIn_Invalid_Arg",
-			testCase: func(t *testing.T) {
-				err = db.DeleteIn(db.Animal, db.DB).Where()
-				if !errors.Is(err, goe.ErrInvalidArg) {
-					t.Errorf("Expected a goe.ErrInvalidArg, got error: %v", err)
 				}
 			},
 		},
@@ -343,28 +187,6 @@ func TestPostgresDelete(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
 				defer cancel()
 				err = db.DeleteContext(ctx, db.Animal).Where()
-				if !errors.Is(err, context.DeadlineExceeded) {
-					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "DeleteIn_Context_Cancel",
-			testCase: func(t *testing.T) {
-				ctx, cancel := context.WithCancel(context.Background())
-				cancel()
-				err = db.DeleteInContext(ctx, db.Animal, db.Food).Where()
-				if !errors.Is(err, context.Canceled) {
-					t.Errorf("Expected a context.Canceled, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "DeleteIn_Context_Timeout",
-			testCase: func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
-				defer cancel()
-				err = db.DeleteInContext(ctx, db.Animal, db.Food).Where()
 				if !errors.Is(err, context.DeadlineExceeded) {
 					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
 				}

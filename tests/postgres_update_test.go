@@ -311,7 +311,9 @@ func TestPostgresUpdate(t *testing.T) {
 					Job    string
 					Person string
 				}{}
-				err = db.Select(&db.Person.Name, &db.Job.Name).Join(db.Person, db.PersonJob).Join(db.Job, &db.PersonJob.IdJob).
+				err = db.Select(&db.Person.Name, &db.Job.Name).
+					Join(&db.Person.Id, &db.PersonJob.IdPerson).
+					Join(&db.Job.Id, &db.PersonJob.IdJob).
 					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
@@ -329,159 +331,15 @@ func TestPostgresUpdate(t *testing.T) {
 					t.Errorf("Expected a update, got error: %v", err)
 				}
 
-				err = db.Select(&db.Person.Name, &db.Job.Name).Join(db.Person, db.PersonJob).Join(db.Job, &db.PersonJob.IdJob).
+				err = db.Select(&db.Person.Name, &db.Job.Name).
+					Join(&db.Person.Id, &db.PersonJob.IdPerson).
+					Join(&db.Job.Id, &db.PersonJob.IdJob).
 					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 				if len(pj) != 3 {
 					t.Errorf("Expected %v, got : %v", 3, len(pj))
-				}
-			},
-		},
-		{
-			desc: "UpdateIn_AnimalFood",
-			testCase: func(t *testing.T) {
-				a := Animal{
-					Name: "Cat",
-				}
-				err = db.Insert(db.Animal).Value(&a)
-				if err != nil {
-					t.Errorf("Expected a insert animal, got error: %v", err)
-				}
-
-				f := []Food{{Id: uuid.New(), Name: "Meat"}, {Id: uuid.New(), Name: "Grass"}}
-				err = db.Insert(db.Food).Value(&f)
-				if err != nil {
-					t.Fatalf("Expected insert foods, got error: %v", err)
-				}
-
-				animalFoods := []any{
-					f[0].Id, a.Id,
-				}
-				err = db.InsertIn(db.Food, db.Animal).Values(animalFoods)
-				if err != nil {
-					t.Fatalf("Expected insert animalFoods, got error: %v", err)
-				}
-
-				var aselect []struct {
-					IdAnimal int
-					IdFood   uuid.UUID
-					Animal   string
-					Food     string
-				}
-				err = db.Select(&db.Animal.Id, &db.Food.Id, &db.Animal.Name, &db.Food.Name).Join(db.Animal, db.Food).
-					Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
-				if err != nil {
-					t.Fatalf("Expected select animal and food, got error: %v", err)
-				}
-
-				if len(aselect) != 1 {
-					t.Fatalf("Expected select one, got : %v", len(aselect))
-				}
-
-				if aselect[0].Animal != a.Name || aselect[0].Food != f[0].Name {
-					t.Fatalf("Expected %v and %v, got : %v and %v", a.Name, f[0].Name, aselect[0].Animal, aselect[0].Food)
-				}
-
-				err = db.UpdateIn(db.Animal, db.Food).
-					Where(db.Equals(&db.Animal.Id, aselect[0].IdAnimal),
-						db.And(),
-						db.Equals(&db.Food.Id, aselect[0].IdFood)).
-					Value(f[1].Id)
-				if err != nil {
-					t.Fatalf("Expected update animalfood, got error: %v", err)
-				}
-
-				err = db.Select(&db.Animal.Id, &db.Food.Id, &db.Animal.Name, &db.Food.Name).Join(db.Animal, db.Food).
-					Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
-				if err != nil {
-					t.Fatalf("Expected select animal and food, got error: %v", err)
-				}
-
-				if len(aselect) != 1 {
-					t.Fatalf("Expected select one, got : %v", len(aselect))
-				}
-
-				if aselect[0].Animal != a.Name || aselect[0].Food != f[1].Name {
-					t.Fatalf("Expected %v and %v, got : %v and %v", a.Name, f[1].Name, aselect[0].Animal, aselect[0].Food)
-				}
-			},
-		},
-		{
-			desc: "UpdateIn_AnimalFood_Pointer",
-			testCase: func(t *testing.T) {
-				a := Animal{
-					Name: "Cat",
-				}
-				err = db.Insert(db.Animal).Value(&a)
-				if err != nil {
-					t.Errorf("Expected a insert animal, got error: %v", err)
-				}
-
-				f := []Food{{Id: uuid.New(), Name: "Meat"}, {Id: uuid.New(), Name: "Grass"}}
-				err = db.Insert(db.Food).Value(&f)
-				if err != nil {
-					t.Fatalf("Expected insert foods, got error: %v", err)
-				}
-
-				animalFoods := []any{
-					f[0].Id, a.Id,
-				}
-				err = db.InsertIn(db.Food, db.Animal).Values(animalFoods)
-				if err != nil {
-					t.Fatalf("Expected insert animalFoods, got error: %v", err)
-				}
-
-				var aselect []struct {
-					IdAnimal int
-					IdFood   uuid.UUID
-					Animal   string
-					Food     string
-				}
-				err = db.Select(&db.Animal.Id, &db.Food.Id, &db.Animal.Name, &db.Food.Name).Join(db.Animal, db.Food).
-					Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
-				if err != nil {
-					t.Fatalf("Expected select animal and food, got error: %v", err)
-				}
-
-				if len(aselect) != 1 {
-					t.Fatalf("Expected select one, got : %v", len(aselect))
-				}
-
-				if aselect[0].Animal != a.Name || aselect[0].Food != f[0].Name {
-					t.Fatalf("Expected %v and %v, got : %v and %v", a.Name, f[0].Name, aselect[0].Animal, aselect[0].Food)
-				}
-
-				if db.ConnPool.Stats().InUse != 0 {
-					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
-				}
-
-				err = db.UpdateIn(db.Animal, db.Food).
-					Where(db.Equals(&db.Animal.Id, aselect[0].IdAnimal),
-						db.And(),
-						db.Equals(&db.Food.Id, aselect[0].IdFood)).
-					Value(&f[1].Id)
-				if err != nil {
-					t.Fatalf("Expected update animalfood, got error: %v", err)
-				}
-
-				if db.ConnPool.Stats().InUse != 0 {
-					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
-				}
-
-				err = db.Select(&db.Animal.Id, &db.Food.Id, &db.Animal.Name, &db.Food.Name).Join(db.Animal, db.Food).
-					Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
-				if err != nil {
-					t.Fatalf("Expected select animal and food, got error: %v", err)
-				}
-
-				if len(aselect) != 1 {
-					t.Fatalf("Expected select one, got : %v", len(aselect))
-				}
-
-				if aselect[0].Animal != a.Name || aselect[0].Food != f[1].Name {
-					t.Fatalf("Expected %v and %v, got : %v and %v", a.Name, f[1].Name, aselect[0].Animal, aselect[0].Food)
 				}
 			},
 		},
@@ -552,48 +410,6 @@ func TestPostgresUpdate(t *testing.T) {
 			},
 		},
 		{
-			desc: "UpdateIn_Invalid_Tables",
-			testCase: func(t *testing.T) {
-				a := Animal{
-					Name: "Cat",
-				}
-
-				a.Name = "Update Cat"
-				err = db.UpdateIn(db.Animal, db.Flag).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
-				if !errors.Is(err, goe.ErrNotManyToMany) {
-					t.Errorf("Expected a goe.ErrNoMatchesTables, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "UpdateIn_Invalid_Where",
-			testCase: func(t *testing.T) {
-				a := Animal{
-					Name: "Cat",
-				}
-
-				a.Name = "Update Cat"
-				err = db.UpdateIn(db.Animal, db.Food).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
-				if !errors.Is(err, goe.ErrInvalidWhere) {
-					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "UpdateIn_Invalid_Arg",
-			testCase: func(t *testing.T) {
-				a := Animal{
-					Name: "Cat",
-				}
-
-				a.Name = "Update Cat"
-				err = db.UpdateIn(db.Animal, nil).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
-				if !errors.Is(err, goe.ErrInvalidArg) {
-					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
-				}
-			},
-		},
-		{
 			desc: "Update_Context_Cancel",
 			testCase: func(t *testing.T) {
 				a := Animal{
@@ -616,28 +432,6 @@ func TestPostgresUpdate(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
 				defer cancel()
 				err = db.UpdateContext(ctx, db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
-				if !errors.Is(err, context.DeadlineExceeded) {
-					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "UpdateIn_Context_Cancel",
-			testCase: func(t *testing.T) {
-				ctx, cancel := context.WithCancel(context.Background())
-				cancel()
-				err = db.UpdateInContext(ctx, db.Food, db.Animal).Value(1)
-				if !errors.Is(err, context.Canceled) {
-					t.Errorf("Expected a context.Canceled, got error: %v", err)
-				}
-			},
-		},
-		{
-			desc: "UpdateIn_Context_Timeout",
-			testCase: func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
-				defer cancel()
-				err = db.UpdateInContext(ctx, db.Food, db.Animal).Value(1)
 				if !errors.Is(err, context.DeadlineExceeded) {
 					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
 				}

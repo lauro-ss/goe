@@ -14,20 +14,18 @@ type Animal struct {
 	Name      string
 	IdHabitat *uuid.UUID `goe:"table:Habitat"`
 	IdInfo    *[]byte    `goe:"table:Info"`
-	Foods     []Food     `goe:"table:AnimalFood"`
-	Owns      []Owns     `goe:"table:AnimalOwns"`
+	Foods     []AnimalFood
 }
 
-type Owns struct {
-	Id      int
-	Name    string
-	Animals []Animal `goe:"table:AnimalOwns"`
+type AnimalFood struct {
+	IdAnimal int       `goe:"pk"`
+	IdFood   uuid.UUID `goe:"pk"`
 }
 
 type Food struct {
 	Id      uuid.UUID
 	Name    string
-	Animals []Animal `goe:"table:AnimalFood"`
+	Animals []AnimalFood
 }
 
 type Habitat struct {
@@ -119,13 +117,14 @@ type Data struct {
 }
 
 type Database struct {
-	Animal    *Animal
-	Food      *Food
-	Habitat   *Habitat
-	Info      *Info
-	Status    *Status
-	Weather   *Weather
-	Owns      *Owns
+	Animal     *Animal
+	AnimalFood *AnimalFood
+	Food       *Food
+	Habitat    *Habitat
+	Info       *Info
+	Status     *Status
+	Weather    *Weather
+	//Owns      *Owns
 	User      *User
 	UserRole  *UserRole
 	Role      *Role

@@ -138,29 +138,6 @@ func TestPostgresInsert(t *testing.T) {
 			},
 		},
 		{
-			desc: "InsertIn_AnimalFood",
-			testCase: func(t *testing.T) {
-				a := Animal{Name: "Cat"}
-				err = db.Insert(db.Animal).Value(&a)
-				if err != nil {
-					t.Errorf("Expected a insert animal, got error: %v", err)
-				}
-				if a.Id == 0 {
-					t.Errorf("Expected a Id value, got : %v", a.Id)
-				}
-				f := Food{Id: uuid.New(), Name: "Meat"}
-				err = db.Insert(db.Food).Value(&f)
-				if err != nil {
-					t.Errorf("Expected a insert food, got error: %v", err)
-				}
-
-				err = db.InsertIn(db.Animal, db.Food).Values(a.Id, f.Id)
-				if err != nil {
-					t.Errorf("Expected a insert AnimalFood, got error: %v", err)
-				}
-			},
-		},
-		{
 			desc: "Insert_Batch_Animal",
 			testCase: func(t *testing.T) {
 				animals := []Animal{
@@ -181,36 +158,6 @@ func TestPostgresInsert(t *testing.T) {
 					if animals[i].Id == 0 {
 						t.Errorf("Expected a Id value, got : %v", animals[i].Id)
 					}
-				}
-			},
-		},
-		{
-			desc: "InsertIn_Batch_Animal",
-			testCase: func(t *testing.T) {
-				animals := []Animal{
-					{Name: "Cat"},
-					{Name: "Dog"},
-				}
-				err = db.Insert(db.Animal).Value(&animals)
-				if err != nil {
-					t.Fatalf("Expected insert animals, got error: %v", err)
-				}
-
-				foods := []Food{
-					{Id: uuid.New(), Name: "Meat"},
-					{Id: uuid.New(), Name: "Grass"},
-				}
-				err = db.Insert(db.Food).Value(&foods)
-				if err != nil {
-					t.Fatalf("Expected insert foods, got error: %v", err)
-				}
-
-				animalFoods := []any{
-					foods[0].Id, animals[0].Id,
-					foods[0].Id, animals[1].Id}
-				err = db.InsertIn(db.Food, db.Animal).Values(animalFoods)
-				if err != nil {
-					t.Fatalf("Expected insert animalFoods, got error: %v", err)
 				}
 			},
 		},
@@ -349,28 +296,6 @@ func TestPostgresInsert(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
 				defer cancel()
 				err = db.InsertContext(ctx, db.Animal).Value(&a)
-				if !errors.Is(err, context.DeadlineExceeded) {
-					t.Errorf("Expected context.DeadlineExceeded, got : %v", err)
-				}
-			},
-		},
-		{
-			desc: "InsertIn_Context_Cancel",
-			testCase: func(t *testing.T) {
-				ctx, cancel := context.WithCancel(context.Background())
-				cancel()
-				err = db.InsertInContext(ctx, db.Animal, db.Food).Values(1, uuid.New())
-				if !errors.Is(err, context.Canceled) {
-					t.Errorf("Expected context.Canceled, got : %v", err)
-				}
-			},
-		},
-		{
-			desc: "InsertIn_Context_Timeout",
-			testCase: func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
-				defer cancel()
-				err = db.InsertInContext(ctx, db.Animal, db.Food).Values(1, uuid.New())
 				if !errors.Is(err, context.DeadlineExceeded) {
 					t.Errorf("Expected context.DeadlineExceeded, got : %v", err)
 				}
