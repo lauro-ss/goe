@@ -844,6 +844,35 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Aggregate_Count",
+			testCase: func(t *testing.T) {
+				var c int
+				err = db.Select(db.Count(&db.User.Name)).Scan(&c)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if c != len(users) {
+					t.Errorf("Expected %v, got : %v", len(users), c)
+				}
+			},
+		},
+		{
+			desc: "Select_Join_Aggregate_Count",
+			testCase: func(t *testing.T) {
+				var c int
+				err = db.Select(db.Count(&db.User.Name)).
+					LeftJoin(&db.UserRole.IdUser, &db.User.Id).
+					LeftJoin(&db.UserRole.IdRole, &db.Role.Id).
+					Scan(&c)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if c != len(users) {
+					t.Errorf("Expected %v, got : %v", len(users), c)
+				}
+			},
+		},
+		{
 			desc: "Select_Anonymous_Struct",
 			testCase: func(t *testing.T) {
 				var a struct {
