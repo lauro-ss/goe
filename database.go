@@ -64,11 +64,11 @@ func (db *DB) SelectContext(ctx context.Context, args ...any) *stateSelect {
 
 	var state *stateSelect
 	if err != nil {
-		state = createSelectState(nil, db.config, ctx, err)
+		state = createSelectState(nil, db.config, ctx, nil, err)
 		return state.querySelect(nil, nil)
 	}
 
-	state = createSelectState(db.ConnPool, db.config, ctx, err)
+	state = createSelectState(db.ConnPool, db.config, ctx, db.driver, err)
 
 	state.addrMap = db.addrMap
 	return state.querySelect(uintArgs, aggregates)
@@ -110,11 +110,11 @@ func (db *DB) InsertContext(ctx context.Context, table any) *stateInsert {
 
 	var state *stateInsert
 	if err != nil {
-		state = createInsertState(nil, db.config, ctx, err)
+		state = createInsertState(nil, db.config, ctx, nil, err)
 		return state.queryInsert(nil, nil)
 	}
 
-	state = createInsertState(db.ConnPool, db.config, ctx, err)
+	state = createInsertState(db.ConnPool, db.config, ctx, db.driver, err)
 
 	return state.queryInsert(stringArgs, db.addrMap)
 }
@@ -148,10 +148,10 @@ func (db *DB) UpdateContext(ctx context.Context, table ...any) *stateUpdate {
 
 	var state *stateUpdate
 	if err != nil {
-		state = createUpdateState(nil, db.config, ctx, err)
+		state = createUpdateState(nil, db.config, ctx, nil, err)
 		return state.queryUpdate(nil, nil)
 	}
-	state = createUpdateState(db.ConnPool, db.config, ctx, err)
+	state = createUpdateState(db.ConnPool, db.config, ctx, db.driver, err)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
@@ -175,10 +175,10 @@ func (db *DB) DeleteContext(ctx context.Context, table any) *stateDelete {
 
 	var state *stateDelete
 	if err != nil {
-		state = createDeleteState(nil, db.config, ctx, err)
+		state = createDeleteState(nil, db.config, ctx, nil, err)
 		return state.queryDelete(nil, nil)
 	}
-	state = createDeleteState(db.ConnPool, db.config, ctx, err)
+	state = createDeleteState(db.ConnPool, db.config, ctx, db.driver, err)
 
 	return state.queryDelete(stringArgs, db.addrMap)
 }

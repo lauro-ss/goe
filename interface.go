@@ -24,6 +24,7 @@ type Driver interface {
 	Migrate(*Migrator, Connection)
 	Init(*DB)
 	KeywordHandler(string) string
+	Returning([]byte) []byte
 }
 
 type Connection interface {

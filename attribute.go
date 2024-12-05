@@ -162,7 +162,10 @@ func (p *pk) buildAttributeInsert(b *builder) {
 	if !p.autoIncrement {
 		b.sql.WriteString(p.attributeName)
 		b.attrNames = append(b.attrNames, p.structAttributeName)
+		return
 	}
+	b.returning = b.driver.Returning([]byte(p.attributeName))
+	b.structPkName = p.structAttributeName
 }
 
 func (a *att) buildAttributeInsert(b *builder) {

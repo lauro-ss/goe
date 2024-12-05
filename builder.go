@@ -14,6 +14,9 @@ var ErrNotManyToMany = errors.New("don't have a many to many relationship")
 
 type builder struct {
 	sql           *strings.Builder
+	driver        Driver
+	structPkName  string //insert
+	returning     []byte
 	args          []uintptr
 	aggregates    []aggregate
 	argsAny       []any
@@ -26,13 +29,13 @@ type builder struct {
 	joinsArgs     []field  //select
 	tables        []string //select TODO: update all table names to a int ID
 	brs           []operator
-	tablesPk      []*pk
-	returning     bool
 }
 
-func createBuilder() *builder {
+func createBuilder(d Driver) *builder {
 	return &builder{
-		sql: &strings.Builder{}}
+		sql:    &strings.Builder{},
+		driver: d,
+	}
 }
 
 func (b *builder) buildSelect(addrMap map[uintptr]field) {
@@ -49,11 +52,10 @@ func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	}
 
 	b.structColumns = make([]string, lenArgs)
-	b.tablesPk = make([]*pk, 1)
 
 	for i := range b.args[:lenArgs-1] {
 		addrMap[b.args[i]].buildAttributeSelect(b, i)
-		b.sql.WriteByte(44)
+		b.sql.WriteByte(',')
 	}
 
 	addrMap[b.args[lenArgs-1]].buildAttributeSelect(b, lenArgs-1)
@@ -61,20 +63,18 @@ func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	b.sql.Write(addrMap[b.args[0]].table())
 	//TODO: add From() to set order tables
 	b.tables = append(b.tables, string(addrMap[b.args[0]].table()))
-	b.tablesPk[0] = addrMap[b.args[0]].getPrimaryKey()
 }
 
 func (b *builder) buildAggregates() {
 	for i := range b.aggregates[:len(b.aggregates)-1] {
 		b.sql.WriteString(b.aggregates[i].String())
-		b.sql.WriteByte(44)
+		b.sql.WriteByte(',')
 	}
 	b.sql.WriteString(b.aggregates[len(b.aggregates)-1].String())
 	if len(b.args) == 0 {
-		b.tablesPk = make([]*pk, 1)
 		b.sql.WriteString(" FROM ")
 		b.sql.Write(b.aggregates[0].field.table())
-		b.tablesPk[0] = b.aggregates[0].field.getPrimaryKey()
+		b.tables = append(b.tables, string(b.aggregates[0].field.table()))
 	}
 }
 
@@ -104,19 +104,19 @@ func (b *builder) buildSqlSelect() (err error) {
 	err = b.buildWhere()
 	b.sql.WriteString(b.orderBy)
 	b.buildPage()
-	b.sql.WriteByte(59)
+	b.sql.WriteByte(';')
 	return err
 }
 
 func (b *builder) buildSqlUpdate() (err error) {
 	err = b.buildWhere()
-	b.sql.WriteByte(59)
+	b.sql.WriteByte(';')
 	return err
 }
 
 func (b *builder) buildSqlDelete() (err error) {
 	err = b.buildWhere()
-	b.sql.WriteByte(59)
+	b.sql.WriteByte(';')
 	return err
 }
 
@@ -124,7 +124,7 @@ func (b *builder) buildWhere() error {
 	if len(b.brs) == 0 {
 		return nil
 	}
-	b.sql.WriteByte(10)
+	b.sql.WriteByte('\n')
 	b.sql.WriteString("WHERE ")
 	argsCount := len(b.argsAny) + 1
 	for _, op := range b.brs {
@@ -156,7 +156,7 @@ func (b *builder) buildTables() (err error) {
 }
 
 func buildJoins(join string, sql *strings.Builder, f1, f2 field, tables []string, tableIndice int) error {
-	sql.WriteByte(10)
+	sql.WriteByte('\n')
 	if !slices.Contains(tables, string(f2.table())) {
 		sql.WriteString(fmt.Sprintf("%v %v on (%v = %v)", join, string(f2.table()), f1.getSelect(), f2.getSelect()))
 		tables[tableIndice] = string(f2.table())
@@ -174,15 +174,13 @@ func (b *builder) buildInsert(addrMap map[uintptr]field) {
 	b.sql.WriteString("INTO ")
 
 	b.attrNames = make([]string, 0, len(b.args))
-	b.tablesPk = make([]*pk, 1)
 
 	f := addrMap[b.args[0]]
 	b.sql.Write(f.table())
 	b.sql.WriteString(" (")
-	b.tablesPk[0] = f.getPrimaryKey()
 	f.buildAttributeInsert(b)
 	if !f.getPrimaryKey().autoIncrement {
-		b.sql.WriteByte(44)
+		b.sql.WriteByte(',')
 	}
 
 	l := len(b.args[1:]) - 1
@@ -191,7 +189,7 @@ func (b *builder) buildInsert(addrMap map[uintptr]field) {
 	for i := range a {
 		addrMap[a[i]].buildAttributeInsert(b)
 		if i != l {
-			b.sql.WriteByte(44)
+			b.sql.WriteByte(',')
 		}
 	}
 	b.sql.WriteString(") ")
@@ -207,20 +205,16 @@ func (b *builder) buildValues(value reflect.Value) string {
 	buildValueField(value.FieldByName(b.attrNames[0]), b)
 	a := b.attrNames[1:]
 	for i := range a {
-		b.sql.WriteByte(44)
+		b.sql.WriteByte(',')
 		b.sql.WriteString(fmt.Sprintf("$%v", c))
 		buildValueField(value.FieldByName(a[i]), b)
 		c++
 	}
-	pk := b.tablesPk[0]
-	b.sql.WriteByte(41)
-	if pk.autoIncrement {
-		b.returning = true
-		b.sql.WriteString(" RETURNING ")
-		b.sql.WriteString(pk.attributeName)
+	b.sql.WriteByte(')')
+	if b.returning != nil {
+		b.sql.Write(b.returning)
 	}
-	b.sql.WriteByte(59)
-	return pk.structAttributeName
+	return b.structPkName
 
 }
 
@@ -231,15 +225,15 @@ func (b *builder) buildBatchValues(value reflect.Value) string {
 	buildBatchValues(value.Index(0), b, &c)
 	c++
 	for j := 1; j < value.Len(); j++ {
-		b.sql.WriteByte(44)
+		b.sql.WriteByte(',')
 		buildBatchValues(value.Index(j), b, &c)
 		c++
 	}
-	pk := b.tablesPk[0]
-	b.sql.WriteString(" RETURNING ")
-	b.sql.WriteString(pk.attributeName)
-	b.sql.WriteByte(59)
-	return pk.structAttributeName
+	//pk := b.tablesPk[0]
+	if b.returning != nil {
+		b.sql.Write(b.returning)
+	}
+	return b.structPkName
 
 }
 
@@ -249,12 +243,12 @@ func buildBatchValues(value reflect.Value, b *builder, c *int) {
 	buildValueField(value.FieldByName(b.attrNames[0]), b)
 	a := b.attrNames[1:]
 	for i := range a {
-		b.sql.WriteByte(44)
+		b.sql.WriteByte(',')
 		b.sql.WriteString(fmt.Sprintf("$%v", *c+1))
 		buildValueField(value.FieldByName(a[i]), b)
 		*c++
 	}
-	b.sql.WriteString(")")
+	b.sql.WriteByte(')')
 }
 
 func buildValueField(valueField reflect.Value, b *builder) {
@@ -286,7 +280,7 @@ func (b *builder) buildSet(value reflect.Value) {
 	a := b.attrNames[1:]
 	s := b.structColumns[1:]
 	for i := range a {
-		b.sql.WriteByte(44)
+		b.sql.WriteByte(',')
 		c++
 		buildSetField(value.FieldByName(s[i]), a[i], b, c)
 	}

@@ -29,8 +29,8 @@ type stateSelect struct {
 	err     error
 }
 
-func createSelectState(conn Connection, c *Config, ctx context.Context, e error) *stateSelect {
-	return &stateSelect{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
+func createSelectState(conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateSelect {
+	return &stateSelect{conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
 }
 
 // Where creates a where SQL using the operations
@@ -281,8 +281,8 @@ type stateInsert struct {
 	err     error
 }
 
-func createInsertState(conn Connection, c *Config, ctx context.Context, e error) *stateInsert {
-	return &stateInsert{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
+func createInsertState(conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateInsert {
+	return &stateInsert{conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateInsert) queryInsert(args []uintptr, addrMap map[uintptr]field) *stateInsert {
@@ -341,7 +341,7 @@ func (s *stateInsert) Value(value any) error {
 	if s.config.LogQuery {
 		log.Println("\n" + sql)
 	}
-	if s.builder.returning {
+	if s.builder.returning != nil {
 		return handlerValuesReturning(s.conn, sql, v, s.builder.argsAny, idName, s.ctx)
 	}
 	return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
@@ -375,8 +375,8 @@ type stateUpdate struct {
 	err     error
 }
 
-func createUpdateState(conn Connection, c *Config, ctx context.Context, e error) *stateUpdate {
-	return &stateUpdate{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
+func createUpdateState(conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateUpdate {
+	return &stateUpdate{conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
@@ -443,8 +443,8 @@ type stateDelete struct {
 	err     error
 }
 
-func createDeleteState(conn Connection, c *Config, ctx context.Context, e error) *stateDelete {
-	return &stateDelete{conn: conn, builder: createBuilder(), config: c, ctx: ctx, err: e}
+func createDeleteState(conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateDelete {
+	return &stateDelete{conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *stateDelete {
