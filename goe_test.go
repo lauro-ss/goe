@@ -21,6 +21,10 @@ func (md *MockDriver) KeywordHandler(s string) string {
 	return fmt.Sprintf(`"%s"`, s)
 }
 
+func (md *MockDriver) Returning([]byte) []byte {
+	return nil
+}
+
 func TestMapDatabase(t *testing.T) {
 	type User struct {
 		Id   uint
