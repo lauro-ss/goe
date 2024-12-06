@@ -25,6 +25,14 @@ func (md *MockDriver) Returning([]byte) []byte {
 	return nil
 }
 
+func (md *MockDriver) Select() []byte {
+	return nil
+}
+
+func (md *MockDriver) From() []byte {
+	return nil
+}
+
 func TestMapDatabase(t *testing.T) {
 	type User struct {
 		Id   uint
