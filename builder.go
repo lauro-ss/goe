@@ -16,7 +16,8 @@ type builder struct {
 	sql           *strings.Builder
 	driver        Driver
 	structPkName  string //insert
-	returning     []byte
+	returning     []byte //insert
+	froms         []byte
 	args          []uintptr
 	aggregates    []aggregate
 	argsAny       []any
@@ -40,7 +41,7 @@ func createBuilder(d Driver) *builder {
 
 func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	//TODO: Set a drive type to share stm
-	b.sql.WriteString("SELECT ")
+	b.sql.Write(b.driver.Select())
 
 	if len(b.aggregates) > 0 {
 		b.buildAggregates()
@@ -59,9 +60,6 @@ func (b *builder) buildSelect(addrMap map[uintptr]field) {
 	}
 
 	addrMap[b.args[lenArgs-1]].buildAttributeSelect(b, lenArgs-1)
-	b.sql.WriteString(" FROM ")
-	b.sql.Write(addrMap[b.args[0]].table())
-	//TODO: add From() to set order tables
 	b.tables = append(b.tables, string(addrMap[b.args[0]].table()))
 }
 
@@ -72,8 +70,7 @@ func (b *builder) buildAggregates() {
 	}
 	b.sql.WriteString(b.aggregates[len(b.aggregates)-1].String())
 	if len(b.args) == 0 {
-		b.sql.WriteString(" FROM ")
-		b.sql.Write(b.aggregates[0].field.table())
+		//TODO: check this
 		b.tables = append(b.tables, string(b.aggregates[0].field.table()))
 	}
 }
@@ -144,6 +141,8 @@ func (b *builder) buildWhere() error {
 }
 
 func (b *builder) buildTables() (err error) {
+	b.sql.Write(b.driver.From())
+	b.sql.Write(b.froms)
 	c := 1
 	for i := range b.joins {
 		err = buildJoins(b.joins[i], b.sql, b.joinsArgs[i+c-1], b.joinsArgs[i+c-1+1], b.tables, i+1)

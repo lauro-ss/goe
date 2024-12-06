@@ -218,6 +218,17 @@ func (s *stateSelect) querySelect(args []uintptr, aggregates []aggregate) *state
 	return s
 }
 
+// TODO: Add Doc
+func (s *stateSelect) From(tables ...any) *stateSelect {
+	args, err := getArgsTables(s.addrMap, tables...)
+	if err != nil {
+		s.err = err
+		return s
+	}
+	s.builder.froms = args
+	return s
+}
+
 // Scan fills the target with the returned sql data,
 // target can be a pointer or a pointer to [Slice].
 //

@@ -457,3 +457,23 @@ func getArgsIn(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 	}
 	return stringArgs, nil
 }
+
+func getArgsTables(addrMap map[uintptr]field, args ...any) ([]byte, error) {
+	tables := make([]byte, 0)
+	var ptr uintptr
+	for i := range args {
+		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
+			valueOf := reflect.ValueOf(args[i]).Elem()
+			ptr = uintptr(valueOf.Addr().UnsafePointer())
+			if addrMap[ptr] == nil {
+				//TODO: add ErrInvalidTable
+				return nil, ErrInvalidArg
+			}
+			tables = append(tables, addrMap[ptr].table()...)
+		} else {
+			return nil, ErrInvalidArg
+		}
+	}
+
+	return tables, nil
+}
