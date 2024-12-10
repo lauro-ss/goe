@@ -168,11 +168,6 @@ func handlerSliceMigrate(tables reflect.Value, field reflect.StructField, target
 				table)
 		}
 		migrateAtt(valueOf, field, i, pks[0], migrator)
-	default:
-		if mtm := isMigrateManytoMany(tables, targetTypeOf, valueOf.Type(), valueOf.Type().Field(i).Tag.Get("goe"), migrator); mtm != nil {
-			key := utils.TableNamePattern(targetTypeOf.Name())
-			pks[0].Fks[key] = mtm
-		}
 	}
 	return nil
 }
@@ -192,68 +187,6 @@ func isMigrateManyToOne(tables reflect.Value, typeOf reflect.Type, nullable bool
 		}
 	}
 	return nil
-}
-
-func isMigrateManytoMany(tables reflect.Value, targetTypeOf reflect.Type, typeOf reflect.Type, tag string, m *Migrator) any {
-	nameTargetTypeOf := utils.TableNamePattern(targetTypeOf.Name())
-	nameTypeOf := utils.TableNamePattern(typeOf.Name())
-
-	for _, v := range m.Tables {
-		switch value := v.(type) {
-		case *MigratePk:
-			if value.Table == nameTargetTypeOf {
-				switch fk := value.Fks[nameTypeOf].(type) {
-				case *MigrateManyToMany:
-					return fk
-				}
-			}
-		}
-	}
-
-	for i := 0; i < targetTypeOf.NumField(); i++ {
-		switch targetTypeOf.Field(i).Type.Kind() {
-		case reflect.Slice:
-			if targetTypeOf.Field(i).Type.Elem().Name() == typeOf.Name() {
-				return createMigrateManyToMany(tag, typeOf, targetTypeOf)
-			}
-		case reflect.Ptr:
-			typeName, prefix := checkTablePattern(tables, targetTypeOf.Field(i))
-			if typeOf.Name() == typeName {
-				return createMigrateManyToOne(typeOf, targetTypeOf, true, true, prefix)
-			}
-		default:
-			typeName, prefix := checkTablePattern(tables, targetTypeOf.Field(i))
-			if typeOf.Name() == typeName {
-				return createMigrateManyToOne(typeOf, targetTypeOf, true, false, prefix)
-			}
-		}
-	}
-
-	return nil
-}
-
-func createMigrateManyToMany(tag string, typeOf reflect.Type, targetTypeOf reflect.Type) *MigrateManyToMany {
-	table := getTagValue(tag, "table:")
-	if table == "" {
-		return nil
-	}
-	nameTargetTypeOf := targetTypeOf.Name()
-	nameTypeOf := typeOf.Name()
-
-	mtm := new(MigrateManyToMany)
-	mtm.Table = utils.TableNamePattern(table)
-	mtm.Ids = make(map[string]AttributeStrings)
-	pk := primaryKeys(typeOf)[0]
-
-	id := utils.ManyToManyNamePattern(pk.Name, nameTypeOf)
-	mtm.Ids[utils.TableNamePattern(nameTypeOf)] = setAttributeStrings(id, getType(pk))
-
-	// target id
-	pkTarget := primaryKeys(targetTypeOf)[0]
-	id = utils.ManyToManyNamePattern(pkTarget.Name, nameTargetTypeOf)
-
-	mtm.Ids[utils.TableNamePattern(nameTargetTypeOf)] = setAttributeStrings(id, getType(pkTarget))
-	return mtm
 }
 
 func createMigrateManyToOne(typeOf reflect.Type, targetTypeOf reflect.Type, hasMany bool, nullable bool, prefix string) *MigrateManyToOne {
@@ -330,20 +263,9 @@ type MigrateManyToOne struct {
 	HasMany      bool
 }
 
-type MigrateManyToMany struct {
-	Table string
-	Ids   map[string]AttributeStrings
-}
-
 type AttributeStrings struct {
 	AttributeName string
 	DataType      string
-}
-
-func setAttributeStrings(attributeName string, dataType string) AttributeStrings {
-	return AttributeStrings{
-		AttributeName: attributeName,
-		DataType:      dataType}
 }
 
 func migratePk(typeOf reflect.Type) ([]*MigratePk, []string, error) {
