@@ -81,7 +81,7 @@ func TestPostgresDelete(t *testing.T) {
 				}
 
 				var as Animal
-				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&as)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&as)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
@@ -99,13 +99,13 @@ func TestPostgresDelete(t *testing.T) {
 					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
-				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&as)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&as)
 				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 
 				var id int
-				err = db.Select(&db.Animal.Id).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&id)
+				err = db.Select(&db.Animal.Id).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&id)
 				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
@@ -125,13 +125,13 @@ func TestPostgresDelete(t *testing.T) {
 				}
 
 				animals = nil
-				err = db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 
 				var a Animal
-				err = db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
 				if err != nil {
 					t.Errorf("Expected a select one animal, got error: %v", err)
 				}
@@ -142,7 +142,7 @@ func TestPostgresDelete(t *testing.T) {
 				}
 
 				animals = nil
-				err = db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
 				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}

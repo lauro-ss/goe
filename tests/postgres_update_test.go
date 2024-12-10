@@ -57,7 +57,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				var fselect Flag
-				err = db.Select(db.Flag).Where(db.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
+				err = db.Select(db.Flag).From(db.Flag).Where(db.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
 
 				if fselect.Name != ff.Name {
 					t.Errorf("Expected a update on name, got : %v", fselect.Name)
@@ -110,7 +110,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				var fselect Flag
-				err = db.Select(db.Flag).Where(db.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
+				err = db.Select(db.Flag).From(db.Flag).Where(db.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
 
 				if fselect.Name != ff.Name {
 					t.Errorf("Expected a update on name, got : %v", fselect.Name)
@@ -163,7 +163,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				var aselect Animal
-				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
 
 				if aselect.IdHabitat == nil || *aselect.IdHabitat != h.Id {
 					t.Errorf("Expected a update on id habitat, got : %v", aselect.IdHabitat)
@@ -210,7 +210,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				var aselect Animal
-				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
 
 				if aselect.IdHabitat == nil || *aselect.IdHabitat != h.Id {
 					t.Errorf("Expected a update on id habitat, got : %v", aselect.IdHabitat)
@@ -265,7 +265,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				var aselect Animal
-				err = db.Select(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
+				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
 
 				if aselect.IdHabitat == nil || *aselect.IdHabitat != h.Id {
 					t.Errorf("Expected a update on id habitat, got : %v", aselect.IdHabitat)
@@ -312,11 +312,12 @@ func TestPostgresUpdate(t *testing.T) {
 					Person string
 				}{}
 				err = db.Select(&db.Person.Name, &db.Job.Name).
+					From(db.Person).
 					Join(&db.Person.Id, &db.PersonJob.IdPerson).
 					Join(&db.Job.Id, &db.PersonJob.IdJob).
 					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
 				if err != nil {
-					t.Errorf("Expected a select, got error: %v", err)
+					t.Fatalf("Expected a select, got error: %v", err)
 				}
 				if len(pj) != 2 {
 					t.Errorf("Expected %v, got : %v", 2, len(pj))
@@ -332,6 +333,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				err = db.Select(&db.Person.Name, &db.Job.Name).
+					From(db.Person).
 					Join(&db.Person.Id, &db.PersonJob.IdPerson).
 					Join(&db.Job.Id, &db.PersonJob.IdJob).
 					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
