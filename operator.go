@@ -49,7 +49,3 @@ func (co complexOperator) operation() string {
 func (co *complexOperator) setValueFlag(f string) {
 	co.valueFlag = f
 }
-
-func (co *complexOperator) setNot() {
-	co.operator = "NOT " + co.operator
-}

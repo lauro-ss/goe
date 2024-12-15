@@ -148,10 +148,10 @@ func (db *DB) UpdateContext(ctx context.Context, table ...any) *stateUpdate {
 
 	var state *stateUpdate
 	if err != nil {
-		state = createUpdateState(nil, db.config, ctx, nil, err)
+		state = createUpdateState(nil, nil, db.config, ctx, nil, err)
 		return state.queryUpdate(nil, nil)
 	}
-	state = createUpdateState(db.ConnPool, db.config, ctx, db.driver, err)
+	state = createUpdateState(db.addrMap, db.ConnPool, db.config, ctx, db.driver, err)
 
 	return state.queryUpdate(stringArgs, db.addrMap)
 }
@@ -175,10 +175,10 @@ func (db *DB) DeleteContext(ctx context.Context, table any) *stateDelete {
 
 	var state *stateDelete
 	if err != nil {
-		state = createDeleteState(nil, db.config, ctx, nil, err)
+		state = createDeleteState(nil, nil, db.config, ctx, nil, err)
 		return state.queryDelete(nil, nil)
 	}
-	state = createDeleteState(db.ConnPool, db.config, ctx, db.driver, err)
+	state = createDeleteState(db.addrMap, db.ConnPool, db.config, ctx, db.driver, err)
 
 	return state.queryDelete(stringArgs, db.addrMap)
 }
@@ -194,139 +194,6 @@ func getArg(arg any, addrMap map[uintptr]field) field {
 		return addrMap[addr]
 	}
 	return nil
-}
-
-// Equals creates a "=" to value inside a where clause
-//
-// # Example
-//
-//	// delete all rows from AnimalFood that matches the idFood
-//	db.DeleteIn(db.Animal, db.Food).Where(db.Equals(&db.Food.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4"))
-func (db *DB) Equals(arg any, value any) operator {
-	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("=", value, db.addrMap)
-	}
-	return nil
-}
-
-// NotEquals creates a "<>" to value inside a where clause
-//
-// # Example
-//
-//	// get all foods that name are not cookie
-//	db.Select(db.Food).Where(db.NotEquals(&db.Food.Name, "Cookie")).Scan(&f)
-func (db *DB) NotEquals(arg any, value any) operator {
-	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("<>", value, db.addrMap)
-	}
-	return nil
-}
-
-// Greater creates a ">" to value inside a where clause
-//
-// # Example
-//
-//	// get all animals that was created after 09 of october 2024 at 11:50AM
-//	db.Select(db.Animal).Where(db.Greater(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func (db *DB) Greater(arg any, value any) operator {
-	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator(">", value, db.addrMap)
-	}
-	return nil
-}
-
-// GreaterEquals creates a ">=" to value inside a where clause
-//
-// # Example
-//
-//	// get all animals that was created in or after 09 of october 2024 at 11:50AM
-//	db.Select(db.Animal).Where(db.GreaterEquals(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func (db *DB) GreaterEquals(arg any, value any) operator {
-	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator(">=", value, db.addrMap)
-	}
-	return nil
-}
-
-// Less creates a "<" to value inside a where clause
-//
-// # Example
-//
-//	// get all animals that was updated before 09 of october 2024 at 11:50AM
-//	db.Select(db.Animal).Where(db.Less(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func (db *DB) Less(arg any, value any) operator {
-	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("<", value, db.addrMap)
-	}
-	return nil
-}
-
-// LessEquals creates a "<=" to value inside a where clause
-//
-// # Example
-//
-//	// get all animals that was updated in or before 09 of october 2024 at 11:50AM
-//	db.Select(db.Animal).Where(db.LessEquals(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func (db *DB) LessEquals(arg any, value any) operator {
-	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("<=", value, db.addrMap)
-	}
-	return nil
-}
-
-// Like creates a "LIKE" to value inside a where clause
-//
-// # Example
-//
-//	// get all animals that has a "at" in his name
-//	db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%at%")).Scan(&a)
-func (db *DB) Like(arg any, value any) operator {
-	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("LIKE", value, db.addrMap)
-	}
-	return nil
-}
-
-// Not creates a "NOT" inside a where clause
-//
-// # Example
-//
-//	// get all animals that not has a "at" in his name
-//	db.Select(db.Animal).Where(db.Not(db.Like(&db.Animal.Name, "%at%"))).Scan(&a)
-func (db *DB) Not(o operator) operator {
-	if co, ok := o.(complexOperator); ok {
-		co.setNot()
-		return co
-	}
-	return nil
-}
-
-// And creates a "AND" inside a where clause
-//
-// # Example
-//
-//	// and can connect operations
-//	db.UpdateIn(db.Animal, db.Food).Where(
-//		db.Equals(&db.Animal.Id, "906f4f1f-49e7-47ee-8954-2d6e0a3354cf"),
-//		db.And(),
-//		db.Equals(&db.Food.Id, "f023a4e7-34e9-4db2-85e0-efe8d67eea1b")).
-//		Value("fc1865b4-6f2d-4cc6-b766-49c2634bf5c4")
-func (db *DB) And() operator {
-	return simpleOperator{operator: "AND"}
-}
-
-// Or creates a "OR" inside a where clause
-//
-// # Example
-//
-//	// or can connect operations
-//	db.DeleteIn(db.Animal, db.Food).Where(
-//		db.Equals(&db.Food.Id, "5ad0e5fc-e9f7-4855-9698-d0c10b996f73"),
-//		db.Or(),
-//		db.Equals(&db.Animal.Id, "401b5e23-5aa7-435e-ba4d-5c1b2f123596"),
-//	)
-func (db *DB) Or() operator {
-	return simpleOperator{operator: "OR"}
 }
 
 func getArgsSelect(addrMap map[uintptr]field, args ...any) ([]uintptr, []aggregate, error) {

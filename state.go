@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+
+	"github.com/olauro/goe/wh"
 )
 
 var ErrInvalidScan = errors.New("goe: invalid scan target. try sending an address to a struct, value or pointer for scan")
@@ -34,8 +36,20 @@ func createSelectState(conn Connection, c *Config, ctx context.Context, d Driver
 }
 
 // Where creates a where SQL using the operations
-func (s *stateSelect) Where(brs ...operator) *stateSelect {
-	s.builder.brs = brs
+func (s *stateSelect) Where(brs ...any) *stateSelect {
+	for i := range brs {
+		switch br := brs[i].(type) {
+		case wh.Operation:
+			if a := getArg(br.Arg, s.addrMap); a != nil {
+				s.builder.brs = append(s.builder.brs, a.buildComplexOperator(br.Operator, br.Value, s.addrMap))
+				continue
+			}
+			s.err = ErrInvalidWhere
+			return s
+		case wh.Logical:
+			s.builder.brs = append(s.builder.brs, simpleOperator{operator: br.Operator})
+		}
+	}
 	return s
 }
 
@@ -381,17 +395,33 @@ State Update
 type stateUpdate struct {
 	config  *Config
 	conn    Connection
+	addrMap map[uintptr]field
 	builder *builder
 	ctx     context.Context
 	err     error
 }
 
-func createUpdateState(conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateUpdate {
-	return &stateUpdate{conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
+func createUpdateState(am map[uintptr]field, conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateUpdate {
+	return &stateUpdate{addrMap: am, conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
 }
 
-func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
-	s.builder.brs = brs
+func (s *stateUpdate) Where(brs ...any) *stateUpdate {
+	if s.err != nil {
+		return s
+	}
+	for i := range brs {
+		switch br := brs[i].(type) {
+		case wh.Operation:
+			if a := getArg(br.Arg, s.addrMap); a != nil {
+				s.builder.brs = append(s.builder.brs, a.buildComplexOperator(br.Operator, br.Value, s.addrMap))
+				continue
+			}
+			s.err = ErrInvalidWhere
+			return s
+		case wh.Logical:
+			s.builder.brs = append(s.builder.brs, simpleOperator{operator: br.Operator})
+		}
+	}
 	return s
 }
 
@@ -447,6 +477,7 @@ func (s *stateUpdate) Value(value any) error {
 }
 
 type stateDelete struct {
+	addrMap map[uintptr]field
 	config  *Config
 	conn    Connection
 	builder *builder
@@ -454,8 +485,8 @@ type stateDelete struct {
 	err     error
 }
 
-func createDeleteState(conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateDelete {
-	return &stateDelete{conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
+func createDeleteState(am map[uintptr]field, conn Connection, c *Config, ctx context.Context, d Driver, e error) *stateDelete {
+	return &stateDelete{addrMap: am, conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
 }
 
 func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *stateDelete {
@@ -477,11 +508,22 @@ func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *st
 //
 //	// delete matched animals
 //	db.Delete(db.Animal).Where(db.Equals(&db.Animal.Id, "906f4f1f-49e7-47ee-8954-2d6e0a3354cf"))
-func (s *stateDelete) Where(brs ...operator) error {
+func (s *stateDelete) Where(brs ...any) error {
 	if s.err != nil {
 		return s.err
 	}
-	s.builder.brs = brs
+	for i := range brs {
+		switch br := brs[i].(type) {
+		case wh.Operation:
+			if a := getArg(br.Arg, s.addrMap); a != nil {
+				s.builder.brs = append(s.builder.brs, a.buildComplexOperator(br.Operator, br.Value, s.addrMap))
+				continue
+			}
+			return ErrInvalidWhere
+		case wh.Logical:
+			s.builder.brs = append(s.builder.brs, simpleOperator{operator: br.Operator})
+		}
+	}
 
 	s.err = s.builder.buildSqlDelete()
 	if s.err != nil {
