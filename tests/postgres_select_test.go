@@ -386,6 +386,28 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Join_Implicit",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err = db.Select(db.Animal).
+					From(db.Animal, db.AnimalFood, db.Food).
+					Where(
+						db.Equals(&db.Animal.Id, &db.AnimalFood.IdAnimal),
+						db.And(),
+						db.Equals(&db.Food.Id, &db.AnimalFood.IdFood)).
+					Scan(&a)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(a) != len(animalFoods) {
+					t.Errorf("Expected 1 animal, got %v", len(a))
+				}
+				if a[0].Name != animals[0].Name {
+					t.Errorf("Expected %v, got %v", animals[0].Name, a[0].Name)
+				}
+			},
+		},
+		{
 			desc: "Select_Join_Where",
 			testCase: func(t *testing.T) {
 				var f []Food
