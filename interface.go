@@ -17,7 +17,7 @@ type field interface {
 	buildAttributeSelect(*builder, int)
 	buildAttributeInsert(*builder)
 	buildAttributeUpdate(*builder)
-	buildComplexOperator(string, any) operator
+	buildComplexOperator(string, any, map[uintptr]field) operator
 }
 
 type Driver interface {

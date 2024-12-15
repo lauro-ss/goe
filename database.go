@@ -204,7 +204,7 @@ func getArg(arg any, addrMap map[uintptr]field) field {
 //	db.DeleteIn(db.Animal, db.Food).Where(db.Equals(&db.Food.Id, "fc1865b4-6f2d-4cc6-b766-49c2634bf5c4"))
 func (db *DB) Equals(arg any, value any) operator {
 	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("=", value)
+		return a.buildComplexOperator("=", value, db.addrMap)
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func (db *DB) Equals(arg any, value any) operator {
 //	db.Select(db.Food).Where(db.NotEquals(&db.Food.Name, "Cookie")).Scan(&f)
 func (db *DB) NotEquals(arg any, value any) operator {
 	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("<>", value)
+		return a.buildComplexOperator("<>", value, db.addrMap)
 	}
 	return nil
 }
@@ -230,7 +230,7 @@ func (db *DB) NotEquals(arg any, value any) operator {
 //	db.Select(db.Animal).Where(db.Greater(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) Greater(arg any, value any) operator {
 	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator(">", value)
+		return a.buildComplexOperator(">", value, db.addrMap)
 	}
 	return nil
 }
@@ -243,7 +243,7 @@ func (db *DB) Greater(arg any, value any) operator {
 //	db.Select(db.Animal).Where(db.GreaterEquals(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) GreaterEquals(arg any, value any) operator {
 	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator(">=", value)
+		return a.buildComplexOperator(">=", value, db.addrMap)
 	}
 	return nil
 }
@@ -256,7 +256,7 @@ func (db *DB) GreaterEquals(arg any, value any) operator {
 //	db.Select(db.Animal).Where(db.Less(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) Less(arg any, value any) operator {
 	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("<", value)
+		return a.buildComplexOperator("<", value, db.addrMap)
 	}
 	return nil
 }
@@ -269,7 +269,7 @@ func (db *DB) Less(arg any, value any) operator {
 //	db.Select(db.Animal).Where(db.LessEquals(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
 func (db *DB) LessEquals(arg any, value any) operator {
 	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("<=", value)
+		return a.buildComplexOperator("<=", value, db.addrMap)
 	}
 	return nil
 }
@@ -282,7 +282,7 @@ func (db *DB) LessEquals(arg any, value any) operator {
 //	db.Select(db.Animal).Where(db.Like(&db.Animal.Name, "%at%")).Scan(&a)
 func (db *DB) Like(arg any, value any) operator {
 	if a := getArg(arg, db.addrMap); a != nil {
-		return a.buildComplexOperator("LIKE", value)
+		return a.buildComplexOperator("LIKE", value, db.addrMap)
 	}
 	return nil
 }
@@ -461,9 +461,21 @@ func getArgsIn(addrMap map[uintptr]field, args ...any) ([]uintptr, error) {
 func getArgsTables(addrMap map[uintptr]field, args ...any) ([]byte, error) {
 	tables := make([]byte, 0)
 	var ptr uintptr
-	for i := range args {
-		if reflect.ValueOf(args[i]).Kind() == reflect.Ptr {
-			valueOf := reflect.ValueOf(args[i]).Elem()
+	if reflect.ValueOf(args[0]).Kind() == reflect.Ptr {
+		valueOf := reflect.ValueOf(args[0]).Elem()
+		ptr = uintptr(valueOf.Addr().UnsafePointer())
+		if addrMap[ptr] == nil {
+			//TODO: add ErrInvalidTable
+			return nil, ErrInvalidArg
+		}
+		tables = append(tables, addrMap[ptr].table()...)
+	} else {
+		return nil, ErrInvalidArg
+	}
+	for _, a := range args[1:] {
+		if reflect.ValueOf(a).Kind() == reflect.Ptr {
+			tables = append(tables, ',')
+			valueOf := reflect.ValueOf(a).Elem()
 			ptr = uintptr(valueOf.Addr().UnsafePointer())
 			if addrMap[ptr] == nil {
 				//TODO: add ErrInvalidTable

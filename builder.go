@@ -131,6 +131,8 @@ func (b *builder) buildWhere() error {
 			b.sql.WriteString(v.operation())
 			b.argsAny = append(b.argsAny, v.value)
 			argsCount++
+		case fieldOperator:
+			b.sql.WriteString(v.operation())
 		case simpleOperator:
 			b.sql.WriteString(v.operation())
 		default:
