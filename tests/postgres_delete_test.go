@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/olauro/goe"
+	"github.com/olauro/goe/wh"
 )
 
 func TestPostgresDelete(t *testing.T) {
@@ -81,7 +82,7 @@ func TestPostgresDelete(t *testing.T) {
 				}
 
 				var as Animal
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&as)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Scan(&as)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
@@ -90,7 +91,7 @@ func TestPostgresDelete(t *testing.T) {
 					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
-				err = db.Delete(db.Animal).Where(db.Equals(&db.Animal.Id, as.Id))
+				err = db.Delete(db.Animal).Where(wh.Equals(&db.Animal.Id, as.Id))
 				if err != nil {
 					t.Errorf("Expected a delete animal, got error: %v", err)
 				}
@@ -99,13 +100,13 @@ func TestPostgresDelete(t *testing.T) {
 					t.Errorf("Expected closed connection, got: %v", db.ConnPool.Stats().InUse)
 				}
 
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&as)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Scan(&as)
 				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 
 				var id int
-				err = db.Select(&db.Animal.Id).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&id)
+				err = db.Select(&db.Animal.Id).From(db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Scan(&id)
 				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
@@ -125,24 +126,24 @@ func TestPostgresDelete(t *testing.T) {
 				}
 
 				animals = nil
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
 
 				var a Animal
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
 				if err != nil {
 					t.Errorf("Expected a select one animal, got error: %v", err)
 				}
 
-				err = db.Delete(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%"))
+				err = db.Delete(db.Animal).Where(wh.Like(&db.Animal.Name, "%Cat%"))
 				if err != nil {
 					t.Errorf("Expected a delete, got error: %v", err)
 				}
 
 				animals = nil
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Like(&db.Animal.Name, "%Cat%")).Scan(&animals)
 				if !errors.Is(err, goe.ErrNotFound) {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
@@ -155,7 +156,7 @@ func TestPostgresDelete(t *testing.T) {
 		{
 			desc: "Delete_Invalid_Arg",
 			testCase: func(t *testing.T) {
-				err = db.Delete(db.DB).Where(db.Equals(&db.Animal.Id, 1))
+				err = db.Delete(db.DB).Where(wh.Equals(&db.Animal.Id, 1))
 				if !errors.Is(err, goe.ErrInvalidArg) {
 					t.Errorf("Expected a goe.ErrInvalidArg, got error: %v", err)
 				}
@@ -164,7 +165,7 @@ func TestPostgresDelete(t *testing.T) {
 		{
 			desc: "Delete_Invalid_Where",
 			testCase: func(t *testing.T) {
-				err = db.Delete(db.Animal).Where(db.Equals(db.Animal.Id, 1))
+				err = db.Delete(db.Animal).Where(wh.Equals(db.Animal.Id, 1))
 				if !errors.Is(err, goe.ErrInvalidWhere) {
 					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
 				}

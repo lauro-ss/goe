@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/olauro/goe"
+	"github.com/olauro/goe/wh"
 )
 
 func TestPostgresInsert(t *testing.T) {
@@ -46,7 +47,7 @@ func TestPostgresInsert(t *testing.T) {
 				}
 
 				var fs Flag
-				db.Select(db.Flag).From(db.Flag).Where(db.Equals(&db.Flag.Id, f.Id)).Scan(&fs)
+				db.Select(db.Flag).From(db.Flag).Where(wh.Equals(&db.Flag.Id, f.Id)).Scan(&fs)
 
 				if fs.Id != f.Id {
 					t.Errorf("Expected %v, got : %v", f.Id, fs.Id)

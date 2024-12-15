@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/olauro/goe"
+	"github.com/olauro/goe/wh"
 )
 
 func TestPostgresUpdate(t *testing.T) {
@@ -51,13 +52,13 @@ func TestPostgresUpdate(t *testing.T) {
 					Float64: 4.4,
 					Bool:    false,
 				}
-				err = db.Update(&db.Flag.Name, &db.Flag.Bool, &db.Flag.Float64, &db.Flag.Float32).Where(db.Equals(&db.Flag.Id, f.Id)).Value(ff)
+				err = db.Update(&db.Flag.Name, &db.Flag.Bool, &db.Flag.Float64, &db.Flag.Float32).Where(wh.Equals(&db.Flag.Id, f.Id)).Value(ff)
 				if err != nil {
 					t.Errorf("Expected a update, got error: %v", err)
 				}
 
 				var fselect Flag
-				err = db.Select(db.Flag).From(db.Flag).Where(db.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
+				err = db.Select(db.Flag).From(db.Flag).Where(wh.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
 
 				if fselect.Name != ff.Name {
 					t.Errorf("Expected a update on name, got : %v", fselect.Name)
@@ -104,13 +105,13 @@ func TestPostgresUpdate(t *testing.T) {
 					Float64: 4.4,
 					Bool:    false,
 				}
-				err = db.Update(&db.Flag.Name, &db.Flag.Bool, &db.Flag.Float64, &db.Flag.Float32).Where(db.Equals(&db.Flag.Id, f.Id)).Value(&ff)
+				err = db.Update(&db.Flag.Name, &db.Flag.Bool, &db.Flag.Float64, &db.Flag.Float32).Where(wh.Equals(&db.Flag.Id, f.Id)).Value(&ff)
 				if err != nil {
 					t.Errorf("Expected a update, got error: %v", err)
 				}
 
 				var fselect Flag
-				err = db.Select(db.Flag).From(db.Flag).Where(db.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
+				err = db.Select(db.Flag).From(db.Flag).Where(wh.Equals(&db.Flag.Id, f.Id)).Scan(&fselect)
 
 				if fselect.Name != ff.Name {
 					t.Errorf("Expected a update on name, got : %v", fselect.Name)
@@ -157,13 +158,13 @@ func TestPostgresUpdate(t *testing.T) {
 
 				a.IdHabitat = &h.Id
 				a.Name = "Update Cat"
-				err = db.Update(&db.Animal.IdHabitat, &db.Animal.Name).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				err = db.Update(&db.Animal.IdHabitat, &db.Animal.Name).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if err != nil {
 					t.Errorf("Expected a update, got error: %v", err)
 				}
 
 				var aselect Animal
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
 
 				if aselect.IdHabitat == nil || *aselect.IdHabitat != h.Id {
 					t.Errorf("Expected a update on id habitat, got : %v", aselect.IdHabitat)
@@ -204,13 +205,13 @@ func TestPostgresUpdate(t *testing.T) {
 
 				a.IdHabitat = &h.Id
 				a.Name = "Update Cat"
-				err = db.Update(&db.Animal.IdHabitat, &db.Animal.Name).Where(db.Equals(&db.Animal.Id, a.Id)).Value(&a)
+				err = db.Update(&db.Animal.IdHabitat, &db.Animal.Name).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(&a)
 				if err != nil {
 					t.Errorf("Expected a update, got error: %v", err)
 				}
 
 				var aselect Animal
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
 
 				if aselect.IdHabitat == nil || *aselect.IdHabitat != h.Id {
 					t.Errorf("Expected a update on id habitat, got : %v", aselect.IdHabitat)
@@ -255,7 +256,7 @@ func TestPostgresUpdate(t *testing.T) {
 
 				a.IdHabitat = &h.Id
 				a.Name = "Update Cat"
-				err = db.Update(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				err = db.Update(db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if err != nil {
 					t.Errorf("Expected a update, got error: %v", err)
 				}
@@ -265,7 +266,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				var aselect Animal
-				err = db.Select(db.Animal).From(db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Scan(&aselect)
 
 				if aselect.IdHabitat == nil || *aselect.IdHabitat != h.Id {
 					t.Errorf("Expected a update on id habitat, got : %v", aselect.IdHabitat)
@@ -315,7 +316,7 @@ func TestPostgresUpdate(t *testing.T) {
 					From(db.Person).
 					Join(&db.Person.Id, &db.PersonJob.IdPerson).
 					Join(&db.Job.Id, &db.PersonJob.IdJob).
-					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
+					Where(wh.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
 				if err != nil {
 					t.Fatalf("Expected a select, got error: %v", err)
 				}
@@ -324,9 +325,9 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				err = db.Update(&db.PersonJob.IdJob).Where(
-					db.Equals(&db.PersonJob.IdPerson, persons[2].Id),
-					db.And(),
-					db.Equals(&db.PersonJob.IdJob, jobs[1].Id),
+					wh.Equals(&db.PersonJob.IdPerson, persons[2].Id),
+					wh.And(),
+					wh.Equals(&db.PersonJob.IdJob, jobs[1].Id),
 				).Value(PersonJob{IdJob: jobs[0].Id})
 				if err != nil {
 					t.Errorf("Expected a update, got error: %v", err)
@@ -336,7 +337,7 @@ func TestPostgresUpdate(t *testing.T) {
 					From(db.Person).
 					Join(&db.Person.Id, &db.PersonJob.IdPerson).
 					Join(&db.Job.Id, &db.PersonJob.IdJob).
-					Where(db.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
+					Where(wh.Equals(&db.Job.Id, jobs[0].Id)).Scan(&pj)
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
@@ -353,7 +354,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				a.Name = "Update Cat"
-				err = db.Update(&db.Animal.IdHabitat, &db.Food.Name).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				err = db.Update(&db.Animal.IdHabitat, &db.Food.Name).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if !errors.Is(err, goe.ErrTooManyTablesUpdate) {
 					t.Errorf("Expected a goe.ErrTooManyTablesUpdate, got error: %v", err)
 				}
@@ -367,7 +368,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				a.Name = "Update Cat"
-				err = db.Update(db.Animal, db.Food).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				err = db.Update(db.Animal, db.Food).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if !errors.Is(err, goe.ErrTooManyTablesUpdate) {
 					t.Errorf("Expected a goe.ErrTooManyTablesUpdate, got error: %v", err)
 				}
@@ -381,7 +382,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				a.Name = "Update Cat"
-				err = db.Update(db.DB).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				err = db.Update(db.DB).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if !errors.Is(err, goe.ErrInvalidArg) {
 					t.Errorf("Expected a goe.ErrInvalidArg, got error: %v", err)
 				}
@@ -395,7 +396,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				a.Name = "Update Cat"
-				err = db.Update(db.Animal).Where(db.Equals(db.Animal.Id, a.Id)).Value(a)
+				err = db.Update(db.Animal).Where(wh.Equals(db.Animal.Id, a.Id)).Value(a)
 				if !errors.Is(err, goe.ErrInvalidWhere) {
 					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
 				}
@@ -405,7 +406,7 @@ func TestPostgresUpdate(t *testing.T) {
 			desc: "Update_Invalid_Value",
 			testCase: func(t *testing.T) {
 				a := 1
-				err = db.Update(db.Animal).Where(db.Equals(&db.Animal.Id, 2)).Value(a)
+				err = db.Update(db.Animal).Where(wh.Equals(&db.Animal.Id, 2)).Value(a)
 				if !errors.Is(err, goe.ErrInvalidUpdateValue) {
 					t.Errorf("Expected a goe.ErrInvalidUpdateValue, got error: %v", err)
 				}
@@ -419,7 +420,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
-				err = db.UpdateContext(ctx, db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				err = db.UpdateContext(ctx, db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if !errors.Is(err, context.Canceled) {
 					t.Errorf("Expected a context.Canceled, got error: %v", err)
 				}
@@ -433,7 +434,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond*1)
 				defer cancel()
-				err = db.UpdateContext(ctx, db.Animal).Where(db.Equals(&db.Animal.Id, a.Id)).Value(a)
+				err = db.UpdateContext(ctx, db.Animal).Where(wh.Equals(&db.Animal.Id, a.Id)).Value(a)
 				if !errors.Is(err, context.DeadlineExceeded) {
 					t.Errorf("Expected a context.DeadlineExceeded, got error: %v", err)
 				}
