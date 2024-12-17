@@ -7,7 +7,7 @@ import (
 )
 
 type operator interface {
-	operation() string
+	Operation() string
 }
 
 type field interface {
@@ -17,7 +17,6 @@ type field interface {
 	buildAttributeSelect(*builder, int)
 	buildAttributeInsert(*builder)
 	buildAttributeUpdate(*builder)
-	buildComplexOperator(string, any, map[uintptr]field) operator
 }
 
 type Driver interface {

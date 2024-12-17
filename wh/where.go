@@ -1,9 +1,22 @@
 package wh
 
+import (
+	"fmt"
+)
+
 type Operation struct {
-	Arg      any
-	Value    any
-	Operator string
+	Arg       any
+	Value     any
+	Operator  string
+	ValueFlag string
+}
+
+func Nullable[T any](v T) *T {
+	return &v
+}
+
+func (o Operation) Operation() string {
+	return fmt.Sprintf("%v %v %v", o.Arg, o.Operator, o.ValueFlag)
 }
 
 // Equals creates a "=" to value inside a where clause
@@ -21,7 +34,7 @@ type Operation struct {
 //		wh.And(),
 //		wh.Equals(&db.Food.Id, &db.AnimalFood.IdFood)).
 //	Scan(&a)
-func Equals(a any, v any) Operation {
+func Equals[T any](a *T, v T) Operation {
 	return Operation{Arg: a, Value: v, Operator: "="}
 }
 
@@ -32,7 +45,7 @@ func Equals(a any, v any) Operation {
 //	// get all foods that name are not Cookie
 //	db.Select(db.Food).From(db.Animal).
 //	Where(wh.NotEquals(&db.Food.Name, "Cookie")).Scan(&f)
-func NotEquals(a any, v any) Operation {
+func NotEquals[T any](a *T, v T) Operation {
 	return Operation{Arg: a, Value: v, Operator: "<>"}
 }
 
@@ -43,7 +56,7 @@ func NotEquals(a any, v any) Operation {
 //	// get all animals that was created after 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).From(db.Animal).
 //	Where(wh.Greater(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func Greater(a any, v any) Operation {
+func Greater[T any](a *T, v T) Operation {
 	return Operation{Arg: a, Value: v, Operator: ">"}
 }
 
@@ -54,7 +67,7 @@ func Greater(a any, v any) Operation {
 //	// get all animals that was created in or after 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).From(db.Animal).
 //	Where(wh.GreaterEquals(&db.Animal.CreateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func GreaterEquals(a any, v any) Operation {
+func GreaterEquals[T any](a *T, v T) Operation {
 	return Operation{Arg: a, Value: v, Operator: ">="}
 }
 
@@ -65,7 +78,7 @@ func GreaterEquals(a any, v any) Operation {
 //	// get all animals that was updated before 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).From(db.Animal).
 //	Where(wh.Less(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func Less(a any, v any) Operation {
+func Less[T any](a *T, v T) Operation {
 	return Operation{Arg: a, Value: v, Operator: "<"}
 }
 
@@ -76,7 +89,7 @@ func Less(a any, v any) Operation {
 //	// get all animals that was updated in or before 09 of october 2024 at 11:50AM
 //	db.Select(db.Animal).From(db.Animal).
 //	Where(wh.LessEquals(&db.Animal.UpdateAt, time.Date(2024, time.October, 9, 11, 50, 00, 00, time.Local))).Scan(&a)
-func LessEquals(a any, v any) Operation {
+func LessEquals[T any](a *T, v T) Operation {
 	return Operation{Arg: a, Value: v, Operator: "<="}
 }
 
@@ -86,7 +99,7 @@ func LessEquals(a any, v any) Operation {
 //
 //	// get all animals that has a "at" in his name
 //	db.Select(db.Animal).From(db.Animal).Where(wh.Like(&db.Animal.Name, "%at%")).Scan(&a)
-func Like(a any, v any) Operation {
+func Like[T any](a *T, v T) Operation {
 	return Operation{Arg: a, Value: v, Operator: "LIKE"}
 }
 
@@ -103,6 +116,10 @@ func Not(o Operation) Operation {
 
 type Logical struct {
 	Operator string
+}
+
+func (l Logical) Operation() string {
+	return fmt.Sprintf(" %v ", l.Operator)
 }
 
 // And creates a "AND" inside a where clause
@@ -131,4 +148,54 @@ func And() Logical {
 //		Value(a)
 func Or() Logical {
 	return Logical{Operator: "OR"}
+}
+
+type OperationArg struct {
+	Op Operation
+}
+
+func (o OperationArg) Operation() string {
+	return fmt.Sprintf("%v %v %v", o.Op.Arg, o.Op.Operator, o.Op.ValueFlag)
+}
+
+// # Example
+//
+//	Where(wh.EqualsArg(&db.Job.Id, &db.Person.Id))
+func EqualsArg(a any, v any) OperationArg {
+	return OperationArg{Operation{Arg: a, Value: v, Operator: "="}}
+}
+
+// # Example
+//
+//	Where(wh.NotEqualsArg(&db.Job.Id, &db.Person.Id))
+func NotEqualsArg(a any, v any) OperationArg {
+	return OperationArg{Operation{Arg: a, Value: v, Operator: "<>"}}
+}
+
+// # Example
+//
+//	Where(wh.GreaterArg(&db.Stock.Minimum, &db.Drinks.Stock))
+func GreaterArg(a any, v any) OperationArg {
+	return OperationArg{Operation{Arg: a, Value: v, Operator: ">"}}
+}
+
+// # Example
+//
+//	Where(wh.GreaterEqualsArg(&db.Drinks.Reorder, &db.Drinks.Stock))
+func GreaterEqualsArg(a any, v any) OperationArg {
+	return OperationArg{Operation{Arg: a, Value: v, Operator: ">="}}
+}
+
+// # Example
+//
+//	Where(wh.LessArg(&db.Exam.Score, &db.Data.Minimum))
+func LessArg(a any, v any) OperationArg {
+	return OperationArg{Operation{Arg: a, Value: v, Operator: "<"}}
+}
+
+// # Example
+//
+//	Where(wh.LessEqualsArg(&db.Exam.Score, &db.Data.Minimum))
+func LessEqualsArg(a any, v any) OperationArg {
+	return OperationArg{Operation{Arg: a, Value: v, Operator: "<="}}
 }

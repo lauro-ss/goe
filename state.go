@@ -36,18 +36,28 @@ func createSelectState(conn Connection, c *Config, ctx context.Context, d Driver
 }
 
 // Where creates a where SQL using the operations
-func (s *stateSelect) Where(brs ...any) *stateSelect {
+func (s *stateSelect) Where(brs ...operator) *stateSelect {
 	for i := range brs {
 		switch br := brs[i].(type) {
 		case wh.Operation:
 			if a := getArg(br.Arg, s.addrMap); a != nil {
-				s.builder.brs = append(s.builder.brs, a.buildComplexOperator(br.Operator, br.Value, s.addrMap))
+				br.Arg = a.getSelect()
+				s.builder.brs = append(s.builder.brs, br)
+				continue
+			}
+			s.err = ErrInvalidWhere
+			return s
+		case wh.OperationArg:
+			if a, b := getArg(br.Op.Arg, s.addrMap), getArg(br.Op.Value, s.addrMap); a != nil && b != nil {
+				br.Op.Arg = a.getSelect()
+				br.Op.ValueFlag = b.getSelect()
+				s.builder.brs = append(s.builder.brs, br)
 				continue
 			}
 			s.err = ErrInvalidWhere
 			return s
 		case wh.Logical:
-			s.builder.brs = append(s.builder.brs, simpleOperator{operator: br.Operator})
+			s.builder.brs = append(s.builder.brs, br)
 		}
 	}
 	return s
@@ -405,7 +415,7 @@ func createUpdateState(am map[uintptr]field, conn Connection, c *Config, ctx con
 	return &stateUpdate{addrMap: am, conn: conn, builder: createBuilder(d), config: c, ctx: ctx, err: e}
 }
 
-func (s *stateUpdate) Where(brs ...any) *stateUpdate {
+func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
 	if s.err != nil {
 		return s
 	}
@@ -413,13 +423,23 @@ func (s *stateUpdate) Where(brs ...any) *stateUpdate {
 		switch br := brs[i].(type) {
 		case wh.Operation:
 			if a := getArg(br.Arg, s.addrMap); a != nil {
-				s.builder.brs = append(s.builder.brs, a.buildComplexOperator(br.Operator, br.Value, s.addrMap))
+				br.Arg = a.getSelect()
+				s.builder.brs = append(s.builder.brs, br)
+				continue
+			}
+			s.err = ErrInvalidWhere
+			return s
+		case wh.OperationArg:
+			if a, b := getArg(br.Op.Arg, s.addrMap), getArg(br.Op.Value, s.addrMap); a != nil && b != nil {
+				br.Op.Arg = a.getSelect()
+				br.Op.ValueFlag = b.getSelect()
+				s.builder.brs = append(s.builder.brs, br)
 				continue
 			}
 			s.err = ErrInvalidWhere
 			return s
 		case wh.Logical:
-			s.builder.brs = append(s.builder.brs, simpleOperator{operator: br.Operator})
+			s.builder.brs = append(s.builder.brs, br)
 		}
 	}
 	return s
@@ -508,7 +528,7 @@ func (s *stateDelete) queryDelete(args []uintptr, addrMap map[uintptr]field) *st
 //
 //	// delete matched animals
 //	db.Delete(db.Animal).Where(db.Equals(&db.Animal.Id, "906f4f1f-49e7-47ee-8954-2d6e0a3354cf"))
-func (s *stateDelete) Where(brs ...any) error {
+func (s *stateDelete) Where(brs ...operator) error {
 	if s.err != nil {
 		return s.err
 	}
@@ -516,12 +536,21 @@ func (s *stateDelete) Where(brs ...any) error {
 		switch br := brs[i].(type) {
 		case wh.Operation:
 			if a := getArg(br.Arg, s.addrMap); a != nil {
-				s.builder.brs = append(s.builder.brs, a.buildComplexOperator(br.Operator, br.Value, s.addrMap))
+				br.Arg = a.getSelect()
+				s.builder.brs = append(s.builder.brs, br)
+				continue
+			}
+			return ErrInvalidWhere
+		case wh.OperationArg:
+			if a, b := getArg(br.Op.Arg, s.addrMap), getArg(br.Op.Value, s.addrMap); a != nil && b != nil {
+				br.Op.Arg = a.getSelect()
+				br.Op.ValueFlag = b.getSelect()
+				s.builder.brs = append(s.builder.brs, br)
 				continue
 			}
 			return ErrInvalidWhere
 		case wh.Logical:
-			s.builder.brs = append(s.builder.brs, simpleOperator{operator: br.Operator})
+			s.builder.brs = append(s.builder.brs, br)
 		}
 	}
 

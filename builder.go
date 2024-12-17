@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/olauro/goe/wh"
 )
 
 var ErrInvalidWhere = errors.New("goe: invalid where operation. try sending a pointer as parameter")
@@ -126,17 +128,13 @@ func (b *builder) buildWhere() error {
 	argsCount := len(b.argsAny) + 1
 	for _, op := range b.brs {
 		switch v := op.(type) {
-		case complexOperator:
-			v.setValueFlag(fmt.Sprintf("$%v", argsCount))
-			b.sql.WriteString(v.operation())
-			b.argsAny = append(b.argsAny, v.value)
+		case wh.Operation:
+			v.ValueFlag = fmt.Sprintf("$%v", argsCount)
+			b.sql.WriteString(v.Operation())
+			b.argsAny = append(b.argsAny, v.Value)
 			argsCount++
-		case fieldOperator:
-			b.sql.WriteString(v.operation())
-		case simpleOperator:
-			b.sql.WriteString(v.operation())
 		default:
-			return ErrInvalidWhere
+			b.sql.WriteString(v.Operation())
 		}
 	}
 	return nil

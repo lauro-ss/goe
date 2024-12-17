@@ -205,22 +205,6 @@ func (o *oneToOne) buildAttributeUpdate(b *builder) {
 	b.structColumns = append(b.structColumns, o.structAttributeName)
 }
 
-func (p *pk) buildComplexOperator(o string, v any, am map[uintptr]field) operator {
-	return createComplexOperator(p.selectName, o, v, p, am)
-}
-
-func (a *att) buildComplexOperator(o string, v any, am map[uintptr]field) operator {
-	return createComplexOperator(a.selectName, o, v, a.pk, am)
-}
-
-func (m *manyToOne) buildComplexOperator(o string, v any, am map[uintptr]field) operator {
-	return createComplexOperator(m.selectName, o, v, m.pk, am)
-}
-
-func (ot *oneToOne) buildComplexOperator(o string, v any, am map[uintptr]field) operator {
-	return createComplexOperator(ot.selectName, o, v, ot.pk, am)
-}
-
 func (p *pk) getSelect() string {
 	return p.selectName
 }
