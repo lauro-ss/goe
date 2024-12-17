@@ -396,7 +396,7 @@ func TestPostgresUpdate(t *testing.T) {
 				}
 
 				a.Name = "Update Cat"
-				err = db.Update(db.Animal).Where(wh.Equals(db.Animal.Id, a.Id)).Value(a)
+				err = db.Update(db.Animal).Where(wh.Equals(&a.Id, a.Id)).Value(a)
 				if !errors.Is(err, goe.ErrInvalidWhere) {
 					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
 				}

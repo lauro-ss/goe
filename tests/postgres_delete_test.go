@@ -165,7 +165,7 @@ func TestPostgresDelete(t *testing.T) {
 		{
 			desc: "Delete_Invalid_Where",
 			testCase: func(t *testing.T) {
-				err = db.Delete(db.Animal).Where(wh.Equals(db.Animal.Id, 1))
+				err = db.Delete(db.Animal).Where(wh.Equals(wh.Nullable(2), 1))
 				if !errors.Is(err, goe.ErrInvalidWhere) {
 					t.Errorf("Expected a goe.ErrInvalidWhere, got error: %v", err)
 				}

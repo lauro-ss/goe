@@ -393,9 +393,9 @@ func TestPostgresSelect(t *testing.T) {
 				err = db.Select(db.Animal).
 					From(db.Animal, db.AnimalFood, db.Food).
 					Where(
-						wh.Equals(&db.Animal.Id, &db.AnimalFood.IdAnimal),
+						wh.EqualsArg(&db.Animal.Id, &db.AnimalFood.IdAnimal),
 						wh.And(),
-						wh.Equals(&db.Food.Id, &db.AnimalFood.IdFood)).
+						wh.EqualsArg(&db.Food.Id, &db.AnimalFood.IdFood)).
 					Scan(&a)
 				if err != nil {
 					t.Fatalf("Expected a select, got error: %v", err)
@@ -1036,7 +1036,7 @@ func TestPostgresSelect(t *testing.T) {
 			desc: "Select_Invalid_Where",
 			testCase: func(t *testing.T) {
 				var a []Animal
-				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(db.Animal.Id, 1)).Scan(&a)
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(nil, 1)).Scan(&a)
 				if !errors.Is(err, goe.ErrInvalidWhere) {
 					t.Errorf("Expected goe.ErrInvalidWhere, got error: %v", err)
 				}
