@@ -2,7 +2,12 @@ package wh
 
 import (
 	"fmt"
+	"reflect"
 )
+
+type operator interface {
+	Operation() string
+}
 
 type Operation struct {
 	Arg       any
@@ -19,7 +24,16 @@ func (o Operation) Operation() string {
 	return fmt.Sprintf("%v %v %v", o.Arg, o.Operator, o.ValueFlag)
 }
 
-// Equals creates a "=" to value inside a where clause
+type OperationIs struct {
+	Arg      any
+	Operator string
+}
+
+func (o OperationIs) Operation() string {
+	return fmt.Sprintf("%v %v NULL", o.Arg, o.Operator)
+}
+
+// Equals creates a "=" to v inside a where clause or makes a IS when v is nil
 //
 // # Example
 //
@@ -34,7 +48,13 @@ func (o Operation) Operation() string {
 //		wh.And(),
 //		wh.Equals(&db.Food.Id, &db.AnimalFood.IdFood)).
 //	Scan(&a)
-func Equals[T any](a *T, v T) Operation {
+//
+//	// generate: WHERE "animals"."idhabitat" IS NULL
+//	Where(wh.Equals(&db.Animal.IdHabitat, nil)).Scan(&a)
+func Equals[T comparable](a *T, v T) operator {
+	if reflect.ValueOf(v).Kind() == reflect.Pointer && reflect.ValueOf(v).IsNil() {
+		return OperationIs{Arg: a, Operator: "IS"}
+	}
 	return Operation{Arg: a, Value: v, Operator: "="}
 }
 
@@ -45,7 +65,13 @@ func Equals[T any](a *T, v T) Operation {
 //	// get all foods that name are not Cookie
 //	db.Select(db.Food).From(db.Animal).
 //	Where(wh.NotEquals(&db.Food.Name, "Cookie")).Scan(&f)
-func NotEquals[T any](a *T, v T) Operation {
+//
+//	// generate: WHERE "animals"."idhabitat" IS NOT NULL
+//	Where(wh.NotEquals(&db.Animal.IdHabitat, nil)).Scan(&a)
+func NotEquals[T any](a *T, v T) operator {
+	if reflect.ValueOf(v).Kind() == reflect.Pointer && reflect.ValueOf(v).IsNil() {
+		return OperationIs{Arg: a, Operator: "IS NOT"}
+	}
 	return Operation{Arg: a, Value: v, Operator: "<>"}
 }
 

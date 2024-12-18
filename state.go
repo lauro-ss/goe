@@ -37,29 +37,10 @@ func createSelectState(conn Connection, c *Config, ctx context.Context, d Driver
 
 // Where creates a where SQL using the operations
 func (s *stateSelect) Where(brs ...operator) *stateSelect {
-	for i := range brs {
-		switch br := brs[i].(type) {
-		case wh.Operation:
-			if a := getArg(br.Arg, s.addrMap); a != nil {
-				br.Arg = a.getSelect()
-				s.builder.brs = append(s.builder.brs, br)
-				continue
-			}
-			s.err = ErrInvalidWhere
-			return s
-		case wh.OperationArg:
-			if a, b := getArg(br.Op.Arg, s.addrMap), getArg(br.Op.Value, s.addrMap); a != nil && b != nil {
-				br.Op.Arg = a.getSelect()
-				br.Op.ValueFlag = b.getSelect()
-				s.builder.brs = append(s.builder.brs, br)
-				continue
-			}
-			s.err = ErrInvalidWhere
-			return s
-		case wh.Logical:
-			s.builder.brs = append(s.builder.brs, br)
-		}
+	if s.err != nil {
+		return s
 	}
+	s.err = helperWhere(s.builder, s.addrMap, brs...)
 	return s
 }
 
@@ -419,29 +400,7 @@ func (s *stateUpdate) Where(brs ...operator) *stateUpdate {
 	if s.err != nil {
 		return s
 	}
-	for i := range brs {
-		switch br := brs[i].(type) {
-		case wh.Operation:
-			if a := getArg(br.Arg, s.addrMap); a != nil {
-				br.Arg = a.getSelect()
-				s.builder.brs = append(s.builder.brs, br)
-				continue
-			}
-			s.err = ErrInvalidWhere
-			return s
-		case wh.OperationArg:
-			if a, b := getArg(br.Op.Arg, s.addrMap), getArg(br.Op.Value, s.addrMap); a != nil && b != nil {
-				br.Op.Arg = a.getSelect()
-				br.Op.ValueFlag = b.getSelect()
-				s.builder.brs = append(s.builder.brs, br)
-				continue
-			}
-			s.err = ErrInvalidWhere
-			return s
-		case wh.Logical:
-			s.builder.brs = append(s.builder.brs, br)
-		}
-	}
+	s.err = helperWhere(s.builder, s.addrMap, brs...)
 	return s
 }
 
@@ -532,26 +491,10 @@ func (s *stateDelete) Where(brs ...operator) error {
 	if s.err != nil {
 		return s.err
 	}
-	for i := range brs {
-		switch br := brs[i].(type) {
-		case wh.Operation:
-			if a := getArg(br.Arg, s.addrMap); a != nil {
-				br.Arg = a.getSelect()
-				s.builder.brs = append(s.builder.brs, br)
-				continue
-			}
-			return ErrInvalidWhere
-		case wh.OperationArg:
-			if a, b := getArg(br.Op.Arg, s.addrMap), getArg(br.Op.Value, s.addrMap); a != nil && b != nil {
-				br.Op.Arg = a.getSelect()
-				br.Op.ValueFlag = b.getSelect()
-				s.builder.brs = append(s.builder.brs, br)
-				continue
-			}
-			return ErrInvalidWhere
-		case wh.Logical:
-			s.builder.brs = append(s.builder.brs, br)
-		}
+
+	s.err = helperWhere(s.builder, s.addrMap, brs...)
+	if s.err != nil {
+		return s.err
 	}
 
 	s.err = s.builder.buildSqlDelete()
@@ -564,4 +507,36 @@ func (s *stateDelete) Where(brs ...operator) error {
 		log.Println("\n" + sql)
 	}
 	return handlerValues(s.conn, sql, s.builder.argsAny, s.ctx)
+}
+
+func helperWhere(builder *builder, addrMap map[uintptr]field, brs ...operator) error {
+	for i := range brs {
+		switch br := brs[i].(type) {
+		case wh.Operation:
+			if a := getArg(br.Arg, addrMap); a != nil {
+				br.Arg = a.getSelect()
+				builder.brs = append(builder.brs, br)
+				continue
+			}
+			return ErrInvalidWhere
+		case wh.OperationArg:
+			if a, b := getArg(br.Op.Arg, addrMap), getArg(br.Op.Value, addrMap); a != nil && b != nil {
+				br.Op.Arg = a.getSelect()
+				br.Op.ValueFlag = b.getSelect()
+				builder.brs = append(builder.brs, br)
+				continue
+			}
+			return ErrInvalidWhere
+		case wh.OperationIs:
+			if a := getArg(br.Arg, addrMap); a != nil {
+				br.Arg = a.getSelect()
+				builder.brs = append(builder.brs, br)
+				continue
+			}
+			return ErrInvalidWhere
+		default:
+			builder.brs = append(builder.brs, br)
+		}
+	}
+	return nil
 }
