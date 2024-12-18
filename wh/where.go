@@ -99,7 +99,7 @@ func LessEquals[T any](a *T, v T) Operation {
 //
 //	// get all animals that has a "at" in his name
 //	db.Select(db.Animal).From(db.Animal).Where(wh.Like(&db.Animal.Name, "%at%")).Scan(&a)
-func Like[T any](a *T, v T) Operation {
+func Like[T any](a *T, v string) Operation {
 	return Operation{Arg: a, Value: v, Operator: "LIKE"}
 }
 
@@ -112,6 +112,10 @@ func Like[T any](a *T, v T) Operation {
 func Not(o Operation) Operation {
 	o.Operator = "NOT " + o.Operator
 	return o
+}
+
+func NewOperator[T any](a *T, operator string, v T) Operation {
+	return Operation{Arg: a, Value: v, Operator: operator}
 }
 
 type Logical struct {
