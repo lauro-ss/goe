@@ -113,9 +113,10 @@ type Job struct {
 	PersonJobs []PersonJob
 }
 
-type Data struct {
-	Id        string    `goe:"pk"`
-	Birthdate time.Time `goe:"pk"`
+type Exam struct {
+	Id      int
+	Score   float32
+	Minimum float32
 }
 
 type Database struct {
@@ -126,15 +127,14 @@ type Database struct {
 	Info       *Info
 	Status     *Status
 	Weather    *Weather
-	//Owns      *Owns
-	User      *User
-	UserRole  *UserRole
-	Role      *Role
-	Flag      *Flag
-	Person    *Person
-	PersonJob *PersonJob
-	Job       *Job
-	Data      *Data
+	User       *User
+	UserRole   *UserRole
+	Role       *Role
+	Flag       *Flag
+	Person     *Person
+	PersonJob  *PersonJob
+	Job        *Job
+	Exam       *Exam
 	*goe.DB
 }
 

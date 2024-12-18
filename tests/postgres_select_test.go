@@ -69,6 +69,10 @@ func TestPostgresSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected delete persons, got error: %v", err)
 	}
+	err = db.Delete(db.Exam).Where()
+	if err != nil {
+		t.Fatalf("Expected delete exams, got error: %v", err)
+	}
 
 	weathers := []Weather{
 		{Name: "Hot"},
@@ -117,6 +121,7 @@ func TestPostgresSelect(t *testing.T) {
 		{Name: "Cat", IdHabitat: &habitats[0].Id, IdInfo: &infos[0].Id},
 		{Name: "Dog", IdHabitat: &habitats[0].Id, IdInfo: &infos[1].Id},
 		{Name: "Forest Cat", IdHabitat: &habitats[1].Id},
+		{Name: "Little cat", IdHabitat: &habitats[1].Id},
 		{Name: "Bear", IdHabitat: &habitats[1].Id},
 		{Name: "Lion", IdHabitat: &habitats[2].Id},
 		{Name: "Puma", IdHabitat: &habitats[1].Id},
@@ -201,6 +206,16 @@ func TestPostgresSelect(t *testing.T) {
 		t.Fatalf("Expected insert personJobs, got error: %v", err)
 	}
 
+	exams := []Exam{
+		{Score: 9.9, Minimum: 5.5},
+		{Score: 4.9, Minimum: 5.5},
+		{Score: 5.5, Minimum: 5.5},
+	}
+	err = db.Insert(db.Exam).Value(&exams)
+	if err != nil {
+		t.Fatalf("Expected insert exams, got error: %v", err)
+	}
+
 	testCases := []struct {
 		desc     string
 		testCase func(t *testing.T)
@@ -244,6 +259,138 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if a.Name != animals[0].Name {
 					t.Errorf("Expected a %v, got %v", animals[0].Name, a.Name)
+				}
+			},
+		},
+		{
+			desc: "Select_Where_Greater",
+			testCase: func(t *testing.T) {
+				var e []Exam
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.GreaterArg(&db.Exam.Score, &db.Exam.Minimum)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 1 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+
+				e = nil
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.Greater(&db.Exam.Score, 5.5)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 1 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+			},
+		},
+		{
+			desc: "Select_Where_GreaterEquals",
+			testCase: func(t *testing.T) {
+				var e []Exam
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.GreaterEqualsArg(&db.Exam.Score, &db.Exam.Minimum)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 2 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+
+				e = nil
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.GreaterEquals(&db.Exam.Score, 5.5)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 2 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+			},
+		},
+		{
+			desc: "Select_Where_Less",
+			testCase: func(t *testing.T) {
+				var e []Exam
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.LessArg(&db.Exam.Score, &db.Exam.Minimum)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 1 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+
+				e = nil
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.Less(&db.Exam.Score, 5.5)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 1 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+			},
+		},
+		{
+			desc: "Select_Where_LessEquals",
+			testCase: func(t *testing.T) {
+				var e []Exam
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.LessEqualsArg(&db.Exam.Score, &db.Exam.Minimum)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 2 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+
+				e = nil
+				err = db.Select(db.Exam).From(db.Exam).
+					Where(wh.LessEquals(&db.Exam.Score, 5.5)).
+					Scan(&e)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(e) != 2 {
+					t.Errorf("Expected a %v, got %v", 1, len(e))
+				}
+			},
+		},
+		{
+			desc: "Select_Where_Like",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 2 {
+					t.Errorf("Expected %v animals, got %v", 2, len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_Where_Custom_Operation",
+			testCase: func(t *testing.T) {
+				if db.DriverName() == "PostgreSQL" {
+					var a []Animal
+					err = db.Select(db.Animal).From(db.Animal).Where(wh.NewOperator(&db.Animal.Name, "ILIKE", "%CAT%")).Scan(&a)
+					if err != nil {
+						t.Fatalf("Expected a select, got error: %v", err)
+					}
+					if len(a) != 3 {
+						t.Errorf("Expected %v animals, got %v", 3, len(a))
+					}
 				}
 			},
 		},
@@ -310,19 +457,6 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				if *a != animals[0].Id {
 					t.Errorf("Expected a %v, got : %v", animals[0].Id, a)
-				}
-			},
-		},
-		{
-			desc: "Select_Where_Like",
-			testCase: func(t *testing.T) {
-				var a []Animal
-				err = db.Select(db.Animal).From(db.Animal).Where(wh.Like(&db.Animal.Name, "%Cat%")).Scan(&a)
-				if err != nil {
-					t.Errorf("Expected a select, got error: %v", err)
-				}
-				if len(a) != 2 {
-					t.Errorf("Expected %v animals, got %v", 2, len(a))
 				}
 			},
 		},
@@ -410,27 +544,6 @@ func TestPostgresSelect(t *testing.T) {
 		},
 		{
 			desc: "Select_Join_Where",
-			testCase: func(t *testing.T) {
-				var f []Food
-				err = db.Select(db.Food).
-					From(db.Food).
-					Join(&db.Food.Id, &db.AnimalFood.IdFood).
-					Join(&db.Animal.Id, &db.AnimalFood.IdAnimal).
-					Where(
-						wh.Equals(&db.Animal.Name, animals[0].Name)).Scan(&f)
-				if err != nil {
-					t.Errorf("Expected a select, got error: %v", err)
-				}
-				if len(f) != 1 {
-					t.Fatalf("Expected 1 food, got %v", len(f))
-				}
-				if f[0].Name != foods[0].Name {
-					t.Errorf("Expected %v, got %v", foods[0].Name, f[0].Name)
-				}
-			},
-		},
-		{
-			desc: "Select_Join_Where_v2",
 			testCase: func(t *testing.T) {
 				var f []Food
 				err = db.Select(db.Food).
@@ -798,8 +911,8 @@ func TestPostgresSelect(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected a select, got error: %v", err)
 				}
-				if len(a) != 4 {
-					t.Errorf("Expected 4, got : %v", len(a))
+				if len(a) != 5 {
+					t.Errorf("Expected 5, got : %v", len(a))
 				}
 			},
 		},
@@ -1004,7 +1117,7 @@ func TestPostgresSelect(t *testing.T) {
 				}
 				for i := range a {
 					if a[i].AnimalId != animals[i].Id {
-						t.Errorf("Expected %v, got %v", a[0].AnimalId, animals[0].Id)
+						t.Errorf("Expected %v, got %v", a[i].AnimalId, animals[i].Id)
 					}
 					if a[i].AnimalIdHabitat.String() != a[i].HabitatId.String() {
 						t.Errorf("Expected %v, got %v", a[i].AnimalIdHabitat.String(), a[i].HabitatId.String())
