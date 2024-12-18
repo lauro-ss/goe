@@ -11,6 +11,10 @@ import (
 type MockDriver struct {
 }
 
+func (md *MockDriver) Name() string {
+	return "Mock"
+}
+
 func (md *MockDriver) Migrate(*goe.Migrator, goe.Connection) {
 }
 

@@ -183,6 +183,10 @@ func (db *DB) DeleteContext(ctx context.Context, table any) *stateDelete {
 	return state.queryDelete(stringArgs, db.addrMap)
 }
 
+func (db *DB) DriverName() string {
+	return db.driver.Name()
+}
+
 func getArg(arg any, addrMap map[uintptr]field) field {
 	v := reflect.ValueOf(arg)
 	if v.Kind() != reflect.Pointer {

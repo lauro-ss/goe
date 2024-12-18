@@ -20,6 +20,7 @@ type field interface {
 }
 
 type Driver interface {
+	Name() string
 	Migrate(*Migrator, Connection)
 	Init(*DB)
 	KeywordHandler(string) string
