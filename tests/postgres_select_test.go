@@ -395,6 +395,32 @@ func TestPostgresSelect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Select_Where_Equals_Nil",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.Equals(&db.Animal.IdHabitat, nil)).Scan(&a)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(a) != 1 {
+					t.Errorf("Expected %v animals, got %v", 1, len(a))
+				}
+			},
+		},
+		{
+			desc: "Select_Where_NotEquals_Nil",
+			testCase: func(t *testing.T) {
+				var a []Animal
+				err = db.Select(db.Animal).From(db.Animal).Where(wh.NotEquals(&db.Animal.IdInfo, nil)).Scan(&a)
+				if err != nil {
+					t.Fatalf("Expected a select, got error: %v", err)
+				}
+				if len(a) != len(infos) {
+					t.Errorf("Expected %v animals, got %v", len(infos), len(a))
+				}
+			},
+		},
+		{
 			desc: "Select_Slice_Not_Found_One_Field",
 			testCase: func(t *testing.T) {
 				var a []int
